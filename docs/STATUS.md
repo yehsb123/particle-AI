@@ -83,6 +83,13 @@ Updated at the end of each phase.
   memory store/search, multi-capability plan). Typecheck clean.
 - Next: Phase 6 — MCP adapter (normalise MCP tools into capabilities).
 
-## Phase 6 — MCP — ⏳ pending
+## Phase 6 — MCP — ✅ done
+- Implemented: `@dm/mcp-adapter` — `McpClient` interface (transport-agnostic),
+  `inferRisk` (annotations → override → name heuristic → external default),
+  `mcpToolToCapability` (namespaced `mcp.<server>.<tool>`), `discoverMcpCapabilities`.
+  MCP tools become ordinary capabilities; MCP specifics stay out of the core.
+- Tested: 4 tests (risk inference, tool→capability call, registry+executor integration).
+- Next: Phase 7 — wire the full loop end to end.
+
 ## Phase 7 — Integrated demo — ⏳ pending
 ## Phase 8 — Reliability — ⏳ pending

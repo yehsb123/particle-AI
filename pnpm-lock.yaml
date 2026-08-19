@@ -172,6 +172,22 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/mcp-adapter:
+    dependencies:
+      '@dm/capability-core':
+        specifier: workspace:*
+        version: link:../capability-core
+      '@dm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/morph-engine:
     dependencies:
       '@dm/contracts':
