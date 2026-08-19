@@ -44,7 +44,15 @@ Updated at the end of each phase.
   significance/decision/morph loop (Phases 3–4, 7); WS verified via unit + design, not E2E.
 - Next: Phase 3 — Reflex (significance engine + transitions + guard already in morph-engine).
 
-## Phase 3 — Reflex — ⏳ pending
+## Phase 3 — Reflex — ✅ done
+- Implemented: `@dm/significance-engine` — pure `evaluateSignificance(event, world, config)`
+  (severity + relevance + novelty + problem-transition under configurable weights, anti-thrash
+  novelty decay), `suggestMode`, `nextPresence`. `SignificanceResult` added to contracts.
+  MorphGuard + focus/unsaved protection already shipped in `@dm/morph-engine` (Phase 1).
+- Tested: 5 tests (critical deliberation, reflex-only repetition, recovery-only-when-open,
+  configurable threshold, mode switch). Typecheck clean.
+- Next: Phase 4 — Deep Brain (provider abstraction, mock+real adapters, decision engine, router).
+
 ## Phase 4 — Deep Brain — ⏳ pending
 ## Phase 5 — Capability Matter — ⏳ pending
 ## Phase 6 — MCP — ⏳ pending
