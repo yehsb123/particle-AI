@@ -1,0 +1,29 @@
+{
+  "name": "@dm/runtime",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dm/contracts": "workspace:*",
+    "@dm/event-core": "workspace:*",
+    "@dm/world-model": "workspace:*",
+    "@dm/ui-registry": "workspace:*",
+    "@dm/morph-engine": "workspace:*",
+    "@dm/ui-protocol": "workspace:*",
+    "@fastify/websocket": "^11.0.2",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

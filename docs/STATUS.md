@@ -28,7 +28,22 @@ Updated at the end of each phase.
 - Next: Phase 2 — Perception (event contract already in `contracts`; add event store,
   world model, simulator source, WebSocket in `apps/runtime`).
 
-## Phase 2 — Perception — ⏳ pending
+## Phase 2 — Perception — ✅ done
+- Implemented:
+  - `@dm/contracts`: `WorldState`, `Problem`, `Goal`, `ProcessState`, `IntentHypothesis`,
+    `AutonomyState` + `emptyWorldState`.
+  - `@dm/event-core`: append-only `EventStore` (validates, session-indexed, subscribable).
+  - `@dm/world-model`: pure `reduce(prev, event)` — opens/closes problems, tracks process
+    health, files, goal, and attention.
+  - `apps/runtime` (Fastify 5 + `@fastify/websocket`): `SessionRuntime`, REST
+    (`/api/events`, `/api/sessions/:id/{state,events,ui}`, `/api/sim/:id/:key`), and
+    `/ws/sessions/:id` broadcasting `world_state_changed` / `ui_patch`.
+- Tested: event-core (2), world-model (5), runtime REST/sim (6). Live smoke: HTTP 500 →
+  runtime_error problem + API failed; recovery clears it. Typecheck clean across 8 projects.
+- Known limitations: store is in-memory (Postgres in Phase 8); runtime does not yet run the
+  significance/decision/morph loop (Phases 3–4, 7); WS verified via unit + design, not E2E.
+- Next: Phase 3 — Reflex (significance engine + transitions + guard already in morph-engine).
+
 ## Phase 3 — Reflex — ⏳ pending
 ## Phase 4 — Deep Brain — ⏳ pending
 ## Phase 5 — Capability Matter — ⏳ pending
