@@ -53,7 +53,23 @@ Updated at the end of each phase.
   configurable threshold, mode switch). Typecheck clean.
 - Next: Phase 4 — Deep Brain (provider abstraction, mock+real adapters, decision engine, router).
 
-## Phase 4 — Deep Brain — ⏳ pending
+## Phase 4 — Deep Brain — ✅ done
+- Implemented:
+  - Contracts: `RuntimeDecision` (structured, never prose), `UIMorphPlan` (intent, not a
+    patch — keeps intelligence UI-free), `CapabilityPlan`, `AutonomyRequirement`, and the
+    `Intelligence*` types (`IntelligenceProvider` request/result, `ModelRouteDecision`).
+  - `@dm/intelligence`: `IntelligenceProvider` interface; `MockProvider` (deterministic
+    brain, no key needed); real fetch adapters `AnthropicProvider`, `OpenAIProvider`,
+    `LocalModelProvider` (OpenAI-compatible); `IntelligenceRouter` (cheap→reflex,
+    capable→deliberation, local→privacy, always-mock fallback); `buildDefaultProviders`.
+  - `@dm/decision-engine`: routes → provider.evaluate → **validates** output; any invalid
+    model output is discarded for the deterministic decision (a bad model can't corrupt state).
+- Tested: 11 tests (deterministic decision, mock structured output, router selection across
+  tiers/privacy/health, fallback-to-deterministic on junk output). Typecheck clean.
+- Known limitations: real providers are implemented but unexercised without keys (mock path
+  is the tested one); prompts are minimal.
+- Next: Phase 5 — Capability Matter (registry, execution, permissions, audit).
+
 ## Phase 5 — Capability Matter — ⏳ pending
 ## Phase 6 — MCP — ⏳ pending
 ## Phase 7 — Integrated demo — ⏳ pending

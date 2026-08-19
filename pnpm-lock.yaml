@@ -117,7 +117,36 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/decision-engine:
+    dependencies:
+      '@dm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dm/intelligence':
+        specifier: workspace:*
+        version: link:../intelligence
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/event-core:
+    dependencies:
+      '@dm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/intelligence:
     dependencies:
       '@dm/contracts':
         specifier: workspace:*
