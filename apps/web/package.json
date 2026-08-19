@@ -16,6 +16,7 @@
     "@dm/ui-protocol": "workspace:*",
     "@dm/morph-engine": "workspace:*",
     "@dm/ui-registry": "workspace:*",
+    "@dm/runtime-core": "workspace:*",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

@@ -2,144 +2,105 @@
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import type { AttentionState, MatterEvent, UIAction, UIBlueprint } from "@dm/contracts";
-import { developmentBlueprint } from "@dm/ui-registry";
-import { applyPatch, guardPatch, MorphHistory, DEFAULT_MORPH_POLICY } from "@dm/morph-engine";
+import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@dm/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
-import { decide } from "../lib/decide";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
 
 type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
-
 type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
 
-type InspectorState = {
+type Inspector = {
   lastEvent?: string;
-  decisionId?: string;
+  significance?: number;
+  deliberated?: boolean;
+  provider?: string;
+  usedFallback?: boolean;
   reasonSummary?: string;
   confidence?: number;
-  reasonCodes: string[];
+  capabilities: string[];
+  permission?: { authorized: string[]; needsApproval: string[]; denied: string[] };
+  morphApplied?: boolean;
+  guardReasonCodes: string[];
   dropped: string[];
-  applied: boolean;
 };
 
 const SESSION = "session-local";
-
-function nowIso() {
-  return new Date().toISOString();
-}
+const nowIso = () => new Date().toISOString();
 
 export function Workspace() {
-  const [blueprint, setBlueprint] = useState<UIBlueprint>(() => developmentBlueprint(nowIso()));
+  const core = useRef<RuntimeCore>(createRuntimeCore({ iso: nowIso, ms: () => Date.now() }));
+  const [blueprint, setBlueprint] = useState<UIBlueprint>(() => core.current.getBlueprint(SESSION));
   const [attention, setAttention] = useState<AttentionState>({ typing: false });
   const [presence, setPresence] = useState<Presence>("observing");
   const [log, setLog] = useState<LogEntry[]>([]);
-  const [inspector, setInspector] = useState<InspectorState>({ reasonCodes: [], dropped: [], applied: false });
-  const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
-
-  const history = useRef(new MorphHistory());
-  const counter = useRef(0);
-  const lastMorphAt = useRef<number | undefined>(undefined);
-  const lastMajorMorphAt = useRef<number | undefined>(undefined);
+  const [inspector, setInspector] = useState<Inspector>({ capabilities: [], guardReasonCodes: [], dropped: [] });
   const [canUndo, setCanUndo] = useState(false);
-
-  const nextId = () => `e${++counter.current}`;
+  const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
+  const counter = useRef(0);
 
   const pushLog = useCallback((text: string, kind: LogEntry["kind"]) => {
     setLog((l) => [{ id: `${Date.now()}-${Math.random()}`, text, kind }, ...l].slice(0, 40));
   }, []);
 
-  const ingest = useCallback(
-    (event: MatterEvent) => {
-      pushLog(`${event.type} · ${event.severity}`, "event");
-      setPresence("evaluating");
-
-      const decision = decide(event, blueprint);
-      if (!decision) {
-        setPresence("observing");
-        setInspector({ lastEvent: event.type, reasonCodes: ["not_significant"], dropped: [], applied: false });
-        pushLog(`no morph — ${event.type} not significant to the current context`, "note");
-        return;
-      }
-
-      setPresence("acting");
-      const policy = decision.deEscalation
-        ? { ...DEFAULT_MORPH_POLICY, majorDwellMs: 0 }
-        : DEFAULT_MORPH_POLICY;
-
-      const guard = guardPatch({
-        currentUI: blueprint,
-        desiredPatch: decision.patch,
-        attention,
-        confidence: decision.confidence,
-        severity: decision.severity,
-        now: Date.now(),
-        lastMorphAt: lastMorphAt.current,
-        lastMajorMorphAt: lastMajorMorphAt.current,
-        policy,
-      });
-
-      const dropped = guard.dropped.map((d) => `${d.op.op}:${d.reason}`);
-
-      if (!guard.allowed) {
-        setPresence("observing");
-        setInspector({
-          lastEvent: event.type,
-          decisionId: decision.decisionId,
-          reasonSummary: decision.reasonSummary,
-          confidence: decision.confidence,
-          reasonCodes: guard.reasonCodes,
-          dropped,
-          applied: false,
-        });
-        pushLog(`morph blocked by guard — ${guard.reasonCodes.join(", ")}`, "blocked");
-        return;
-      }
-
-      const { next, inverse } = applyPatch(blueprint, guard.patch, nowIso());
-      history.current.push(inverse);
-      setCanUndo(true);
-      setBlueprint(next);
-      const t = Date.now();
-      lastMorphAt.current = t;
-      if (decision.major && !decision.deEscalation) lastMajorMorphAt.current = t;
-
+  const applyResult = useCallback(
+    (res: IngestResult) => {
+      setBlueprint(res.blueprint);
+      setPresence(res.presence as Presence);
+      setCanUndo(core.current.canUndo(SESSION));
       setInspector({
-        lastEvent: event.type,
-        decisionId: decision.decisionId,
-        reasonSummary: decision.reasonSummary,
-        confidence: decision.confidence,
-        reasonCodes: guard.reasonCodes,
-        dropped,
-        applied: true,
+        significance: res.significance.score,
+        deliberated: res.deliberated,
+        provider: res.providerId,
+        usedFallback: res.usedFallback,
+        reasonSummary: res.decision?.reasonSummary,
+        confidence: res.decision?.uiPlan?.confidence,
+        capabilities: res.capabilityRuns.map((r) => r.capabilityId),
+        permission: res.permission
+          ? {
+              authorized: res.permission.authorized.map((i) => i.capabilityId),
+              needsApproval: res.permission.needsApproval.map((i) => i.capabilityId),
+              denied: res.permission.denied.map((i) => i.capabilityId),
+            }
+          : undefined,
+        morphApplied: res.morph.applied,
+        guardReasonCodes: res.morph.guardReasonCodes,
+        dropped: res.morph.dropped,
       });
-      pushLog(`UI morphed → ${decision.deEscalation ? "recovery" : decision.patch.patchId}`, "morph");
-      setTimeout(() => setPresence("observing"), 600);
     },
-    [blueprint, attention, pushLog],
+    [],
   );
 
-  const emitSim = (spec: SimSpec) => ingest(buildEvent(spec, SESSION, nextId(), nowIso()));
+  const ingest = useCallback(
+    async (event: MatterEvent) => {
+      pushLog(`${event.type} · ${event.severity}`, "event");
+      setPresence("evaluating");
+      const res = await core.current.ingest(event, attention);
+      applyResult(res);
+      if (!res.deliberated) pushLog(`no morph — ${event.type} not significant`, "note");
+      else if (res.morph.applied) pushLog(`UI morphed → ${res.morph.patch?.patchId ?? "patch"} (${res.capabilityRuns.length} capabilities ran)`, "morph");
+      else pushLog(`morph blocked — ${res.morph.guardReasonCodes.join(", ") || "no change"}`, "blocked");
+      if (res.presence === "acting") setTimeout(() => setPresence("observing"), 600);
+    },
+    [attention, applyResult, pushLog],
+  );
+
+  const emitSim = (spec: SimSpec) => {
+    void ingest(buildEvent(spec, SESSION, `e${++counter.current}`, nowIso()));
+  };
 
   const undo = useCallback(() => {
-    const inverse = history.current.pop();
-    if (!inverse) return;
-    const { next } = applyPatch(blueprint, inverse, nowIso());
-    setBlueprint(next);
-    setCanUndo(history.current.canUndo);
-    lastMorphAt.current = Date.now();
+    const bp = core.current.undo(SESSION);
+    if (!bp) return;
+    setBlueprint(bp);
+    setCanUndo(core.current.canUndo(SESSION));
     pushLog("undo — reverted last morph", "undo");
-    setInspector((i) => ({ ...i, applied: false, reasonCodes: ["undone"] }));
-  }, [blueprint, pushLog]);
+  }, [pushLog]);
 
   const rendererCtx = useMemo(
     () => ({
       emitAction: (action: UIAction) => {
-        if (action.event === "user.requested_undo") {
-          undo();
-          return;
-        }
+        if (action.event === "user.requested_undo") return undo();
         pushLog(`action — ${action.capabilityId ?? action.event}`, "note");
-        setInspector((i) => ({ ...i, reasonCodes: [`action:${action.capabilityId ?? action.event}`] }));
       },
       setFocus: (id: string) => setAttention({ typing: true, focusedComponentId: id, lastInteractionAt: nowIso() }),
       clearFocus: () => setAttention({ typing: false }),
@@ -159,7 +120,7 @@ export function Workspace() {
       <main className="stage">
         <div className="brandbar">
           <div className="brand">
-            Digital Matter <small>adaptive runtime · Phase 1</small>
+            Digital Matter <small>adaptive runtime · integrated loop</small>
           </div>
           <div className="presence" data-state={presence}>
             <span className="orb" />
@@ -178,14 +139,12 @@ export function Workspace() {
           <h3>Simulation lab</h3>
           <div className="simrow">
             {SIM_EVENTS.map((s) => (
-              <button key={s.label} className="btn" onClick={() => emitSim(s)}>
-                {s.label}
-              </button>
+              <button key={s.label} className="btn" onClick={() => emitSim(s)}>{s.label}</button>
             ))}
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
-            You never ask for a dashboard. Emit an event and watch the runtime decide whether
-            it matters and reshape its own body.
+            You never ask for a dashboard. Emit an event; the runtime judges significance, decides,
+            runs read-only capabilities, and reshapes its own body — reversibly.
           </p>
         </section>
 
@@ -193,13 +152,10 @@ export function Workspace() {
           <h3>Controls</h3>
           <div className="simrow">
             <button className="btn" onClick={undo} disabled={!canUndo}>Undo last morph</button>
-            <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>
-              Theme: {theme}
-            </button>
+            <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>Theme: {theme}</button>
           </div>
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">mode</span><span>{blueprint.mode}</span>
-            <span className="k">workspace</span><span>{blueprint.workspaceId}</span>
             <span className="k">focus</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
           </div>
         </section>
@@ -207,17 +163,26 @@ export function Workspace() {
         <section>
           <h3>Inspector — why did the UI change?</h3>
           <div className="kv">
-            <span className="k">event</span><span>{inspector.lastEvent ?? "—"}</span>
-            <span className="k">decision</span><span>{inspector.decisionId ?? "—"}</span>
+            <span className="k">significance</span><span>{inspector.significance !== undefined ? `${Math.round(inspector.significance * 100)}%` : "—"}</span>
+            <span className="k">deliberated</span><span>{inspector.deliberated ? "yes" : "no"}</span>
+            <span className="k">provider</span><span>{inspector.provider ?? "—"}{inspector.usedFallback ? " (fallback)" : ""}</span>
             <span className="k">confidence</span><span>{inspector.confidence !== undefined ? `${Math.round(inspector.confidence * 100)}%` : "—"}</span>
-            <span className="k">applied</span><span>{inspector.applied ? "yes" : "no"}</span>
+            <span className="k">morph</span><span>{inspector.morphApplied ? "applied" : "none"}</span>
           </div>
-          {inspector.reasonSummary ? (
-            <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>{inspector.reasonSummary}</p>
-          ) : null}
-          {inspector.reasonCodes.length ? (
+          {inspector.reasonSummary ? <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>{inspector.reasonSummary}</p> : null}
+          {inspector.capabilities.length ? (
             <div className="reasons" style={{ marginTop: 8 }}>
-              {inspector.reasonCodes.map((r) => <span key={r} className="tag">{r}</span>)}
+              {inspector.capabilities.map((c) => <span key={c} className="tag">ran·{c}</span>)}
+            </div>
+          ) : null}
+          {inspector.permission?.needsApproval.length ? (
+            <div className="reasons" style={{ marginTop: 8 }}>
+              {inspector.permission.needsApproval.map((c) => <span key={c} className="tag">approval·{c}</span>)}
+            </div>
+          ) : null}
+          {inspector.guardReasonCodes.length ? (
+            <div className="reasons" style={{ marginTop: 8 }}>
+              {inspector.guardReasonCodes.map((r) => <span key={r} className="tag">{r}</span>)}
             </div>
           ) : null}
           {inspector.dropped.length ? (

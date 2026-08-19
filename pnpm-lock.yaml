@@ -72,6 +72,9 @@ importers:
       '@dm/morph-engine':
         specifier: workspace:*
         version: link:../../packages/morph-engine
+      '@dm/runtime-core':
+        specifier: workspace:*
+        version: link:../../packages/runtime-core
       '@dm/ui-protocol':
         specifier: workspace:*
         version: link:../../packages/ui-protocol
@@ -210,6 +213,46 @@ importers:
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/runtime-core:
+    dependencies:
+      '@dm/capability-core':
+        specifier: workspace:*
+        version: link:../capability-core
+      '@dm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dm/decision-engine':
+        specifier: workspace:*
+        version: link:../decision-engine
+      '@dm/intelligence':
+        specifier: workspace:*
+        version: link:../intelligence
+      '@dm/morph-engine':
+        specifier: workspace:*
+        version: link:../morph-engine
+      '@dm/permission-engine':
+        specifier: workspace:*
+        version: link:../permission-engine
+      '@dm/significance-engine':
+        specifier: workspace:*
+        version: link:../significance-engine
+      '@dm/ui-registry':
+        specifier: workspace:*
+        version: link:../ui-registry
+      '@dm/world-model':
+        specifier: workspace:*
+        version: link:../world-model
+    devDependencies:
+      '@dm/ui-protocol':
+        specifier: workspace:*
+        version: link:../ui-protocol
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

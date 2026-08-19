@@ -7,6 +7,13 @@ const nextConfig = {
     "@dm/ui-protocol",
     "@dm/morph-engine",
     "@dm/ui-registry",
+    "@dm/world-model",
+    "@dm/significance-engine",
+    "@dm/intelligence",
+    "@dm/decision-engine",
+    "@dm/capability-core",
+    "@dm/permission-engine",
+    "@dm/runtime-core",
   ],
 };
 
