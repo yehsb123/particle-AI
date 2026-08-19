@@ -39,16 +39,33 @@ describe("runtime REST", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("emits a simulated incident and reflects it in GET state", async () => {
+  it("emits a simulated incident, morphs the UI, records audit, and reflects it in GET state", async () => {
     const messages: RuntimeMessage[] = [];
     runtime.onMessage((m) => messages.push(m));
 
     const sim = await app.inject({ method: "POST", url: "/api/sim/s2/http-500" });
     expect(sim.statusCode).toBe(200);
+    expect(sim.json().morph.applied).toBe(true);
 
     const state = await app.inject({ method: "GET", url: "/api/sessions/s2/state" });
     expect(state.json().activeProblems.some((p: { kind: string }) => p.kind === "runtime_error")).toBe(true);
+
+    const ui = await app.inject({ method: "GET", url: "/api/sessions/s2/ui" });
+    expect(JSON.stringify(ui.json())).toContain("incident");
+
+    const decisions = await app.inject({ method: "GET", url: "/api/sessions/s2/decisions" });
+    expect(decisions.json().audit.some((a: { kind: string }) => a.kind === "ui_morph")).toBe(true);
+
     expect(messages.some((m) => m.kind === "world_state_changed")).toBe(true);
+    expect(messages.some((m) => m.kind === "ui_patch")).toBe(true);
+  });
+
+  it("undoes the last morph via REST", async () => {
+    await app.inject({ method: "POST", url: "/api/sim/s5/http-500" });
+    const undo = await app.inject({ method: "POST", url: "/api/morph/s5/undo" });
+    expect(undo.json().undone).toBe(true);
+    const ui = await app.inject({ method: "GET", url: "/api/sessions/s5/ui" });
+    expect(JSON.stringify(ui.json())).not.toContain('"id":"incident"');
   });
 
   it("serves a seed development UI blueprint per session", async () => {

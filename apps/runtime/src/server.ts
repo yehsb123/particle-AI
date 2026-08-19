@@ -13,7 +13,6 @@ export async function buildServer(): Promise<BuildResult> {
   const app = Fastify({ logger: false });
   const runtime = new SessionRuntime(isoNow);
 
-  // Minimal permissive CORS for the local web app.
   app.addHook("onRequest", async (req, reply) => {
     reply.header("access-control-allow-origin", "*");
     reply.header("access-control-allow-headers", "content-type");
@@ -27,25 +26,19 @@ export async function buildServer(): Promise<BuildResult> {
 
   app.post("/api/events", async (req, reply) => {
     try {
-      const { event, worldState } = runtime.ingest(req.body);
-      return { event, worldState };
+      const { event, result } = await runtime.ingest(req.body);
+      return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated };
     } catch (err) {
       reply.code(400);
       return { error: (err as Error).message };
     }
   });
 
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/state", async (req) => {
-    return runtime.getWorld(req.params.id);
-  });
-
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/events", async (req) => {
-    return { events: runtime.store.listBySession(req.params.id) };
-  });
-
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => {
-    return runtime.getUI(req.params.id);
-  });
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/state", async (req) => runtime.getWorld(req.params.id));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/events", async (req) => ({ events: runtime.store.listBySession(req.params.id) }));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.getUI(req.params.id));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/decisions", async (req) => ({ audit: runtime.audit.list(req.params.id) }));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/approvals", async () => ({ approvals: runtime.approvals.list() }));
 
   app.get("/api/sim", async () => ({
     events: Object.entries(SIM_EVENTS).map(([key, s]) => ({ key, label: s.label, type: s.type })),
@@ -57,7 +50,7 @@ export async function buildServer(): Promise<BuildResult> {
       reply.code(404);
       return { error: `unknown sim event: ${req.params.key}` };
     }
-    const { event, worldState } = runtime.ingest({
+    const { event, result } = await runtime.ingest({
       id: crypto.randomUUID(),
       sessionId: req.params.id,
       timestamp: isoNow(),
@@ -66,20 +59,31 @@ export async function buildServer(): Promise<BuildResult> {
       severity: spec.severity,
       payload: spec.payload ?? {},
     });
-    return { event, worldState };
+    return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated };
   });
 
-  // WebSocket: push current state, then live world/ui updates for this session.
+  app.post<{ Params: { id: string } }>("/api/morph/:id/undo", async (req) => {
+    const blueprint = runtime.undo(req.params.id);
+    return { undone: !!blueprint, blueprint };
+  });
+
+  app.post<{ Params: { aid: string } }>("/api/approvals/:aid/approve", async (req, reply) => {
+    const r = runtime.approvals.approve(req.params.aid);
+    if (!r) { reply.code(404); return { error: "not found" }; }
+    return r;
+  });
+  app.post<{ Params: { aid: string } }>("/api/approvals/:aid/reject", async (req, reply) => {
+    const r = runtime.approvals.reject(req.params.aid);
+    if (!r) { reply.code(404); return { error: "not found" }; }
+    return r;
+  });
+
   app.get<{ Params: { id: string } }>("/ws/sessions/:id", { websocket: true }, (socket, req) => {
     const sessionId = req.params.id;
     socket.send(JSON.stringify({ kind: "world_state_changed", sessionId, worldState: runtime.getWorld(sessionId) }));
     const off = runtime.onMessage((msg) => {
       if (msg.sessionId === sessionId) {
-        try {
-          socket.send(JSON.stringify(msg));
-        } catch {
-          /* socket closing */
-        }
+        try { socket.send(JSON.stringify(msg)); } catch { /* closing */ }
       }
     });
     socket.on("close", off);

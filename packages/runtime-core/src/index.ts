@@ -174,8 +174,10 @@ export class RuntimeCore {
 
     if (desired) {
       const deEscalation = intent === "restore_normal";
+      // De-escalations (reducing the UI back to normal) are not rate-limited — neither by the
+      // major-change dwell time nor by the cooldown — since they reduce, not add, complexity.
       const policy = deEscalation
-        ? { ...(this.deps.policy ?? DEFAULT_MORPH_POLICY), majorDwellMs: 0 }
+        ? { ...(this.deps.policy ?? DEFAULT_MORPH_POLICY), majorDwellMs: 0, cooldownMs: 0 }
         : this.deps.policy ?? DEFAULT_MORPH_POLICY;
       const guard = guardPatch({
         currentUI: s.blueprint,
@@ -240,3 +242,4 @@ export class RuntimeCore {
 }
 
 export * from "./factory";
+export * from "./replay";

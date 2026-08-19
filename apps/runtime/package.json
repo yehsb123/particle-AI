@@ -17,6 +17,8 @@
     "@dm/ui-registry": "workspace:*",
     "@dm/morph-engine": "workspace:*",
     "@dm/ui-protocol": "workspace:*",
+    "@dm/permission-engine": "workspace:*",
+    "@dm/runtime-core": "workspace:*",
     "@fastify/websocket": "^11.0.2",
     "fastify": "^5.2.0"
   },

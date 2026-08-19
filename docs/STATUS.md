@@ -91,5 +91,30 @@ Updated at the end of each phase.
 - Tested: 4 tests (risk inference, tool→capability call, registry+executor integration).
 - Next: Phase 7 — wire the full loop end to end.
 
-## Phase 7 — Integrated demo — ⏳ pending
-## Phase 8 — Reliability — ⏳ pending
+## Phase 7 — Integrated demo — ✅ done
+- Implemented: `@dm/ui-registry.planMorph` (intent→patch, idempotent); `@dm/runtime-core`
+  `RuntimeCore` — the canonical loop (perception→significance→decision→permission→capability
+  →morphology→guard→apply→audit) + `createRuntimeCore` factory. The web app now drives the
+  real loop; the runtime server composes the same core over REST/WebSocket
+  (`ui_patch`/`world_state_changed`/`decision_created`), with `/api/morph/:id/undo` and
+  `/api/approvals/*`.
+- Fix: significance is judged against the pre-reduce world; de-escalations bypass cooldown+dwell.
+- Tested: runtime-core loop, web integration, and the runtime server all exercise
+  incident→capabilities→morph→recovery→undo.
+- Next: Phase 8 hardening.
+
+## Phase 8 — Reliability — ✅ done
+- Implemented:
+  - `@dm/runtime-core.replay` — deterministic event-sourced replay (reconstructs identical
+    UI/world from the log).
+  - `@dm/observability` — structured logger + `TraceStore` (developer inspector rows).
+  - `@dm/persistence` — `EventLogStore`/`SnapshotStore` seams + in-memory impls (Postgres/
+    Drizzle deferred behind the same interfaces).
+  - Playwright E2E (`apps/web/e2e`) — incident→morph→recover→undo + no-morph on unrelated event.
+  - Remaining docs: PRODUCT_SPEC, MVP (acceptance table A–O), CAPABILITY_PROTOCOL,
+    AUTONOMY_AND_SECURITY, DATA_MODEL, TEST_STRATEGY, INTELLIGENCE_ROUTER.
+  - Project subagents in `.claude/agents` (architecture/security/test/ui-morphology/runtime).
+- Tested: 77 unit/integration tests + Playwright E2E, all green. Typecheck clean.
+- Known limitations: durable Postgres backing is deferred (in-memory + deterministic replay
+  satisfy the "persisted & replayable" bar); real LLM providers are implemented but untested
+  without keys; the web app runs the loop client-side (the server offers the same loop too).

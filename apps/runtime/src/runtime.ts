@@ -1,60 +1,73 @@
-import type { MatterEvent, UIBlueprint, WorldState } from "@dm/contracts";
-import { emptyWorldState } from "@dm/contracts";
+import type { AuditRecord, MatterEvent, UIBlueprint, WorldState } from "@dm/contracts";
+import { MatterEvent as MatterEventSchema } from "@dm/contracts";
 import { EventStore } from "@dm/event-core";
-import { reduce } from "@dm/world-model";
-import { developmentBlueprint } from "@dm/ui-registry";
+import { AuditLog, ApprovalStore } from "@dm/permission-engine";
+import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@dm/runtime-core";
 
 /** Messages the runtime publishes to connected clients. */
 export type RuntimeMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
-  | { kind: "ai_presence_changed"; sessionId: string; state: string };
+  | { kind: "ai_presence_changed"; sessionId: string; state: string }
+  | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] };
 
 export type RuntimeListener = (msg: RuntimeMessage) => void;
 
 /**
- * Phase-2 perception runtime: owns the event store, per-session world state and current UI,
- * and publishes changes. Later phases extend `ingest` with significance → decision →
- * capability → morph; the seams (listeners, per-session UI) are already here.
+ * Server-side composition of the shared RuntimeCore: validates and stores events, runs the
+ * full loop, records audit + approvals, and broadcasts changes over WebSocket.
  */
 export class SessionRuntime {
   readonly store = new EventStore();
-  private worlds = new Map<string, WorldState>();
-  private uis = new Map<string, UIBlueprint>();
+  readonly audit = new AuditLog();
+  readonly approvals = new ApprovalStore();
+  private core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
-  constructor(private readonly now: () => string) {}
+  constructor(private readonly now: () => string) {
+    this.core = createRuntimeCore({ iso: now, ms: () => Date.parse(now()) || 0 });
+  }
 
   getWorld(sessionId: string): WorldState {
-    let w = this.worlds.get(sessionId);
-    if (!w) {
-      w = emptyWorldState(sessionId, this.now());
-      this.worlds.set(sessionId, w);
-    }
-    return w;
+    return this.core.getWorld(sessionId);
   }
-
   getUI(sessionId: string): UIBlueprint {
-    let ui = this.uis.get(sessionId);
-    if (!ui) {
-      ui = developmentBlueprint(this.now());
-      this.uis.set(sessionId, ui);
+    return this.core.getBlueprint(sessionId);
+  }
+
+  async ingest(input: unknown): Promise<{ event: MatterEvent; result: IngestResult }> {
+    const event = MatterEventSchema.parse(input);
+    this.store.append(event);
+    const result = await this.core.ingest(event);
+
+    for (const rec of result.audit) this.audit.append(rec);
+    if (result.permission) {
+      for (const item of result.permission.needsApproval) {
+        this.approvals.create({
+          id: `appr-${event.id}-${item.capabilityId}`,
+          capabilityId: item.capabilityId,
+          risk: item.risk,
+          reason: `requires approval at current autonomy level`,
+          createdAt: this.now(),
+        });
+      }
     }
-    return ui;
+
+    this.emit({ kind: "world_state_changed", sessionId: event.sessionId, worldState: result.worldState });
+    this.emit({ kind: "ai_presence_changed", sessionId: event.sessionId, state: result.presence });
+    if (result.morph.applied) {
+      this.emit({ kind: "ui_patch", sessionId: event.sessionId, blueprint: result.blueprint });
+    }
+    if (result.audit.length) {
+      this.emit({ kind: "decision_created", sessionId: event.sessionId, audit: result.audit });
+    }
+    return { event, result };
   }
 
-  setUI(sessionId: string, blueprint: UIBlueprint): void {
-    this.uis.set(sessionId, blueprint);
-    this.emit({ kind: "ui_patch", sessionId, blueprint });
-  }
-
-  ingest(input: unknown): { event: MatterEvent; worldState: WorldState } {
-    const event = this.store.append(input); // validates or throws
-    const prev = this.getWorld(event.sessionId);
-    const next = reduce(prev, event);
-    this.worlds.set(event.sessionId, next);
-    this.emit({ kind: "world_state_changed", sessionId: event.sessionId, worldState: next });
-    return { event, worldState: next };
+  undo(sessionId: string): UIBlueprint | null {
+    const bp = this.core.undo(sessionId);
+    if (bp) this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
+    return bp;
   }
 
   onMessage(listener: RuntimeListener): () => void {
