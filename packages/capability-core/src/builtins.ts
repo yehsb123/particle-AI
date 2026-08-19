@@ -1,0 +1,100 @@
+import type { CapabilityManifest } from "@dm/contracts";
+import type { Capability, CapabilityContext } from "./types";
+
+function manifest(m: Partial<CapabilityManifest> & Pick<CapabilityManifest, "id" | "name" | "risk">): CapabilityManifest {
+  return {
+    description: "",
+    tags: [],
+    latencyClass: "instant",
+    costClass: "free",
+    requiredPermissions: [],
+    ...m,
+  };
+}
+
+function cap(
+  m: CapabilityManifest,
+  run: (input: unknown, ctx: CapabilityContext) => unknown,
+): Capability {
+  return {
+    manifest: m,
+    async execute(input, ctx) {
+      try {
+        return { ok: true, output: run(input, ctx) };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    },
+  };
+}
+
+/**
+ * Initial built-in capabilities. All read-only except `memory.store` (safe_write), which is
+ * included specifically to exercise permission gating. External-effect / destructive
+ * capabilities are deliberately omitted until the permission flow is in place end to end.
+ */
+export function builtinCapabilities(memory: Map<string, unknown> = new Map()): Capability[] {
+  return [
+    cap(
+      manifest({ id: "system.get_status", name: "Get system status", risk: "read", tags: ["system"] }),
+      (_i, ctx) => ({ processes: ctx.worldState?.environment.processes ?? [] }),
+    ),
+    cap(
+      manifest({ id: "workspace.get_state", name: "Get workspace state", risk: "read", tags: ["workspace"] }),
+      (_i, ctx) => ({
+        activeContext: ctx.worldState?.activeContext ?? {},
+        activeProblems: ctx.worldState?.activeProblems ?? [],
+        goal: ctx.worldState?.currentGoal ?? null,
+      }),
+    ),
+    cap(
+      manifest({ id: "development.read_logs", name: "Read runtime logs", risk: "read", tags: ["development"] }),
+      (_i, ctx) => ({
+        lines: ctx.worldState?.activeProblems.length
+          ? [
+              "GET /users/42 → 500 Internal Server Error",
+              "TypeError: Cannot read properties of undefined (reading 'findById')",
+              "  at getUser (src/routes.ts:2:19)",
+            ]
+          : ["no recent errors"],
+      }),
+    ),
+    cap(
+      manifest({ id: "development.read_build_state", name: "Read build state", risk: "read", tags: ["development"] }),
+      (_i, ctx) => ({
+        state: ctx.worldState?.activeProblems.some((p) => p.kind === "build_failure") ? "failing" : "passing",
+      }),
+    ),
+    cap(
+      manifest({ id: "development.read_test_state", name: "Read test state", risk: "read", tags: ["development"] }),
+      (_i, ctx) => ({
+        state: ctx.worldState?.activeProblems.some((p) => p.kind === "test_failure") ? "failing" : "passing",
+      }),
+    ),
+    cap(
+      manifest({ id: "data.inspect", name: "Inspect data", risk: "read", tags: ["data"] }),
+      (input) => ({ inspected: input ?? null }),
+    ),
+    cap(
+      manifest({ id: "ui.focus_component", name: "Focus a component", risk: "read", tags: ["ui"] }),
+      (input) => ({ focus: (input as { componentId?: string })?.componentId ?? null }),
+    ),
+    cap(
+      manifest({ id: "memory.search", name: "Search memory", risk: "read", tags: ["memory"] }),
+      (input) => {
+        const q = String((input as { query?: string })?.query ?? "").toLowerCase();
+        const hits = [...memory.entries()].filter(([k]) => k.toLowerCase().includes(q));
+        return { hits: hits.map(([key, value]) => ({ key, value })) };
+      },
+    ),
+    cap(
+      manifest({ id: "memory.store", name: "Store memory", risk: "safe_write", tags: ["memory"] }),
+      (input) => {
+        const { key, value } = (input as { key?: string; value?: unknown }) ?? {};
+        if (!key) throw new Error("memory.store requires a key");
+        memory.set(key, value);
+        return { stored: key };
+      },
+    ),
+  ];
+}

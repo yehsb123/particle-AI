@@ -70,7 +70,19 @@ Updated at the end of each phase.
   is the tested one); prompts are minimal.
 - Next: Phase 5 — Capability Matter (registry, execution, permissions, audit).
 
-## Phase 5 — Capability Matter — ⏳ pending
+## Phase 5 — Capability Matter — ✅ done
+- Implemented:
+  - Contracts: `CapabilityManifest`, `CapabilityResult`, `CapabilityRun`, `ApprovalRequest`,
+    `AuditRecord`.
+  - `@dm/permission-engine`: autonomy rules (`canAutoRun`/`classify`), pure `evaluatePlan`
+    (authorized / needs-approval / denied), `ApprovalStore`, `AuditLog`.
+  - `@dm/capability-core`: `Capability` interface, `CapabilityRegistry`, `CapabilityExecutor`
+    (auditable runs), and 9 built-in capabilities (read-only + `memory.store` safe_write to
+    exercise gating). External-effect/destructive deliberately omitted until the flow is wired.
+- Tested: 10 tests (autonomy gating by risk×level, plan split, approvals, audit, execution,
+  memory store/search, multi-capability plan). Typecheck clean.
+- Next: Phase 6 — MCP adapter (normalise MCP tools into capabilities).
+
 ## Phase 6 — MCP — ⏳ pending
 ## Phase 7 — Integrated demo — ⏳ pending
 ## Phase 8 — Reliability — ⏳ pending
