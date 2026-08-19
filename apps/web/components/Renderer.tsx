@@ -1,0 +1,236 @@
+"use client";
+
+import React, { createContext, useContext } from "react";
+import type { UIAction, UIComponent } from "@dm/contracts";
+
+export type RendererCtx = {
+  emitAction: (action: UIAction) => void;
+  setFocus: (id: string) => void;
+  clearFocus: (id: string) => void;
+};
+
+const Ctx = createContext<RendererCtx>({
+  emitAction: () => {},
+  setFocus: () => {},
+  clearFocus: () => {},
+});
+
+export function RendererProvider({
+  value,
+  children,
+}: {
+  value: RendererCtx;
+  children: React.ReactNode;
+}) {
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+function prop<T = unknown>(node: UIComponent, key: string, fallback: T): T {
+  const v = node.props?.[key];
+  return (v === undefined ? fallback : (v as T)) as T;
+}
+
+function Children({ node }: { node: UIComponent }) {
+  return (
+    <>
+      {(node.children ?? []).map((c) => (
+        <Render key={c.id} node={c} />
+      ))}
+    </>
+  );
+}
+
+/** Recursively render a validated UIComponent tree. No component-authored code runs here. */
+export function Render({ node }: { node: UIComponent }) {
+  const ctx = useContext(Ctx);
+  const highlighted = prop(node, "__highlighted", false);
+  const collapsed = prop(node, "__collapsed", false);
+
+  const wrap = (inner: React.ReactNode) => (
+    <div className="node" data-id={node.id} data-highlighted={highlighted} data-collapsed={collapsed}>
+      {inner}
+    </div>
+  );
+
+  switch (node.type) {
+    case "Stack":
+      return wrap(<div className="stack collapsible"><Children node={node} /></div>);
+    case "Row":
+      return wrap(
+        <div className="row collapsible" style={{ justifyContent: prop<string>(node, "justify", "flex-start") === "between" ? "space-between" : undefined, alignItems: prop<string>(node, "align", "stretch") }}>
+          <Children node={node} />
+        </div>,
+      );
+    case "Grid":
+      return wrap(
+        <div className="grid collapsible" style={{ gridTemplateColumns: `repeat(${prop(node, "columns", 2)}, minmax(0,1fr))` }}>
+          <Children node={node} />
+        </div>,
+      );
+    case "SplitPane": {
+      const ratio = prop(node, "ratio", 0.5);
+      return wrap(
+        <div className="split collapsible" style={{ gridTemplateColumns: `${Math.round(ratio * 100)}% 1fr` }}>
+          <Children node={node} />
+        </div>,
+      );
+    }
+    case "Panel": {
+      const crit = prop<string>(node, "tone", "") === "critical";
+      const badge = prop<string | undefined>(node, "badge", undefined);
+      return wrap(
+        <div className={`panel${crit ? " crit" : ""}`}>
+          <div className="panel-title">
+            <span>{prop(node, "title", "")}</span>
+            {badge ? <span className="badge crit"><span className="dot" />{badge}</span> : null}
+          </div>
+          <div className="collapsible stack"><Children node={node} /></div>
+        </div>,
+      );
+    }
+    case "Card":
+      return wrap(
+        <div className="card">
+          {prop<string | undefined>(node, "title", undefined) ? (
+            <div className="panel-title"><span>{prop(node, "title", "")}</span></div>
+          ) : null}
+          <div className="collapsible stack"><Children node={node} /></div>
+        </div>,
+      );
+    case "Heading":
+      return wrap(<div className="heading" style={{ fontSize: 20 - (prop(node, "level", 2) - 1) * 2 }}>{prop(node, "text", "")}</div>);
+    case "Text":
+      return wrap(<div>{prop(node, "text", "")}</div>);
+    case "Markdown":
+      return wrap(<div className="muted" style={{ whiteSpace: "pre-wrap" }}>{prop(node, "text", "")}</div>);
+    case "Badge": {
+      const tone = prop<string>(node, "tone", "muted");
+      const cls = tone === "ok" ? "ok" : tone === "warn" ? "warn" : tone === "crit" ? "crit" : "";
+      return wrap(<span className={`badge ${cls}`}><span className="dot" />{prop(node, "text", "")}</span>);
+    }
+    case "Button": {
+      const tone = prop<string>(node, "tone", "default");
+      const cls = tone === "primary" ? "primary" : tone === "muted" ? "muted" : "";
+      return wrap(
+        <button className={`btn ${cls}`} onClick={() => (node.actions ?? []).forEach(ctx.emitAction)}>
+          {prop(node, "text", "Button")}
+        </button>,
+      );
+    }
+    case "Progress":
+      return wrap(
+        <div>
+          <div className="progress"><span style={{ width: `${Math.round(prop(node, "value", 0) * 100)}%` }} /></div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{prop(node, "label", "")} {Math.round(prop(node, "value", 0) * 100)}%</div>
+        </div>,
+      );
+    case "Metric":
+      return wrap(<div className="metric"><div className="value">{prop(node, "value", "")}</div><div className="label">{prop(node, "label", "")}</div></div>);
+    case "Divider":
+      return wrap(<div className="divider" />);
+    case "Alert":
+      return wrap(<div className="panel crit">{prop(node, "text", "")}</div>);
+    case "Input":
+      return wrap(
+        <input
+          className="input"
+          defaultValue={prop(node, "value", "")}
+          placeholder={prop(node, "placeholder", "")}
+          onFocus={() => ctx.setFocus(node.id)}
+          onBlur={() => ctx.clearFocus(node.id)}
+        />,
+      );
+    case "Select":
+      return wrap(
+        <select className="select">
+          {prop<string[]>(node, "options", []).map((o) => <option key={o}>{o}</option>)}
+        </select>,
+      );
+    case "FileExplorer":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Files")}</span></div>
+          <ul className="files collapsible">
+            {prop<string[]>(node, "items", []).map((f) => <li key={f}>{f}</li>)}
+          </ul>
+        </div>,
+      );
+    case "CodeEditor":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title">
+            <span>{prop(node, "title", "editor")}</span>
+            {node.volatile ? <span className="badge warn"><span className="dot" />unsaved</span> : null}
+          </div>
+          <textarea
+            className="code"
+            style={{ width: "100%", minHeight: 140, resize: "vertical" }}
+            defaultValue={prop(node, "value", "")}
+            onFocus={() => ctx.setFocus(node.id)}
+            onBlur={() => ctx.clearFocus(node.id)}
+          />
+        </div>,
+      );
+    case "TerminalViewer":
+      return wrap(<pre className="term">{prop(node, "text", "")}</pre>);
+    case "LogViewer":
+      return wrap(
+        <div>
+          <div className="panel-title"><span>{prop(node, "title", "Logs")}</span></div>
+          <pre className="logview">{prop<string[]>(node, "lines", []).join("\n")}</pre>
+        </div>,
+      );
+    case "DiffViewer": {
+      const diff = prop(node, "diff", "");
+      return wrap(
+        <div>
+          <div className="panel-title"><span>{prop(node, "title", "Diff")}</span></div>
+          <pre className="diff">
+            {diff.split("\n").map((line, i) => (
+              <div key={i} className={line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : ""}>{line}</div>
+            ))}
+          </pre>
+        </div>,
+      );
+    }
+    case "JSONViewer":
+      return wrap(<pre className="code">{JSON.stringify(prop(node, "data", {}), null, 2)}</pre>);
+    case "Table": {
+      const columns = prop<string[]>(node, "columns", []);
+      const rows = prop<string[][]>(node, "rows", []);
+      return wrap(
+        <div>
+          {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{prop(node, "title", "")}</span></div> : null}
+          <table className="table">
+            <thead><tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i}>{r.map((cell, j) => <td key={j}>{cell}</td>)}</tr>)}</tbody>
+          </table>
+        </div>,
+      );
+    }
+    case "ActionPanel":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Actions")}</span></div>
+          <div className="row collapsible" style={{ flexWrap: "wrap" }}><Children node={node} /></div>
+        </div>,
+      );
+    case "ActivityFeed":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Activity")}</span></div>
+          <div className="stack collapsible">
+            {prop<string[]>(node, "items", []).map((it, i) => <div key={i} className="muted" style={{ fontSize: 12.5 }}>{it}</div>)}
+          </div>
+        </div>,
+      );
+    default:
+      // Any remaining registry component: safe generic container.
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span className="muted">{node.type}</span></div>
+          <div className="collapsible stack"><Children node={node} /></div>
+        </div>,
+      );
+  }
+}

@@ -172,3 +172,19 @@ export function incidentPatch(decisionId = "decision-incident"): UIPatch {
     ],
   };
 }
+
+/**
+ * The morph applied once the incident is resolved and stability is observed: the incident
+ * panel is removed and the file explorer expands back to the normal development layout.
+ */
+export function recoveryPatch(decisionId = "decision-recovery"): UIPatch {
+  return {
+    patchId: "patch-recovery",
+    fromWorkspaceId: "ws-dev",
+    decisionId,
+    operations: [
+      { op: "remove", targetId: "incident" },
+      { op: "expand", targetId: "files" },
+    ],
+  };
+}
