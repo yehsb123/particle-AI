@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dm-postgres
+    environment:
+      POSTGRES_USER: dm
+      POSTGRES_PASSWORD: dm
+      POSTGRES_DB: digital_matter
+    ports:
+      - "5432:5432"
+    volumes:
+      - dm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dm -d digital_matter"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dm_pgdata:

@@ -1,0 +1,30 @@
+{
+  "name": "digital-matter",
+  "version": "0.0.1",
+  "private": true,
+  "description": "An experimental adaptive computing runtime where the AI restructures its own interface around the user's situation.",
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "web": "pnpm --filter @dm/web dev",
+    "runtime": "pnpm --filter @dm/runtime dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
