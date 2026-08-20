@@ -68,6 +68,23 @@ describe("RuntimeCore — full loop", () => {
     expect(core.approvals.get(approvalId)?.status).toBe("approved");
   });
 
+  it("auto-runs the remediation at autonomy level 4 (no approval needed)", async () => {
+    const core = createRuntimeCore(makeClock());
+    core.setAutonomyLevel(4);
+    const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
+    expect(inc.capabilityRuns.map((r) => r.capabilityId)).toContain("development.revert_diff");
+    expect(inc.pendingApprovals).toHaveLength(0);
+  });
+
+  it("gates even read capabilities below adaptive level (L1)", async () => {
+    const core = createRuntimeCore(makeClock());
+    core.setAutonomyLevel(1);
+    const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
+    // at L1 the AI is passive: read caps are denied (not auto-run, not approvable)
+    expect(inc.capabilityRuns).toHaveLength(0);
+    expect(inc.permission?.denied.length).toBeGreaterThan(0);
+  });
+
   it("does not execute a rejected capability", async () => {
     const core = createRuntimeCore(makeClock());
     const inc = await core.ingest(ev("development.server_error", "critical", "e1"));

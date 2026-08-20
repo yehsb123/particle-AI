@@ -102,6 +102,11 @@ export function Workspace() {
           },
         ].slice(-50),
         audit: [...res.audit.map((a) => ({ id: a.id, kind: a.kind, detail: a.detail })), ...d.audit].slice(0, 60),
+        memory: {
+          episodes: core.current.memory.episodic.recent(6).map((e) => ({ context: e.context, summary: e.summary })),
+          preferences: core.current.memory.preferences.top(6),
+          patterns: core.current.memory.patterns.candidates().map((c) => ({ key: c.key, count: c.count })),
+        },
       }));
     },
     [addApprovals],

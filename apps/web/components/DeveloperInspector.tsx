@@ -16,14 +16,21 @@ export type TraceRow = {
   guardReasonCodes: string[];
 };
 
+export type MemorySnapshot = {
+  episodes: { context: string; summary: string }[];
+  preferences: { key: string; weight: number }[];
+  patterns: { key: string; count: number }[];
+};
+
 export type DebugState = {
   worldState?: WorldState;
   last?: IngestResult;
   traces: TraceRow[];
   audit: { id: string; kind: string; detail: Record<string, unknown> }[];
+  memory?: MemorySnapshot;
 };
 
-type Tab = "trace" | "world" | "decision" | "audit";
+type Tab = "trace" | "world" | "decision" | "memory" | "audit";
 
 function pretty(v: unknown): string {
   return JSON.stringify(v, null, 2);
@@ -40,6 +47,7 @@ export function DeveloperInspector({ debug }: { debug: DebugState }) {
     { id: "trace", label: "Event trace" },
     { id: "world", label: "World state" },
     { id: "decision", label: "Decision" },
+    { id: "memory", label: "Memory" },
     { id: "audit", label: "Audit" },
   ];
 
@@ -100,6 +108,45 @@ export function DeveloperInspector({ debug }: { debug: DebugState }) {
             autonomyRequirement: debug.last.decision.autonomyRequirement,
             reasonSummary: debug.last.decision.reasonSummary,
           }) : "no decision yet (emit a significant event)"}</pre>
+        </div>
+      ) : null}
+
+      {tab === "memory" ? (
+        <div className="devbody">
+          {!debug.memory || (!debug.memory.episodes.length && !debug.memory.preferences.length && !debug.memory.patterns.length) ? (
+            <span className="muted">No experience yet — emit a few events.</span>
+          ) : (
+            <div className="stack" style={{ gap: 14 }}>
+              <div>
+                <div className="panel-title"><span>Episodic</span></div>
+                {debug.memory.episodes.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>—</span> : null}
+                {debug.memory.episodes.map((e, i) => (
+                  <div key={i} style={{ fontSize: 12.5 }}>
+                    <span className="badge" style={{ marginRight: 6 }}><span className="dot" />{e.context}</span>
+                    <span className="muted">{e.summary}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="panel-title"><span>Preferences (reinforced)</span></div>
+                <div className="reasons">
+                  {debug.memory.preferences.map((p) => (
+                    <span key={p.key} className="tag">{p.key} ·{p.weight}</span>
+                  ))}
+                  {debug.memory.preferences.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>—</span> : null}
+                </div>
+              </div>
+              <div>
+                <div className="panel-title"><span>Pattern candidates (reusable-template suggestions)</span></div>
+                <div className="reasons">
+                  {debug.memory.patterns.map((p) => (
+                    <span key={p.key} className="tag">{p.key} ·{p.count}×</span>
+                  ))}
+                  {debug.memory.patterns.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>none yet (repeat a flow to reach the threshold)</span> : null}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 
