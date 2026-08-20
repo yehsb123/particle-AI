@@ -127,13 +127,15 @@ export function guardPatch(input: GuardInput): GuardResult {
     const tid = targetId(op);
     const node = tid ? findNode(root, tid) : undefined;
 
-    // Never destroy unsaved work — not even on critical events.
-    if (node && (op.op === "remove" || op.op === "replace" || op.op === "move")) {
-      if (subtreeHasVolatile(node)) {
-        dropped.push({ op, reason: "protects_unsaved_state" });
-        reasonCodes.add("protects_unsaved_state");
-        continue;
-      }
+    // Never destroy unsaved work — not even on critical events. This covers structural ops
+    // AND prop/binding rewrites (which can clobber an unsaved `value`) on a volatile subtree.
+    const mayDestroy =
+      op.op === "remove" || op.op === "replace" || op.op === "move" ||
+      op.op === "updateProps" || op.op === "updateBinding";
+    if (node && mayDestroy && subtreeHasVolatile(node)) {
+      dropped.push({ op, reason: "protects_unsaved_state" });
+      reasonCodes.add("protects_unsaved_state");
+      continue;
     }
 
     // Focus protection: while the user types, don't disturb the focused subtree.

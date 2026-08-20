@@ -24,11 +24,20 @@ function shallowPropsEqual(
   return JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
 }
 
+/** Clone a subtree, dropping any descendant whose id already exists (it arrives via `move`). */
+function pruneExisting(node: UIComponent, exists: (id: string) => boolean): UIComponent {
+  const copy: UIComponent = structuredClone(node);
+  copy.children = (copy.children ?? []).filter((c) => !exists(c.id)).map((c) => pruneExisting(c, exists));
+  if (copy.children.length === 0) delete copy.children;
+  return copy;
+}
+
 /**
- * Compute a patch that morphs `current` into `desired`. Pragmatic (not minimal): emits
- * top-most add/remove for structural set differences, `move` when a surviving node changes
- * parent, `replace` when a node's type changes, and `updateProps`/`updateBinding` when a
- * surviving node's props/bindings change. Every op is expressed against stable ids.
+ * Compute a patch that morphs `current` into `desired`. Ops are ordered add → move → remove so
+ * that reparenting into newly-added nodes and out of soon-removed nodes both apply cleanly;
+ * added subtrees exclude descendants that already exist (they are moved in) to avoid duplicate
+ * ids. Not guaranteed minimal for simultaneous sibling reorders, but always applies to `desired`
+ * for add/remove/reparent/prop changes. (Runtime morphs use `planMorph`; this is a utility.)
  */
 export function computeDiff(
   current: UIBlueprint,
@@ -37,56 +46,55 @@ export function computeDiff(
 ): UIPatch {
   const cur = index(current.root);
   const des = index(desired.root);
-  const ops: UIPatchOperation[] = [];
-
-  // Removals: in current, absent from desired, whose parent is not also removed.
-  for (const [id, loc] of cur) {
-    if (des.has(id)) continue;
-    const parentRemoved = loc.parentId !== null && !des.has(loc.parentId);
-    if (!parentRemoved && id !== current.root.id) {
-      ops.push({ op: "remove", targetId: id });
-    }
-  }
+  const adds: UIPatchOperation[] = [];
+  const moves: UIPatchOperation[] = [];
+  const updates: UIPatchOperation[] = [];
+  const removes: UIPatchOperation[] = [];
 
   // Additions: in desired, absent from current, whose parent already exists (top-most).
   for (const [id, loc] of des) {
     if (cur.has(id)) continue;
     const parentAdded = loc.parentId !== null && !cur.has(loc.parentId);
     if (!parentAdded && loc.parentId !== null) {
-      ops.push({
+      adds.push({
         op: "add",
         parentId: loc.parentId,
         index: loc.index,
-        component: loc.node,
+        component: pruneExisting(loc.node, (cid) => cur.has(cid)),
       });
     }
   }
 
-  // Survivors: present in both.
+  // Survivors: present in both — type change, reparent/reorder, prop/binding changes.
   for (const [id, dloc] of des) {
     const cloc = cur.get(id);
     if (!cloc) continue;
 
     if (cloc.node.type !== dloc.node.type) {
-      ops.push({ op: "replace", targetId: id, component: dloc.node });
+      updates.push({ op: "replace", targetId: id, component: structuredClone(dloc.node) });
       continue;
     }
-    // Moved to a different parent.
-    if (cloc.parentId !== dloc.parentId && dloc.parentId !== null) {
-      ops.push({
-        op: "move",
-        targetId: id,
-        newParentId: dloc.parentId,
-        index: dloc.index,
-      });
+    const reparented = cloc.parentId !== dloc.parentId && dloc.parentId !== null;
+    const reordered = cloc.parentId === dloc.parentId && cloc.index !== dloc.index && dloc.parentId !== null;
+    if (reparented || reordered) {
+      moves.push({ op: "move", targetId: id, newParentId: dloc.parentId!, index: dloc.index });
     }
     if (!shallowPropsEqual(cloc.node.props, dloc.node.props)) {
-      ops.push({ op: "updateProps", targetId: id, props: dloc.node.props ?? {} });
+      updates.push({ op: "updateProps", targetId: id, props: dloc.node.props ?? {} });
     }
     if (JSON.stringify(cloc.node.bindings ?? []) !== JSON.stringify(dloc.node.bindings ?? [])) {
-      ops.push({ op: "updateBinding", targetId: id, bindings: dloc.node.bindings ?? [] });
+      updates.push({ op: "updateBinding", targetId: id, bindings: dloc.node.bindings ?? [] });
     }
   }
 
-  return { patchId, fromWorkspaceId: current.workspaceId, operations: ops };
+  // Removals: in current, absent from desired, whose parent is not also removed.
+  for (const [id, loc] of cur) {
+    if (des.has(id)) continue;
+    const parentRemoved = loc.parentId !== null && !des.has(loc.parentId);
+    if (!parentRemoved && id !== current.root.id) {
+      removes.push({ op: "remove", targetId: id });
+    }
+  }
+
+  return { patchId, fromWorkspaceId: current.workspaceId, operations: [...adds, ...moves, ...updates, ...removes] };
 }

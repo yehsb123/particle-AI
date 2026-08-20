@@ -76,19 +76,43 @@ export const UIComponent: z.ZodType<UIComponent> = z.lazy(() =>
 
 export const UI_SCHEMA_VERSION = "1.0.0";
 
-export const UIBlueprint = z.object({
-  schemaVersion: z.string().min(1),
-  workspaceId: z.string().min(1),
-  goal: z.string().optional(),
-  mode: z.string().min(1),
-  root: UIComponent,
-  metadata: z.object({
-    generatedAt: IsoTimestamp,
-    decisionId: z.string().min(1),
-    confidence: Confidence,
-    reasonSummary: z.string().optional(),
-  }),
-});
+function collectComponentIds(node: UIComponent, acc: string[] = []): string[] {
+  acc.push(node.id);
+  for (const child of node.children ?? []) collectComponentIds(child, acc);
+  return acc;
+}
+
+/** The first duplicate id in a component tree, or undefined if all ids are unique. */
+export function firstDuplicateId(root: UIComponent): string | undefined {
+  const seen = new Set<string>();
+  for (const id of collectComponentIds(root)) {
+    if (seen.has(id)) return id;
+    seen.add(id);
+  }
+  return undefined;
+}
+
+export const UIBlueprint = z
+  .object({
+    schemaVersion: z.string().min(1),
+    workspaceId: z.string().min(1),
+    goal: z.string().optional(),
+    mode: z.string().min(1),
+    root: UIComponent,
+    metadata: z.object({
+      generatedAt: IsoTimestamp,
+      decisionId: z.string().min(1),
+      confidence: Confidence,
+      reasonSummary: z.string().optional(),
+    }),
+  })
+  .superRefine((bp, ctx) => {
+    // Stable morphing requires unique component ids — reject blueprints that violate it.
+    const dup = firstDuplicateId(bp.root);
+    if (dup) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["root"], message: `duplicate component id: ${dup}` });
+    }
+  });
 export type UIBlueprint = z.infer<typeof UIBlueprint>;
 
 /* ── Patch protocol ─────────────────────────────────────────────── */

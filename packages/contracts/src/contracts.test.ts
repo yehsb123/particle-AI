@@ -20,6 +20,12 @@ describe("contracts", () => {
     expect(UIBlueprint.safeParse(bad).success).toBe(false);
   });
 
+  it("rejects a blueprint with duplicate component ids", () => {
+    const dup = structuredClone(goodBlueprint);
+    dup.root.children.push({ id: "t", type: "Text", props: { text: "dup" } }); // 't' already used
+    expect(UIBlueprint.safeParse(dup).success).toBe(false);
+  });
+
   it("rejects confidence outside 0..1", () => {
     const bad = structuredClone(goodBlueprint);
     bad.metadata.confidence = 1.5;

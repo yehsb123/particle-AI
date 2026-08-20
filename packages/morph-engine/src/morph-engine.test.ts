@@ -118,13 +118,14 @@ describe("guardPatch", () => {
   });
 
   it("protects the focused subtree while the user is typing", () => {
+    // 'files' is non-volatile, so this isolates focus protection (volatile → unsaved protection)
     const patch: UIPatch = {
       patchId: "p", fromWorkspaceId: "ws",
-      operations: [{ op: "updateProps", targetId: "editor", props: { value: "clobbered" } }],
+      operations: [{ op: "updateProps", targetId: "files", props: { title: "clobbered" } }],
     };
     const r = guardPatch({
       currentUI: base(), desiredPatch: patch,
-      attention: { typing: true, focusedComponentId: "editor" },
+      attention: { typing: true, focusedComponentId: "files" },
       confidence: 1, severity: "warning", now: 100_000,
     });
     expect(r.allowed).toBe(false);
@@ -141,6 +142,32 @@ describe("computeDiff", () => {
     const idsA = reproduced.root.children!.map((c) => c.id).sort();
     const idsB = desired.root.children!.map((c) => c.id).sort();
     expect(idsA).toEqual(idsB);
+  });
+});
+
+describe("root ops & safety (review fixes)", () => {
+  it("round-trips a prop op on the root (undo restores)", () => {
+    const input = base();
+    const p: UIPatch = { patchId: "h", fromWorkspaceId: "ws", operations: [{ op: "highlight", targetId: "root" }] };
+    const { next, inverse } = applyPatch(input, p, NOW);
+    expect(next.root.props?.__highlighted).toBe(true);
+    const { next: restored } = applyPatch(next, inverse, NOW);
+    expect(JSON.stringify(restored.root)).toBe(JSON.stringify(input.root));
+  });
+
+  it("rejects removing or moving the root, and moving a node into its own subtree", () => {
+    const input = base();
+    expect(() => applyPatch(input, { patchId: "x", fromWorkspaceId: "ws", operations: [{ op: "remove", targetId: "root" }] }, NOW)).toThrow();
+    expect(() => applyPatch(input, { patchId: "x", fromWorkspaceId: "ws", operations: [{ op: "move", targetId: "root", newParentId: "files" }] }, NOW)).toThrow();
+    const nested = { ...base(), root: { id: "root", type: "Stack" as const, children: [{ id: "p", type: "Panel" as const, children: [{ id: "c", type: "Text" as const }] }] } };
+    expect(() => applyPatch(nested, { patchId: "x", fromWorkspaceId: "ws", operations: [{ op: "move", targetId: "p", newParentId: "c" }] }, NOW)).toThrow();
+  });
+
+  it("blocks a prop rewrite that would clobber unsaved (volatile) state", () => {
+    const patch: UIPatch = { patchId: "p", fromWorkspaceId: "ws", operations: [{ op: "updateProps", targetId: "editor", props: { value: "clobbered" } }] };
+    const r = guardPatch({ currentUI: base(), desiredPatch: patch, attention: { typing: false }, confidence: 1, severity: "critical", now: 100_000 });
+    expect(r.allowed).toBe(false);
+    expect(r.reasonCodes).toContain("protects_unsaved_state");
   });
 });
 

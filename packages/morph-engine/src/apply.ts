@@ -25,6 +25,12 @@ function findNode(root: UIComponent, id: string): UIComponent | undefined {
   return undefined;
 }
 
+function subtreeIds(node: UIComponent, acc = new Set<string>()): Set<string> {
+  acc.add(node.id);
+  for (const c of node.children ?? []) subtreeIds(c, acc);
+  return acc;
+}
+
 function findParentAndIndex(
   root: UIComponent,
   id: string,
@@ -69,7 +75,7 @@ export function applyPatch(
   now: string,
 ): ApplyResult {
   const next = clone(blueprint);
-  const root = next.root;
+  let root = next.root;
   const inverseOps: UIPatchOperation[] = [];
 
   for (const op of patch.operations) {
@@ -84,6 +90,7 @@ export function applyPatch(
         break;
       }
       case "remove": {
+        if (op.targetId === root.id) throw new MorphApplyError("remove: cannot remove the root");
         const loc = findParentAndIndex(root, op.targetId);
         if (!loc) throw new MorphApplyError(`remove: ${op.targetId} not found`);
         const [removed] = loc.parent.children!.splice(loc.index, 1);
@@ -96,6 +103,14 @@ export function applyPatch(
         break;
       }
       case "replace": {
+        // Replacing the root swaps the whole tree (keeps root ops / their inverses valid).
+        if (op.targetId === root.id) {
+          const old = next.root;
+          next.root = clone(op.component);
+          root = next.root;
+          inverseOps.push({ op: "replace", targetId: op.component.id, component: clone(old) });
+          break;
+        }
         const loc = findParentAndIndex(root, op.targetId);
         if (!loc) throw new MorphApplyError(`replace: ${op.targetId} not found`);
         const old = loc.parent.children![loc.index]!;
@@ -108,10 +123,16 @@ export function applyPatch(
         break;
       }
       case "move": {
+        if (op.targetId === root.id) throw new MorphApplyError("move: cannot move the root");
         const from = findParentAndIndex(root, op.targetId);
         if (!from) throw new MorphApplyError(`move: ${op.targetId} not found`);
         const target = findNode(root, op.newParentId);
         if (!target) throw new MorphApplyError(`move: parent ${op.newParentId} not found`);
+        // Reject moving a node into its own subtree (would create a cycle).
+        const movedNode = from.parent.children![from.index]!;
+        if (subtreeIds(movedNode).has(op.newParentId)) {
+          throw new MorphApplyError(`move: ${op.newParentId} is inside the moved subtree (cycle)`);
+        }
         const [moved] = from.parent.children!.splice(from.index, 1);
         target.children ??= [];
         const index = op.index ?? target.children.length;
