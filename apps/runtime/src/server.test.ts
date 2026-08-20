@@ -97,6 +97,15 @@ describe("runtime REST", () => {
     expect(res.json().mode).toBe("development");
   });
 
+  it("records observability traces for ingested events", async () => {
+    await app.inject({ method: "POST", url: "/api/sim/s8/http-500" });
+    const res = await app.inject({ method: "GET", url: "/api/sessions/s8/traces" });
+    const traces = res.json().traces as { eventType: string; morphApplied: boolean }[];
+    expect(traces.length).toBeGreaterThan(0);
+    expect(traces[traces.length - 1]!.eventType).toBe("development.server_error");
+    expect(traces[traces.length - 1]!.morphApplied).toBe(true);
+  });
+
   it("returns 404 for an unknown sim key", async () => {
     const res = await app.inject({ method: "POST", url: "/api/sim/s1/nope" });
     expect(res.statusCode).toBe(404);

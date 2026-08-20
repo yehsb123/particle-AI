@@ -2,6 +2,7 @@ import type { AuditRecord, MatterEvent, UIBlueprint, WorldState } from "@particl
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { EventStore } from "@particle/event-core";
 import { AuditLog } from "@particle/permission-engine";
+import { createLogger, TraceStore, type LogLevel } from "@particle/observability";
 import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import type { EventLogStore, SnapshotStore } from "@particle/persistence";
 
@@ -21,6 +22,8 @@ export type RuntimeListener = (msg: RuntimeMessage) => void;
 export class SessionRuntime {
   readonly store = new EventStore();
   readonly audit = new AuditLog();
+  readonly traces = new TraceStore();
+  private readonly log = createLogger((process.env.DM_LOG_LEVEL as LogLevel) ?? "info");
   private core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
@@ -51,6 +54,29 @@ export class SessionRuntime {
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
+
+    // Structured trace + log for the developer inspector / observability.
+    this.traces.append({
+      at: this.now(),
+      sessionId: event.sessionId,
+      eventId: event.id,
+      eventType: event.type,
+      significance: result.significance.score,
+      deliberated: result.deliberated,
+      providerId: result.providerId,
+      usedFallback: result.usedFallback,
+      decisionId: result.decision?.id,
+      capabilityIds: result.capabilityRuns.map((r) => r.capabilityId),
+      morphApplied: result.morph.applied,
+      guardReasonCodes: result.morph.guardReasonCodes,
+    });
+    this.log.info("ingest", {
+      sessionId: event.sessionId,
+      event: event.type,
+      significance: result.significance.score,
+      morph: result.morph.applied,
+      provider: result.providerId,
+    });
 
     // Durable snapshots of the reshaped body + belief state (when configured).
     if (this.snapshotStore && result.morph.applied) {

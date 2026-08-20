@@ -22,7 +22,7 @@ export function developmentBlueprint(now: string, decisionId = "seed"): UIBluepr
           props: { justify: "between", align: "center" },
           children: [
             { id: "title", type: "Heading", props: { text: "Workspace", level: 2 } },
-            { id: "ai-presence", type: "Badge", props: { text: "AI · observing", tone: "muted" } },
+            { id: "workspace-mode", type: "Badge", props: { text: "development", tone: "muted" } },
           ],
         },
         {

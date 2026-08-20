@@ -41,6 +41,9 @@ importers:
       '@particle/morph-engine':
         specifier: workspace:*
         version: link:../../packages/morph-engine
+      '@particle/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@particle/permission-engine':
         specifier: workspace:*
         version: link:../../packages/permission-engine

@@ -21,6 +21,7 @@
     "@particle/runtime-core": "workspace:*",
     "@particle/persistence": "workspace:*",
     "@particle/intelligence": "workspace:*",
+    "@particle/observability": "workspace:*",
     "@fastify/websocket": "^11.0.2",
     "fastify": "^5.2.0"
   },
