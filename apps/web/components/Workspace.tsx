@@ -232,6 +232,19 @@ export function Workspace() {
       <main className="stage">
         <div className="brandbar">
           <div className="brand">
+            <svg viewBox="0 0 32 32" aria-hidden>
+              <defs>
+                <radialGradient id="pcore" cx="35%" cy="30%" r="75%">
+                  <stop offset="0%" stopColor="#D0BCFF" />
+                  <stop offset="60%" stopColor="#7F67BE" />
+                  <stop offset="100%" stopColor="#4F378B" />
+                </radialGradient>
+              </defs>
+              <rect width="32" height="32" rx="7" fill="#21005D" />
+              <ellipse cx="16" cy="16" rx="12" ry="5" fill="none" stroke="#B69DF8" strokeWidth="1.4" opacity="0.55" transform="rotate(-28 16 16)" />
+              <circle cx="16" cy="16" r="6" fill="url(#pcore)" />
+              <circle cx="26.5" cy="10.5" r="2.1" fill="#D0BCFF" />
+            </svg>
             Particle AI <small>adaptive runtime · integrated loop</small>
           </div>
           <div className="presence" data-state={presence}>
