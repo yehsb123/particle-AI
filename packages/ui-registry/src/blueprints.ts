@@ -144,6 +144,23 @@ export function incidentPatch(decisionId = "decision-incident"): UIPatch {
                     { id: "incident-confidence", type: "Progress", props: { value: 0.82, label: "confidence" } },
                   ],
                 },
+                {
+                  id: "incident-timeline",
+                  type: "Timeline",
+                  props: {
+                    title: "Incident timeline",
+                    items: [
+                      { time: "T+0s", label: "First 500 on GET /users/42" },
+                      { time: "T+1s", label: "Error rate spike detected" },
+                      { time: "T+2s", label: "Probable cause localized to recent diff" },
+                    ],
+                  },
+                },
+                {
+                  id: "incident-chart",
+                  type: "Chart",
+                  props: { title: "Errors / min", data: [0, 0, 1, 4, 9, 12, 7] },
+                },
               ],
             },
             {

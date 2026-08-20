@@ -1,7 +1,10 @@
 "use client";
 
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useState } from "react";
 import type { UIAction, UIComponent } from "@dm/contracts";
+
+type TreeItem = { label: string; children?: TreeItem[] };
+type TimelineItem = { time?: string; label: string };
 
 export type RendererCtx = {
   emitAction: (action: UIAction) => void;
@@ -224,6 +227,71 @@ export function Render({ node }: { node: UIComponent }) {
           </div>
         </div>,
       );
+    case "Tabs":
+      return wrap(<TabsNode node={node} />);
+    case "Tree":
+      return wrap(
+        <div className="panel">
+          {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{prop(node, "title", "")}</span></div> : null}
+          <div className="collapsible"><TreeNodes nodes={prop<TreeItem[]>(node, "nodes", [])} /></div>
+        </div>,
+      );
+    case "Timeline":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Timeline")}</span></div>
+          <div className="timeline collapsible">
+            {prop<TimelineItem[]>(node, "items", []).map((it, i) => (
+              <div key={i} className="tl-item">
+                <span className="tl-dot" />
+                <span className="muted" style={{ minWidth: 64, fontFamily: "var(--mono)", fontSize: 11 }}>{it.time ?? ""}</span>
+                <span>{it.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>,
+      );
+    case "Chart": {
+      const data = prop<number[]>(node, "data", []);
+      const max = Math.max(1, ...data);
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Chart")}</span></div>
+          <div className="chart collapsible">
+            {data.map((v, i) => (
+              <span key={i} className="bar" style={{ height: `${Math.round((v / max) * 100)}%` }} title={String(v)} />
+            ))}
+          </div>
+        </div>,
+      );
+    }
+    case "Inspector":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Inspector")}</span></div>
+          <div className="kv collapsible">
+            {prop<{ k: string; v: string }[]>(node, "entries", []).map((e, i) => (
+              <React.Fragment key={i}><span className="k">{e.k}</span><span>{e.v}</span></React.Fragment>
+            ))}
+          </div>
+          <div className="collapsible stack"><Children node={node} /></div>
+        </div>,
+      );
+    case "DocumentViewer":
+      return wrap(
+        <div className="panel">
+          <div className="panel-title"><span>{prop(node, "title", "Document")}</span></div>
+          <div className="collapsible" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{prop(node, "text", "")}</div>
+        </div>,
+      );
+    case "Drawer":
+    case "Overlay":
+      return wrap(
+        <div className="panel" style={{ borderStyle: "dashed" }}>
+          <div className="panel-title"><span>{prop(node, "title", node.type)}</span><span className="badge">{node.type}</span></div>
+          <div className="collapsible stack"><Children node={node} /></div>
+        </div>,
+      );
     default:
       // Any remaining registry component: safe generic container.
       return wrap(
@@ -233,4 +301,36 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
   }
+}
+
+/** Interactive tabs: each child panel supplies its tab label via props.title. */
+function TabsNode({ node }: { node: UIComponent }) {
+  const panels = node.children ?? [];
+  const [active, setActive] = useState(0);
+  const current = panels[Math.min(active, panels.length - 1)];
+  return (
+    <div className="panel">
+      <div className="devtabs" style={{ margin: "-12px -12px 12px" }}>
+        {panels.map((p, i) => (
+          <button key={p.id} className={`devtab${i === active ? " active" : ""}`} onClick={() => setActive(i)}>
+            {(p.props?.title as string) ?? `Tab ${i + 1}`}
+          </button>
+        ))}
+      </div>
+      {current ? <Render node={current} /> : null}
+    </div>
+  );
+}
+
+function TreeNodes({ nodes, depth = 0 }: { nodes: TreeItem[]; depth?: number }) {
+  return (
+    <ul className="files" style={{ marginLeft: depth ? 14 : 0 }}>
+      {nodes.map((n, i) => (
+        <li key={i}>
+          {n.children?.length ? "▸ " : "· "}{n.label}
+          {n.children?.length ? <TreeNodes nodes={n.children} depth={depth + 1} /> : null}
+        </li>
+      ))}
+    </ul>
+  );
 }

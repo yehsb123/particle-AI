@@ -126,6 +126,13 @@ body {
 .reasons { display: flex; flex-wrap: wrap; gap: 6px; }
 .reasons .tag { font-family: var(--mono); font-size: 11px; padding: 2px 6px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--border); }
 
+/* timeline + chart */
+.timeline { display: flex; flex-direction: column; gap: 6px; }
+.tl-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.tl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.chart { display: flex; align-items: flex-end; gap: 4px; height: 84px; }
+.chart .bar { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; }
+
 /* developer inspector */
 .devpanel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
 .devtabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); background: var(--panel-2); }
