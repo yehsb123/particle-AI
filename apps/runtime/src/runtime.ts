@@ -95,6 +95,24 @@ export class SessionRuntime {
     return bp;
   }
 
+  /** Reconstruct a session's UI + world from the latest persisted snapshots (resume). */
+  async resume(sessionId: string): Promise<UIBlueprint | null> {
+    if (!this.snapshotStore) return null;
+    const snaps = await this.snapshotStore.list(sessionId);
+    const reversed = [...snaps].reverse();
+    const ui = reversed.find((s) => s.kind === "ui");
+    const world = reversed.find((s) => s.kind === "world");
+    if (!ui && !world) return null;
+    this.core.hydrate(sessionId, {
+      blueprint: ui?.data as UIBlueprint | undefined,
+      world: world?.data as WorldState | undefined,
+    });
+    const bp = this.core.getBlueprint(sessionId);
+    this.emit({ kind: "world_state_changed", sessionId, worldState: this.core.getWorld(sessionId) });
+    this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
+    return bp;
+  }
+
   onMessage(listener: RuntimeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

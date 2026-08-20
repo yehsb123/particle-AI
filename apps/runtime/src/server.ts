@@ -76,6 +76,11 @@ export async function buildServer(): Promise<BuildResult> {
     return { undone: !!blueprint, blueprint };
   });
 
+  app.post<{ Params: { id: string } }>("/api/sessions/:id/resume", async (req) => {
+    const blueprint = await runtime.resume(req.params.id);
+    return { resumed: !!blueprint, blueprint };
+  });
+
   app.post<{ Params: { aid: string } }>("/api/approvals/:aid/approve", async (req, reply) => {
     const outcome = await runtime.approve(req.params.aid);
     if (!outcome) { reply.code(404); return { error: "not found or already decided" }; }

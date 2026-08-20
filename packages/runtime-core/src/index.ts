@@ -131,6 +131,13 @@ export class RuntimeCore {
   getBlueprint(sessionId: string): UIBlueprint {
     return this.session(sessionId).blueprint;
   }
+
+  /** Restore a session's belief state and body from persisted snapshots (resume). */
+  hydrate(sessionId: string, state: { world?: WorldState; blueprint?: UIBlueprint }): void {
+    const s = this.session(sessionId);
+    if (state.world) s.world = state.world;
+    if (state.blueprint) s.blueprint = state.blueprint;
+  }
   canUndo(sessionId: string): boolean {
     return this.session(sessionId).history.canUndo;
   }

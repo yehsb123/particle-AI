@@ -99,6 +99,21 @@ describe("RuntimeCore — full loop", () => {
     expect(inc.permission?.denied.length).toBeGreaterThan(0);
   });
 
+  it("hydrates a session's UI + world from a snapshot (resume)", async () => {
+    const source = createRuntimeCore(makeClock());
+    await source.ingest(ev("development.server_error", "critical", "e1"));
+    const ui = source.getBlueprint("s");
+    const world = source.getWorld("s");
+    expect(findById(ui.root, "incident")).toBeDefined();
+
+    // a fresh runtime resumes the session from the persisted snapshot
+    const resumed = createRuntimeCore(makeClock());
+    expect(findById(resumed.getBlueprint("s").root, "incident")).toBeUndefined(); // seed
+    resumed.hydrate("s", { blueprint: ui, world });
+    expect(findById(resumed.getBlueprint("s").root, "incident")).toBeDefined();
+    expect(resumed.getWorld("s").activeProblems.length).toBe(1);
+  });
+
   it("does not execute a rejected capability", async () => {
     const core = createRuntimeCore(makeClock());
     const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
