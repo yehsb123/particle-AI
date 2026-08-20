@@ -1,4 +1,4 @@
-import type { ApprovalRequest, RiskLevel } from "@dm/contracts";
+import type { ApprovalRequest, RiskLevel } from "@particle/contracts";
 
 /** In-memory store of approval requests for risky capabilities awaiting a human decision. */
 export class ApprovalStore {

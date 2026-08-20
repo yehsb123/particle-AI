@@ -9,30 +9,30 @@ import type {
   UIBlueprint,
   UIPatch,
   WorldState,
-} from "@dm/contracts";
-import { emptyWorldState } from "@dm/contracts";
-import { reduce } from "@dm/world-model";
+} from "@particle/contracts";
+import { emptyWorldState } from "@particle/contracts";
+import { reduce } from "@particle/world-model";
 import {
   evaluateSignificance,
   nextPresence,
   type PresenceState,
   type SignificanceConfig,
-} from "@dm/significance-engine";
-import { DecisionEngine } from "@dm/decision-engine";
+} from "@particle/significance-engine";
+import { DecisionEngine } from "@particle/decision-engine";
 import {
   CapabilityExecutor,
   CapabilityRegistry,
   type ExecutionOutcome,
-} from "@dm/capability-core";
-import { evaluatePlan, type PermissionEvaluation } from "@dm/permission-engine";
+} from "@particle/capability-core";
+import { evaluatePlan, type PermissionEvaluation } from "@particle/permission-engine";
 import {
   applyPatch,
   guardPatch,
   MorphHistory,
   DEFAULT_MORPH_POLICY,
   type MorphPolicy,
-} from "@dm/morph-engine";
-import { developmentBlueprint, planMorph } from "@dm/ui-registry";
+} from "@particle/morph-engine";
+import { developmentBlueprint, planMorph } from "@particle/ui-registry";
 
 export type RuntimeClock = { iso: () => string; ms: () => number };
 

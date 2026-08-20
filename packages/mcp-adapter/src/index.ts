@@ -1,5 +1,5 @@
-import type { CapabilityManifest, RiskLevel } from "@dm/contracts";
-import type { Capability, CapabilityContext } from "@dm/capability-core";
+import type { CapabilityManifest, RiskLevel } from "@particle/contracts";
+import type { Capability, CapabilityContext } from "@particle/capability-core";
 
 /** Minimal MCP surface we depend on — any transport (stdio, HTTP, ws) can implement it. */
 export type McpToolDescriptor = {

@@ -1,11 +1,11 @@
-import { DecisionEngine } from "@dm/decision-engine";
+import { DecisionEngine } from "@particle/decision-engine";
 import {
   IntelligenceRouter,
   MockProvider,
   buildDefaultProviders,
   type IntelligenceProvider,
-} from "@dm/intelligence";
-import { CapabilityRegistry, builtinCapabilities } from "@dm/capability-core";
+} from "@particle/intelligence";
+import { CapabilityRegistry, builtinCapabilities } from "@particle/capability-core";
 import { RuntimeCore, type RuntimeClock } from "./index";
 
 /**

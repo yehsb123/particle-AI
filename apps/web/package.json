@@ -1,5 +1,5 @@
 {
-  "name": "@dm/web",
+  "name": "@particle/web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -13,11 +13,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
-    "@dm/ui-protocol": "workspace:*",
-    "@dm/morph-engine": "workspace:*",
-    "@dm/ui-registry": "workspace:*",
-    "@dm/runtime-core": "workspace:*",
+    "@particle/contracts": "workspace:*",
+    "@particle/ui-protocol": "workspace:*",
+    "@particle/morph-engine": "workspace:*",
+    "@particle/ui-registry": "workspace:*",
+    "@particle/runtime-core": "workspace:*",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

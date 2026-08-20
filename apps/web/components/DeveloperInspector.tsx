@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import type { WorldState } from "@dm/contracts";
-import type { IngestResult } from "@dm/runtime-core";
+import type { WorldState } from "@particle/contracts";
+import type { IngestResult } from "@particle/runtime-core";
 
 export type TraceRow = {
   n: number;

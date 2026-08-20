@@ -26,39 +26,39 @@ importers:
 
   apps/runtime:
     dependencies:
-      '@dm/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@dm/event-core':
-        specifier: workspace:*
-        version: link:../../packages/event-core
-      '@dm/intelligence':
-        specifier: workspace:*
-        version: link:../../packages/intelligence
-      '@dm/morph-engine':
-        specifier: workspace:*
-        version: link:../../packages/morph-engine
-      '@dm/permission-engine':
-        specifier: workspace:*
-        version: link:../../packages/permission-engine
-      '@dm/persistence':
-        specifier: workspace:*
-        version: link:../../packages/persistence
-      '@dm/runtime-core':
-        specifier: workspace:*
-        version: link:../../packages/runtime-core
-      '@dm/ui-protocol':
-        specifier: workspace:*
-        version: link:../../packages/ui-protocol
-      '@dm/ui-registry':
-        specifier: workspace:*
-        version: link:../../packages/ui-registry
-      '@dm/world-model':
-        specifier: workspace:*
-        version: link:../../packages/world-model
       '@fastify/websocket':
         specifier: ^11.0.2
         version: 11.3.0
+      '@particle/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@particle/event-core':
+        specifier: workspace:*
+        version: link:../../packages/event-core
+      '@particle/intelligence':
+        specifier: workspace:*
+        version: link:../../packages/intelligence
+      '@particle/morph-engine':
+        specifier: workspace:*
+        version: link:../../packages/morph-engine
+      '@particle/permission-engine':
+        specifier: workspace:*
+        version: link:../../packages/permission-engine
+      '@particle/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
+      '@particle/runtime-core':
+        specifier: workspace:*
+        version: link:../../packages/runtime-core
+      '@particle/ui-protocol':
+        specifier: workspace:*
+        version: link:../../packages/ui-protocol
+      '@particle/ui-registry':
+        specifier: workspace:*
+        version: link:../../packages/ui-registry
+      '@particle/world-model':
+        specifier: workspace:*
+        version: link:../../packages/world-model
       fastify:
         specifier: ^5.2.0
         version: 5.12.1
@@ -78,19 +78,19 @@ importers:
 
   apps/web:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@dm/morph-engine':
+      '@particle/morph-engine':
         specifier: workspace:*
         version: link:../../packages/morph-engine
-      '@dm/runtime-core':
+      '@particle/runtime-core':
         specifier: workspace:*
         version: link:../../packages/runtime-core
-      '@dm/ui-protocol':
+      '@particle/ui-protocol':
         specifier: workspace:*
         version: link:../../packages/ui-protocol
-      '@dm/ui-registry':
+      '@particle/ui-registry':
         specifier: workspace:*
         version: link:../../packages/ui-registry
       next:
@@ -124,7 +124,7 @@ importers:
 
   packages/capability-core:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -150,10 +150,10 @@ importers:
 
   packages/decision-engine:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@dm/intelligence':
+      '@particle/intelligence':
         specifier: workspace:*
         version: link:../intelligence
     devDependencies:
@@ -166,7 +166,7 @@ importers:
 
   packages/event-core:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -179,7 +179,7 @@ importers:
 
   packages/intelligence:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -192,10 +192,10 @@ importers:
 
   packages/mcp-adapter:
     dependencies:
-      '@dm/capability-core':
+      '@particle/capability-core':
         specifier: workspace:*
         version: link:../capability-core
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -208,10 +208,10 @@ importers:
 
   packages/morph-engine:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@dm/ui-protocol':
+      '@particle/ui-protocol':
         specifier: workspace:*
         version: link:../ui-protocol
     devDependencies:
@@ -224,7 +224,7 @@ importers:
 
   packages/observability:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -237,7 +237,7 @@ importers:
 
   packages/permission-engine:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -250,7 +250,7 @@ importers:
 
   packages/persistence:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
       drizzle-orm:
@@ -269,35 +269,35 @@ importers:
 
   packages/runtime-core:
     dependencies:
-      '@dm/capability-core':
+      '@particle/capability-core':
         specifier: workspace:*
         version: link:../capability-core
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@dm/decision-engine':
+      '@particle/decision-engine':
         specifier: workspace:*
         version: link:../decision-engine
-      '@dm/intelligence':
+      '@particle/intelligence':
         specifier: workspace:*
         version: link:../intelligence
-      '@dm/morph-engine':
+      '@particle/morph-engine':
         specifier: workspace:*
         version: link:../morph-engine
-      '@dm/permission-engine':
+      '@particle/permission-engine':
         specifier: workspace:*
         version: link:../permission-engine
-      '@dm/significance-engine':
+      '@particle/significance-engine':
         specifier: workspace:*
         version: link:../significance-engine
-      '@dm/ui-registry':
+      '@particle/ui-registry':
         specifier: workspace:*
         version: link:../ui-registry
-      '@dm/world-model':
+      '@particle/world-model':
         specifier: workspace:*
         version: link:../world-model
     devDependencies:
-      '@dm/ui-protocol':
+      '@particle/ui-protocol':
         specifier: workspace:*
         version: link:../ui-protocol
       typescript:
@@ -309,7 +309,7 @@ importers:
 
   packages/significance-engine:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -322,7 +322,7 @@ importers:
 
   packages/ui-protocol:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
       zod:
@@ -338,7 +338,7 @@ importers:
 
   packages/ui-registry:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
@@ -351,7 +351,7 @@ importers:
 
   packages/world-model:
     dependencies:
-      '@dm/contracts':
+      '@particle/contracts':
         specifier: workspace:*
         version: link:../contracts
     devDependencies:

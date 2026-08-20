@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { DecisionEngine } from "./index";
-import { IntelligenceRouter, MockProvider } from "@dm/intelligence";
-import type { IntelligenceProvider } from "@dm/intelligence";
-import { emptyWorldState, type MatterEvent, type ModelCapability, type WorldState } from "@dm/contracts";
+import { IntelligenceRouter, MockProvider } from "@particle/intelligence";
+import type { IntelligenceProvider } from "@particle/intelligence";
+import { emptyWorldState, type MatterEvent, type ModelCapability, type WorldState } from "@particle/contracts";
 
 const T = "2026-08-19T00:00:00Z";
 const sig = { score: 0.9, reasonCodes: [], shouldDeliberate: true };

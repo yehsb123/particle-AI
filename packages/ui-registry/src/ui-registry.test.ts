@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { REGISTRY, isKnownComponent, isContainer } from "./registry";
 import { developmentBlueprint, incidentPatch } from "./blueprints";
-import { COMPONENT_TYPES, UIBlueprint, UIPatch } from "@dm/contracts";
+import { COMPONENT_TYPES, UIBlueprint, UIPatch } from "@particle/contracts";
 
 describe("ui-registry", () => {
   it("has metadata for every declared component type", () => {

@@ -1,5 +1,5 @@
 {
-  "name": "@dm/runtime",
+  "name": "@particle/runtime",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,16 +11,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
-    "@dm/event-core": "workspace:*",
-    "@dm/world-model": "workspace:*",
-    "@dm/ui-registry": "workspace:*",
-    "@dm/morph-engine": "workspace:*",
-    "@dm/ui-protocol": "workspace:*",
-    "@dm/permission-engine": "workspace:*",
-    "@dm/runtime-core": "workspace:*",
-    "@dm/persistence": "workspace:*",
-    "@dm/intelligence": "workspace:*",
+    "@particle/contracts": "workspace:*",
+    "@particle/event-core": "workspace:*",
+    "@particle/world-model": "workspace:*",
+    "@particle/ui-registry": "workspace:*",
+    "@particle/morph-engine": "workspace:*",
+    "@particle/ui-protocol": "workspace:*",
+    "@particle/permission-engine": "workspace:*",
+    "@particle/runtime-core": "workspace:*",
+    "@particle/persistence": "workspace:*",
+    "@particle/intelligence": "workspace:*",
     "@fastify/websocket": "^11.0.2",
     "fastify": "^5.2.0"
   },

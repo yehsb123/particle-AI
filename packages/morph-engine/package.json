@@ -1,5 +1,5 @@
 {
-  "name": "@dm/morph-engine",
+  "name": "@particle/morph-engine",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
-    "@dm/ui-protocol": "workspace:*"
+    "@particle/contracts": "workspace:*",
+    "@particle/ui-protocol": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

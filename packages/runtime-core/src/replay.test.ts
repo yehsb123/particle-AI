@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { replay } from "./replay";
 import { createRuntimeCore } from "./factory";
-import type { MatterEvent } from "@dm/contracts";
+import type { MatterEvent } from "@particle/contracts";
 
 function clock() {
   let n = 0;

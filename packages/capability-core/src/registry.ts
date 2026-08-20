@@ -1,4 +1,4 @@
-import type { CapabilityManifest, RiskLevel } from "@dm/contracts";
+import type { CapabilityManifest, RiskLevel } from "@particle/contracts";
 import type { Capability } from "./types";
 
 /** The set of abilities available to the runtime, whatever their origin (native, MCP, …). */

@@ -1,4 +1,4 @@
-import type { UIBlueprint, WorldState } from "@dm/contracts";
+import type { UIBlueprint, WorldState } from "@particle/contracts";
 
 export type ServerMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }

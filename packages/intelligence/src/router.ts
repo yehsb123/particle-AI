@@ -1,4 +1,4 @@
-import type { IntelligenceRequest, ModelRouteDecision, ModelTier } from "@dm/contracts";
+import type { IntelligenceRequest, ModelRouteDecision, ModelTier } from "@particle/contracts";
 import type { IntelligenceProvider } from "./provider";
 import { supports } from "./provider";
 import { MockProvider } from "./mock";

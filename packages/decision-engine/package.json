@@ -1,5 +1,5 @@
 {
-  "name": "@dm/decision-engine",
+  "name": "@particle/decision-engine",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -8,8 +8,8 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
-    "@dm/intelligence": "workspace:*"
+    "@particle/contracts": "workspace:*",
+    "@particle/intelligence": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.7.2", "vitest": "^2.1.8" }
 }

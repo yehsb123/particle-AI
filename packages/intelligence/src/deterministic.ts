@@ -3,8 +3,8 @@ import type {
   RuntimeDecision,
   SignificanceResult,
   WorldState,
-} from "@dm/contracts";
-import { RuntimeDecision as RuntimeDecisionSchema } from "@dm/contracts";
+} from "@particle/contracts";
+import { RuntimeDecision as RuntimeDecisionSchema } from "@particle/contracts";
 
 export type DecisionContext = {
   event: MatterEvent;

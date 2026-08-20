@@ -3,7 +3,7 @@ import type {
   UIComponent,
   UIPatch,
   UIPatchOperation,
-} from "@dm/contracts";
+} from "@particle/contracts";
 
 /** Reserved props the morph engine uses for non-structural, reversible UI signals. */
 export const RESERVED = {

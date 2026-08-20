@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
-import { createPersistence, type Persistence } from "@dm/persistence";
-import { describeProviders } from "@dm/intelligence";
+import { createPersistence, type Persistence } from "@particle/persistence";
+import { describeProviders } from "@particle/intelligence";
 import { SessionRuntime } from "./runtime";
 import { SIM_EVENTS } from "./sim";
 

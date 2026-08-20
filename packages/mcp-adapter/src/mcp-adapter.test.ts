@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { discoverMcpCapabilities, inferRisk, mcpToolToCapability, type McpClient, type McpToolDescriptor } from "./index";
-import { CapabilityRegistry, CapabilityExecutor } from "@dm/capability-core";
+import { CapabilityRegistry, CapabilityExecutor } from "@particle/capability-core";
 
 class FakeMcpClient implements McpClient {
   readonly serverId = "files";

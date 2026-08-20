@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createRuntimeCore } from "./factory";
-import { findById } from "@dm/ui-protocol";
-import type { MatterEvent } from "@dm/contracts";
+import { findById } from "@particle/ui-protocol";
+import type { MatterEvent } from "@particle/contracts";
 
 function makeClock() {
   let n = 0;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { evaluateSignificance, DEFAULT_SIGNIFICANCE_CONFIG } from "./significance";
 import { suggestMode } from "./reflex";
-import { emptyWorldState, type MatterEvent, type WorldState } from "@dm/contracts";
+import { emptyWorldState, type MatterEvent, type WorldState } from "@particle/contracts";
 
 const T = "2026-08-19T00:00:00Z";
 function ev(type: string, severity: MatterEvent["severity"] = "info", source: MatterEvent["source"] = "development"): MatterEvent {

@@ -28,7 +28,7 @@ typed application contracts above as the source of truth — do not degrade into
 
 ## Postgres backend (implemented)
 
-`@dm/persistence` now ships a Drizzle + postgres-js backend (`events`, `snapshots` tables,
+`@particle/persistence` now ships a Drizzle + postgres-js backend (`events`, `snapshots` tables,
 JSONB `data`). `createPersistence(DATABASE_URL)` returns the Postgres stores (and
 auto-creates the schema) when a URL is set, else the in-memory stores. The runtime server
 wires it automatically: with `DATABASE_URL` set, every ingested event is durably appended

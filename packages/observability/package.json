@@ -1,5 +1,5 @@
 {
-  "name": "@dm/observability",
+  "name": "@particle/observability",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -7,6 +7,6 @@
   "types": "./src/index.ts",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
-  "dependencies": { "@dm/contracts": "workspace:*" },
+  "dependencies": { "@particle/contracts": "workspace:*" },
   "devDependencies": { "typescript": "^5.7.2", "vitest": "^2.1.8" }
 }

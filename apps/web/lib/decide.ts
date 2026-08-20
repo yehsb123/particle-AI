@@ -1,6 +1,6 @@
-import type { MatterEvent, Severity, UIBlueprint, UIPatch } from "@dm/contracts";
-import { incidentPatch, recoveryPatch } from "@dm/ui-registry";
-import { findById } from "@dm/ui-protocol";
+import type { MatterEvent, Severity, UIBlueprint, UIPatch } from "@particle/contracts";
+import { incidentPatch, recoveryPatch } from "@particle/ui-registry";
+import { findById } from "@particle/ui-protocol";
 
 /**
  * Phase-1 deterministic decision logic. This is intentionally simple, rule-based, and

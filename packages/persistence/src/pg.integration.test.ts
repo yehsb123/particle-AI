@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createPersistence } from "./factory";
-import type { MatterEvent } from "@dm/contracts";
+import type { MatterEvent } from "@particle/contracts";
 
 const url = process.env.DATABASE_URL;
 

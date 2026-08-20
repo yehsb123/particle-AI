@@ -5,8 +5,8 @@ import type {
   UIComponent,
   UIPatch,
   UIPatchOperation,
-} from "@dm/contracts";
-import { isStructuralOp } from "@dm/contracts";
+} from "@particle/contracts";
+import { isStructuralOp } from "@particle/contracts";
 import { DEFAULT_MORPH_POLICY, type MorphPolicy } from "./policy";
 
 export type GuardInput = {

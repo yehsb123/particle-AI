@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { CapabilityRegistry } from "./registry";
 import { CapabilityExecutor } from "./executor";
 import { builtinCapabilities } from "./builtins";
-import { emptyWorldState, type WorldState } from "@dm/contracts";
+import { emptyWorldState, type WorldState } from "@particle/contracts";
 
 const T = "2026-08-19T00:00:00Z";
 let clockN = 0;

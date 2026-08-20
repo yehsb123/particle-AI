@@ -1,5 +1,5 @@
 {
-  "name": "@dm/runtime-core",
+  "name": "@particle/runtime-core",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -8,18 +8,18 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
-    "@dm/world-model": "workspace:*",
-    "@dm/significance-engine": "workspace:*",
-    "@dm/decision-engine": "workspace:*",
-    "@dm/capability-core": "workspace:*",
-    "@dm/permission-engine": "workspace:*",
-    "@dm/morph-engine": "workspace:*",
-    "@dm/ui-registry": "workspace:*",
-    "@dm/intelligence": "workspace:*"
+    "@particle/contracts": "workspace:*",
+    "@particle/world-model": "workspace:*",
+    "@particle/significance-engine": "workspace:*",
+    "@particle/decision-engine": "workspace:*",
+    "@particle/capability-core": "workspace:*",
+    "@particle/permission-engine": "workspace:*",
+    "@particle/morph-engine": "workspace:*",
+    "@particle/ui-registry": "workspace:*",
+    "@particle/intelligence": "workspace:*"
   },
   "devDependencies": {
-    "@dm/ui-protocol": "workspace:*",
+    "@particle/ui-protocol": "workspace:*",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

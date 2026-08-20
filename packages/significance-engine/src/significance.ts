@@ -1,5 +1,5 @@
-import type { MatterEvent, SignificanceResult, WorldState } from "@dm/contracts";
-import { SEVERITY_RANK } from "@dm/contracts";
+import type { MatterEvent, SignificanceResult, WorldState } from "@particle/contracts";
+import { SEVERITY_RANK } from "@particle/contracts";
 
 export type SignificanceConfig = {
   weights: { severity: number; relevance: number; novelty: number; problem: number };

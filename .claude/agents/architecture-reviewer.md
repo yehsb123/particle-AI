@@ -6,7 +6,7 @@ tools: Read, Grep, Glob
 
 You review Digital Matter changes for architecture integrity. Enforce:
 
-- `@dm/contracts` imports nothing internal; no package imports "up" toward apps.
+- `@particle/contracts` imports nothing internal; no package imports "up" toward apps.
 - The decision engine never imports React or touches the DOM; providers never call UI.
 - The MCP adapter never owns runtime decisions; persistence holds no product logic.
 - Reducers, significance scoring, permission checks, patch validation, and morph guards stay

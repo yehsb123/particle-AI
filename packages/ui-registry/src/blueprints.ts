@@ -1,5 +1,5 @@
-import type { UIBlueprint, UIPatch } from "@dm/contracts";
-import { UI_SCHEMA_VERSION } from "@dm/contracts";
+import type { UIBlueprint, UIPatch } from "@particle/contracts";
+import { UI_SCHEMA_VERSION } from "@particle/contracts";
 
 /**
  * The initial development workspace. This is a *code workspace*, not a chat screen —

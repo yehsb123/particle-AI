@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseBlueprint, collectIds, hasUniqueIds, findById, findParent } from "./index";
-import type { UIComponent } from "@dm/contracts";
+import type { UIComponent } from "@particle/contracts";
 
 const tree: UIComponent = {
   id: "root",

@@ -1,4 +1,4 @@
-import type { UIPatch } from "@dm/contracts";
+import type { UIPatch } from "@particle/contracts";
 
 /** A bounded stack of inverse patches enabling "undo last morph". */
 export class MorphHistory {

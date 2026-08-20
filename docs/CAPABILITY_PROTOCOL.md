@@ -32,6 +32,6 @@ flow is exercised end to end.
 
 ## MCP as a capability source
 
-`@dm/mcp-adapter` turns any MCP tool into a `Capability` (`mcp.<server>.<tool>`), inferring
+`@particle/mcp-adapter` turns any MCP tool into a `Capability` (`mcp.<server>.<tool>`), inferring
 risk from annotations, an override, or a name heuristic. The core runtime does not care
 whether an ability came from native code or MCP — it only sees the `Capability` interface.

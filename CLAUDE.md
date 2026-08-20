@@ -48,7 +48,7 @@ packages/*      contracts, event-core, world-model, significance-engine,
 ```
 
 Internal packages ship raw TypeScript (no build step) and are consumed via
-`transpilePackages` (web) / tsx (runtime) / vitest (tests). Package names are `@dm/<name>`.
+`transpilePackages` (web) / tsx (runtime) / vitest (tests). Package names are `@particle/<name>`.
 
 ## Commands
 

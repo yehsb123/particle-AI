@@ -1,5 +1,5 @@
 {
-  "name": "@dm/ui-protocol",
+  "name": "@particle/ui-protocol",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
+    "@particle/contracts": "workspace:*",
     "zod": "^3.24.1"
   },
   "devDependencies": {

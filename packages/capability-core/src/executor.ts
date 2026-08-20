@@ -1,4 +1,4 @@
-import type { CapabilityResult, CapabilityRun } from "@dm/contracts";
+import type { CapabilityResult, CapabilityRun } from "@particle/contracts";
 import type { CapabilityRegistry } from "./registry";
 import type { CapabilityContext } from "./types";
 

@@ -1,4 +1,4 @@
-import type { MatterEvent } from "@dm/contracts";
+import type { MatterEvent } from "@particle/contracts";
 
 export type SimSpec = {
   label: string;

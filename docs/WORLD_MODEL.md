@@ -18,7 +18,7 @@ replay can reconstruct exactly.
 
 ## Reducer
 
-`reduce(prev, event) → next` (package `@dm/world-model`) is a **pure function** with no
+`reduce(prev, event) → next` (package `@particle/world-model`) is a **pure function** with no
 clock reads — time comes from the event. Highlights:
 
 - `development.*` events set `activeContext` to software/development.
@@ -34,7 +34,7 @@ makes replay (Phase 8) exact.
 
 ## Perception plumbing
 
-- `@dm/event-core` `EventStore`: append-only, validates on append, indexes by session,
+- `@particle/event-core` `EventStore`: append-only, validates on append, indexes by session,
   and notifies subscribers.
 - `apps/runtime` `SessionRuntime`: owns the store, per-session world state and current UI,
   and publishes `world_state_changed` / `ui_patch` messages over WebSocket

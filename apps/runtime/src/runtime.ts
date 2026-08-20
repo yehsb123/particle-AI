@@ -1,9 +1,9 @@
-import type { AuditRecord, MatterEvent, UIBlueprint, WorldState } from "@dm/contracts";
-import { MatterEvent as MatterEventSchema } from "@dm/contracts";
-import { EventStore } from "@dm/event-core";
-import { AuditLog, ApprovalStore } from "@dm/permission-engine";
-import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@dm/runtime-core";
-import type { EventLogStore } from "@dm/persistence";
+import type { AuditRecord, MatterEvent, UIBlueprint, WorldState } from "@particle/contracts";
+import { MatterEvent as MatterEventSchema } from "@particle/contracts";
+import { EventStore } from "@particle/event-core";
+import { AuditLog, ApprovalStore } from "@particle/permission-engine";
+import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
+import type { EventLogStore } from "@particle/persistence";
 
 /** Messages the runtime publishes to connected clients. */
 export type RuntimeMessage =

@@ -1,13 +1,13 @@
 import type {
   ModelRouteDecision,
   RuntimeDecision,
-} from "@dm/contracts";
-import { RuntimeDecision as RuntimeDecisionSchema } from "@dm/contracts";
+} from "@particle/contracts";
+import { RuntimeDecision as RuntimeDecisionSchema } from "@particle/contracts";
 import {
   IntelligenceRouter,
   deterministicDecision,
   type DecisionContext,
-} from "@dm/intelligence";
+} from "@particle/intelligence";
 
 const DECISION_SYSTEM =
   "You are the decision engine of an adaptive computing runtime. Given an event, the current " +

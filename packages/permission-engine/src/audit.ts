@@ -1,4 +1,4 @@
-import type { AuditRecord } from "@dm/contracts";
+import type { AuditRecord } from "@particle/contracts";
 
 /** Append-only audit trail. Every autonomous decision and execution lands here. */
 export class AuditLog {

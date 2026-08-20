@@ -1,5 +1,5 @@
 {
-  "name": "@dm/ui-registry",
+  "name": "@particle/ui-registry",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dm/contracts": "workspace:*"
+    "@particle/contracts": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

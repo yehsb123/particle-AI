@@ -27,7 +27,7 @@ property the `replay` test asserts.
 
 ```bash
 pnpm test                        # all unit/integration (turbo)
-pnpm --filter @dm/web test:e2e   # Playwright (needs a server on :3000)
+pnpm --filter @particle/web test:e2e   # Playwright (needs a server on :3000)
 pnpm typecheck                   # strict typecheck across the monorepo
 ```
 

@@ -30,5 +30,5 @@ provider-independent, and permission-controlled.*
 pnpm install
 pnpm test          # 77 unit/integration tests
 pnpm web           # open http://localhost:3000 and use the Simulation Lab
-pnpm --filter @dm/web test:e2e   # Playwright: incident → morph → recover → undo
+pnpm --filter @particle/web test:e2e   # Playwright: incident → morph → recover → undo
 ```

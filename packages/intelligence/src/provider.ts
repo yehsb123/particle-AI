@@ -3,7 +3,7 @@ import type {
   IntelligenceResult,
   ModelCapability,
   ProviderHealth,
-} from "@dm/contracts";
+} from "@particle/contracts";
 
 /**
  * The provider abstraction. The decision engine depends ONLY on this interface — never on a

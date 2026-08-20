@@ -1,4 +1,4 @@
-import type { MatterEvent } from "@dm/contracts";
+import type { MatterEvent } from "@particle/contracts";
 
 /**
  * Storage seam. The MVP uses in-memory implementations; a Drizzle/Postgres implementation can

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { reduce } from "./index";
-import { emptyWorldState, type MatterEvent } from "@dm/contracts";
+import { emptyWorldState, type MatterEvent } from "@particle/contracts";
 
 const T = "2026-08-19T00:00:00Z";
 function ev(type: string, extra: Partial<MatterEvent> = {}): MatterEvent {

@@ -1,4 +1,4 @@
-import type { AutonomyLevel, RiskLevel } from "@dm/contracts";
+import type { AutonomyLevel, RiskLevel } from "@particle/contracts";
 
 /**
  * Autonomy levels:

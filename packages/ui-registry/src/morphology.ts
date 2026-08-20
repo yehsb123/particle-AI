@@ -1,4 +1,4 @@
-import type { UIBlueprint, UIComponent, UIMorphIntent, UIPatch } from "@dm/contracts";
+import type { UIBlueprint, UIComponent, UIMorphIntent, UIPatch } from "@particle/contracts";
 import { incidentPatch, recoveryPatch } from "./blueprints";
 
 function findById(node: UIComponent, id: string): UIComponent | undefined {

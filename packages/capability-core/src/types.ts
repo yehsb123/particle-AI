@@ -1,4 +1,4 @@
-import type { CapabilityManifest, CapabilityResult, WorldState } from "@dm/contracts";
+import type { CapabilityManifest, CapabilityResult, WorldState } from "@particle/contracts";
 
 export type CapabilityContext = {
   sessionId: string;

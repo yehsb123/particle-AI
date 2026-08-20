@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState } from "react";
-import type { UIAction, UIComponent } from "@dm/contracts";
+import type { UIAction, UIComponent } from "@particle/contracts";
 
 type TreeItem = { label: string; children?: TreeItem[] };
 type TimelineItem = { time?: string; label: string };

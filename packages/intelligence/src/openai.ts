@@ -4,7 +4,7 @@ import type {
   ModelCapability,
   ModelTier,
   ProviderHealth,
-} from "@dm/contracts";
+} from "@particle/contracts";
 import type { IntelligenceProvider } from "./provider";
 import { jsonFromText, postJson } from "./http";
 

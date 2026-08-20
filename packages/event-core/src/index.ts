@@ -1,4 +1,4 @@
-import { MatterEvent } from "@dm/contracts";
+import { MatterEvent } from "@particle/contracts";
 
 export type EventHandler = (event: MatterEvent) => void;
 

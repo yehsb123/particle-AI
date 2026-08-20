@@ -1,5 +1,5 @@
 import type { IngestResult, RuntimeClock, RuntimeCore } from "./index";
-import type { MatterEvent } from "@dm/contracts";
+import type { MatterEvent } from "@particle/contracts";
 import { createRuntimeCore } from "./factory";
 
 export type ReplayResult = {

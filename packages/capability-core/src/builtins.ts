@@ -1,4 +1,4 @@
-import type { CapabilityManifest } from "@dm/contracts";
+import type { CapabilityManifest } from "@particle/contracts";
 import type { Capability, CapabilityContext } from "./types";
 
 function manifest(m: Partial<CapabilityManifest> & Pick<CapabilityManifest, "id" | "name" | "risk">): CapabilityManifest {

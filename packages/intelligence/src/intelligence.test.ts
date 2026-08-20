@@ -3,7 +3,7 @@ import { MockProvider } from "./mock";
 import { deterministicDecision, type DecisionContext } from "./deterministic";
 import { IntelligenceRouter, buildDefaultProviders } from "./router";
 import type { IntelligenceProvider } from "./provider";
-import { emptyWorldState, RuntimeDecision, type MatterEvent, type ModelCapability, type WorldState } from "@dm/contracts";
+import { emptyWorldState, RuntimeDecision, type MatterEvent, type ModelCapability, type WorldState } from "@particle/contracts";
 
 const T = "2026-08-19T00:00:00Z";
 const sig = { score: 0.9, reasonCodes: [], shouldDeliberate: true };

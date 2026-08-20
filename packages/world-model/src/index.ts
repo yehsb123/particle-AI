@@ -1,5 +1,5 @@
-import type { MatterEvent, Problem, ProcessState, WorldState } from "@dm/contracts";
-import { RECENT_EVENTS_LIMIT } from "@dm/contracts";
+import type { MatterEvent, Problem, ProcessState, WorldState } from "@particle/contracts";
+import { RECENT_EVENTS_LIMIT } from "@particle/contracts";
 
 const PROBLEM_OPENERS: Record<string, { kind: string; summary: string; severity: "warning" | "critical" }> = {
   "development.server_error": { kind: "runtime_error", summary: "Service returned a runtime error", severity: "critical" },

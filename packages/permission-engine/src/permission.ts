@@ -1,4 +1,4 @@
-import type { AutonomyLevel, RiskLevel } from "@dm/contracts";
+import type { AutonomyLevel, RiskLevel } from "@particle/contracts";
 import { classify, type PermissionOutcome } from "./autonomy";
 
 export type PermissionItem = { capabilityId: string; risk: RiskLevel };

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import type { AttentionState, MatterEvent, UIAction, UIBlueprint } from "@dm/contracts";
-import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@dm/runtime-core";
+import type { AttentionState, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
+import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";

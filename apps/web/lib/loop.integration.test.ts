@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { UIBlueprint } from "@dm/contracts";
-import { developmentBlueprint } from "@dm/ui-registry";
-import { applyPatch, guardPatch, MorphHistory, DEFAULT_MORPH_POLICY } from "@dm/morph-engine";
-import { findById } from "@dm/ui-protocol";
+import type { UIBlueprint } from "@particle/contracts";
+import { developmentBlueprint } from "@particle/ui-registry";
+import { applyPatch, guardPatch, MorphHistory, DEFAULT_MORPH_POLICY } from "@particle/morph-engine";
+import { findById } from "@particle/ui-protocol";
 import { decide } from "./decide";
 import { buildEvent, SIM_EVENTS } from "./sim";
 

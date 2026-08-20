@@ -3,7 +3,7 @@
 Updated at the end of each phase.
 
 ## Post-MVP additions (name: **Particle AI**)
-- Rebranded the product to **Particle AI** (repo `particle-AI`); internal namespace stays `@dm/*`.
+- Rebranded the product to **Particle AI** (repo `particle-AI`); internal namespace stays `@particle/*`.
 - **Developer Inspector** (spec §31): toggleable in-UI panel — event trace, world state,
   structured decision, and audit trail.
 - **Connected mode**: the web app can drive the runtime **server** over WebSocket
@@ -21,8 +21,8 @@ Updated at the end of each phase.
 
 ## Phase 1 — UI Matter — ✅ done
 - Implemented:
-  - `@dm/ui-protocol`: blueprint/patch validation + tree helpers (find, collect, unique-ids).
-  - `@dm/morph-engine`: pure `applyPatch` with inverse generation, `MorphGuard`
+  - `@particle/ui-protocol`: blueprint/patch validation + tree helpers (find, collect, unique-ids).
+  - `@particle/morph-engine`: pure `applyPatch` with inverse generation, `MorphGuard`
     (confidence gates, cooldown, major-dwell, focus protection, unsaved-state protection,
     critical bypass), `computeDiff`, and `MorphHistory` (undo).
   - `apps/web` (Next.js 15 / React 19): schema-driven `Render`er over the approved registry,
@@ -39,10 +39,10 @@ Updated at the end of each phase.
 
 ## Phase 2 — Perception — ✅ done
 - Implemented:
-  - `@dm/contracts`: `WorldState`, `Problem`, `Goal`, `ProcessState`, `IntentHypothesis`,
+  - `@particle/contracts`: `WorldState`, `Problem`, `Goal`, `ProcessState`, `IntentHypothesis`,
     `AutonomyState` + `emptyWorldState`.
-  - `@dm/event-core`: append-only `EventStore` (validates, session-indexed, subscribable).
-  - `@dm/world-model`: pure `reduce(prev, event)` — opens/closes problems, tracks process
+  - `@particle/event-core`: append-only `EventStore` (validates, session-indexed, subscribable).
+  - `@particle/world-model`: pure `reduce(prev, event)` — opens/closes problems, tracks process
     health, files, goal, and attention.
   - `apps/runtime` (Fastify 5 + `@fastify/websocket`): `SessionRuntime`, REST
     (`/api/events`, `/api/sessions/:id/{state,events,ui}`, `/api/sim/:id/:key`), and
@@ -54,10 +54,10 @@ Updated at the end of each phase.
 - Next: Phase 3 — Reflex (significance engine + transitions + guard already in morph-engine).
 
 ## Phase 3 — Reflex — ✅ done
-- Implemented: `@dm/significance-engine` — pure `evaluateSignificance(event, world, config)`
+- Implemented: `@particle/significance-engine` — pure `evaluateSignificance(event, world, config)`
   (severity + relevance + novelty + problem-transition under configurable weights, anti-thrash
   novelty decay), `suggestMode`, `nextPresence`. `SignificanceResult` added to contracts.
-  MorphGuard + focus/unsaved protection already shipped in `@dm/morph-engine` (Phase 1).
+  MorphGuard + focus/unsaved protection already shipped in `@particle/morph-engine` (Phase 1).
 - Tested: 5 tests (critical deliberation, reflex-only repetition, recovery-only-when-open,
   configurable threshold, mode switch). Typecheck clean.
 - Next: Phase 4 — Deep Brain (provider abstraction, mock+real adapters, decision engine, router).
@@ -67,11 +67,11 @@ Updated at the end of each phase.
   - Contracts: `RuntimeDecision` (structured, never prose), `UIMorphPlan` (intent, not a
     patch — keeps intelligence UI-free), `CapabilityPlan`, `AutonomyRequirement`, and the
     `Intelligence*` types (`IntelligenceProvider` request/result, `ModelRouteDecision`).
-  - `@dm/intelligence`: `IntelligenceProvider` interface; `MockProvider` (deterministic
+  - `@particle/intelligence`: `IntelligenceProvider` interface; `MockProvider` (deterministic
     brain, no key needed); real fetch adapters `AnthropicProvider`, `OpenAIProvider`,
     `LocalModelProvider` (OpenAI-compatible); `IntelligenceRouter` (cheap→reflex,
     capable→deliberation, local→privacy, always-mock fallback); `buildDefaultProviders`.
-  - `@dm/decision-engine`: routes → provider.evaluate → **validates** output; any invalid
+  - `@particle/decision-engine`: routes → provider.evaluate → **validates** output; any invalid
     model output is discarded for the deterministic decision (a bad model can't corrupt state).
 - Tested: 11 tests (deterministic decision, mock structured output, router selection across
   tiers/privacy/health, fallback-to-deterministic on junk output). Typecheck clean.
@@ -83,9 +83,9 @@ Updated at the end of each phase.
 - Implemented:
   - Contracts: `CapabilityManifest`, `CapabilityResult`, `CapabilityRun`, `ApprovalRequest`,
     `AuditRecord`.
-  - `@dm/permission-engine`: autonomy rules (`canAutoRun`/`classify`), pure `evaluatePlan`
+  - `@particle/permission-engine`: autonomy rules (`canAutoRun`/`classify`), pure `evaluatePlan`
     (authorized / needs-approval / denied), `ApprovalStore`, `AuditLog`.
-  - `@dm/capability-core`: `Capability` interface, `CapabilityRegistry`, `CapabilityExecutor`
+  - `@particle/capability-core`: `Capability` interface, `CapabilityRegistry`, `CapabilityExecutor`
     (auditable runs), and 9 built-in capabilities (read-only + `memory.store` safe_write to
     exercise gating). External-effect/destructive deliberately omitted until the flow is wired.
 - Tested: 10 tests (autonomy gating by risk×level, plan split, approvals, audit, execution,
@@ -93,7 +93,7 @@ Updated at the end of each phase.
 - Next: Phase 6 — MCP adapter (normalise MCP tools into capabilities).
 
 ## Phase 6 — MCP — ✅ done
-- Implemented: `@dm/mcp-adapter` — `McpClient` interface (transport-agnostic),
+- Implemented: `@particle/mcp-adapter` — `McpClient` interface (transport-agnostic),
   `inferRisk` (annotations → override → name heuristic → external default),
   `mcpToolToCapability` (namespaced `mcp.<server>.<tool>`), `discoverMcpCapabilities`.
   MCP tools become ordinary capabilities; MCP specifics stay out of the core.
@@ -101,7 +101,7 @@ Updated at the end of each phase.
 - Next: Phase 7 — wire the full loop end to end.
 
 ## Phase 7 — Integrated demo — ✅ done
-- Implemented: `@dm/ui-registry.planMorph` (intent→patch, idempotent); `@dm/runtime-core`
+- Implemented: `@particle/ui-registry.planMorph` (intent→patch, idempotent); `@particle/runtime-core`
   `RuntimeCore` — the canonical loop (perception→significance→decision→permission→capability
   →morphology→guard→apply→audit) + `createRuntimeCore` factory. The web app now drives the
   real loop; the runtime server composes the same core over REST/WebSocket
@@ -114,10 +114,10 @@ Updated at the end of each phase.
 
 ## Phase 8 — Reliability — ✅ done
 - Implemented:
-  - `@dm/runtime-core.replay` — deterministic event-sourced replay (reconstructs identical
+  - `@particle/runtime-core.replay` — deterministic event-sourced replay (reconstructs identical
     UI/world from the log).
-  - `@dm/observability` — structured logger + `TraceStore` (developer inspector rows).
-  - `@dm/persistence` — `EventLogStore`/`SnapshotStore` seams + in-memory impls (Postgres/
+  - `@particle/observability` — structured logger + `TraceStore` (developer inspector rows).
+  - `@particle/persistence` — `EventLogStore`/`SnapshotStore` seams + in-memory impls (Postgres/
     Drizzle deferred behind the same interfaces).
   - Playwright E2E (`apps/web/e2e`) — incident→morph→recover→undo + no-morph on unrelated event.
   - Remaining docs: PRODUCT_SPEC, MVP (acceptance table A–O), CAPABILITY_PROTOCOL,

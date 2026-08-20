@@ -1,5 +1,5 @@
 {
-  "name": "@dm/persistence",
+  "name": "@particle/persistence",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
+    "@particle/contracts": "workspace:*",
     "drizzle-orm": "^0.38.3",
     "postgres": "^3.4.5"
   },

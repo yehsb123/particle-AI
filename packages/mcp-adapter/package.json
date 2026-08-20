@@ -1,5 +1,5 @@
 {
-  "name": "@dm/mcp-adapter",
+  "name": "@particle/mcp-adapter",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -8,8 +8,8 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
   "dependencies": {
-    "@dm/contracts": "workspace:*",
-    "@dm/capability-core": "workspace:*"
+    "@particle/contracts": "workspace:*",
+    "@particle/capability-core": "workspace:*"
   },
   "devDependencies": { "typescript": "^5.7.2", "vitest": "^2.1.8" }
 }

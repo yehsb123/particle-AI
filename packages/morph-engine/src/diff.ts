@@ -3,7 +3,7 @@ import type {
   UIComponent,
   UIPatch,
   UIPatchOperation,
-} from "@dm/contracts";
+} from "@particle/contracts";
 
 type Loc = { node: UIComponent; parentId: string | null; index: number };
 

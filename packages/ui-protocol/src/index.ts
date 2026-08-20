@@ -3,7 +3,7 @@ import {
   UIPatch,
   UIComponent,
   type UIComponent as UIComponentT,
-} from "@dm/contracts";
+} from "@particle/contracts";
 import { z } from "zod";
 
 export type ParseResult<T> =

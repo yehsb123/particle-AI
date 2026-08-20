@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { UIBlueprint, UIPatch } from "@dm/contracts";
-import { UI_SCHEMA_VERSION } from "@dm/contracts";
+import type { UIBlueprint, UIPatch } from "@particle/contracts";
+import { UI_SCHEMA_VERSION } from "@particle/contracts";
 import { applyPatch } from "./apply";
 import { guardPatch } from "./guard";
 import { computeDiff } from "./diff";

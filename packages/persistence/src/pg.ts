@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { eq, and } from "drizzle-orm";
-import type { MatterEvent } from "@dm/contracts";
+import type { MatterEvent } from "@particle/contracts";
 import { events, snapshots } from "./schema";
 import type { EventLogStore, Snapshot, SnapshotStore } from "./index";
 

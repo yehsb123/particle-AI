@@ -1,4 +1,4 @@
-import type { SignificanceResult, WorldState } from "@dm/contracts";
+import type { SignificanceResult, WorldState } from "@particle/contracts";
 
 export type WorkspaceMode = "development" | "incident";
 export type PresenceState = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";

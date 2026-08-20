@@ -1,4 +1,4 @@
-import { COMPONENT_TYPES, type ComponentType } from "@dm/contracts";
+import { COMPONENT_TYPES, type ComponentType } from "@particle/contracts";
 
 export type ComponentCategory = "atom" | "data" | "workspace" | "layout";
 
