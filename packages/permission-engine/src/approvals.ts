@@ -22,6 +22,11 @@ export class ApprovalStore {
     return this.setStatus(id, "approved");
   }
 
+  /** Remove an approval entirely (e.g. after rejection, so it can be re-offered). */
+  delete(id: string): boolean {
+    return this.items.delete(id);
+  }
+
   reject(id: string): ApprovalRequest | undefined {
     return this.setStatus(id, "rejected");
   }

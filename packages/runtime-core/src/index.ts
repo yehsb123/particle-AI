@@ -82,6 +82,9 @@ type SessionState = {
   lastMorphAt?: number;
   lastMajorMorphAt?: number;
   presence: PresenceState;
+  memory: MemorySystem;
+  /** serializes ingest per session so concurrent events don't interleave shared state */
+  queue: Promise<unknown>;
 };
 
 /**
@@ -93,7 +96,6 @@ export class RuntimeCore {
   private sessions = new Map<string, SessionState>();
   private executor: CapabilityExecutor;
   private autonomyLevel: AutonomyLevel;
-  readonly memory = new MemorySystem();
   readonly approvals = new ApprovalStore();
   /** pending capability executions awaiting approval, keyed by approval id */
   private pendingExecutions = new Map<string, { capabilityId: string; input?: unknown; sessionId: string }>();
@@ -111,10 +113,17 @@ export class RuntimeCore {
         blueprint: developmentBlueprint(this.deps.clock.iso()),
         history: new MorphHistory(),
         presence: "observing",
+        memory: new MemorySystem(),
+        queue: Promise.resolve(),
       };
       this.sessions.set(sessionId, s);
     }
     return s;
+  }
+
+  /** Per-session experience (working/episodic/preference/pattern). */
+  memoryFor(sessionId: string): MemorySystem {
+    return this.session(sessionId).memory;
   }
 
   getAutonomyLevel(): AutonomyLevel {
@@ -142,7 +151,16 @@ export class RuntimeCore {
     return this.session(sessionId).history.canUndo;
   }
 
-  async ingest(event: MatterEvent, attention: AttentionState = { typing: false }): Promise<IngestResult> {
+  /** Public entry: serialize ingests per session so concurrent events cannot interleave. */
+  ingest(event: MatterEvent, attention: AttentionState = { typing: false }): Promise<IngestResult> {
+    const s = this.session(event.sessionId);
+    const run = s.queue.then(() => this.runIngest(event, attention));
+    // keep the chain alive even if a run rejects, so later ingests still serialize
+    s.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async runIngest(event: MatterEvent, attention: AttentionState): Promise<IngestResult> {
     const s = this.session(event.sessionId);
     const audit: AuditRecord[] = [];
 
@@ -195,7 +213,7 @@ export class RuntimeCore {
     // Risky capabilities do not auto-run — create an approval request a human must decide on.
     const pendingApprovals: ApprovalRequest[] = [];
     for (const item of permission.needsApproval) {
-      const id = `appr-${decision.id}-${item.capabilityId}`;
+      const id = `appr-${event.sessionId}-${decision.id}-${item.capabilityId}`;
       if (this.approvals.get(id)) continue;
       const req = this.approvals.create({
         id,
@@ -250,20 +268,22 @@ export class RuntimeCore {
 
         // Experience: remember this situation, reinforce the preference, and detect patterns.
         const iso = this.deps.clock.iso();
-        this.memory.episodic.record({
+        s.memory.episodic.record({
           id: decision.id,
           at: iso,
           context: `${decision.recommendedMode ?? "development"}.${intent}`,
           summary: decision.reasonSummary,
           eventTypes: [event.type],
         });
-        this.memory.preferences.reinforce(`morph:${intent}`);
-        this.memory.patterns.observe(`${event.type}->${intent}`, iso);
-        patternSuggestions = this.memory.patterns.takeSuggestions();
+        s.memory.preferences.reinforce(`morph:${intent}`);
+        s.memory.patterns.observe(`${event.type}->${intent}`, iso);
+        patternSuggestions = s.memory.patterns.takeSuggestions();
       } else {
         audit.push(this.record(event.sessionId, "morph_blocked", { intent, reasonCodes: guard.reasonCodes }));
       }
     }
+
+    this.reflectApprovalPresence(s, pendingApprovals, morph.applied);
 
     return {
       ...base,
@@ -283,6 +303,11 @@ export class RuntimeCore {
     };
   }
 
+  /** Reflect pending approvals in the AI presence (no morph applied but consent is needed). */
+  private reflectApprovalPresence(s: SessionState, pending: ApprovalRequest[], morphed: boolean): void {
+    if (pending.length > 0 && !morphed) s.presence = "waiting_for_approval";
+  }
+
   /** Approve a pending capability and execute it (records an audit run). */
   async approve(approvalId: string): Promise<ExecutionOutcome | null> {
     const pending = this.pendingExecutions.get(approvalId);
@@ -300,7 +325,10 @@ export class RuntimeCore {
   /** Reject a pending capability; it will not run. */
   reject(approvalId: string): ApprovalRequest | undefined {
     this.pendingExecutions.delete(approvalId);
-    return this.approvals.reject(approvalId);
+    const req = this.approvals.reject(approvalId);
+    // Drop the record so the same capability can be re-offered if the situation recurs.
+    this.approvals.delete(approvalId);
+    return req;
   }
 
   undo(sessionId: string): UIBlueprint | null {
@@ -309,7 +337,9 @@ export class RuntimeCore {
     if (!inverse) return null;
     const { next } = applyPatch(s.blueprint, inverse, this.deps.clock.iso());
     s.blueprint = next;
-    s.lastMorphAt = this.deps.clock.ms();
+    // Undo is a deliberate user action — clear morph timing so a re-morph isn't rate-limited.
+    s.lastMorphAt = undefined;
+    s.lastMajorMorphAt = undefined;
     return s.blueprint;
   }
 

@@ -21,7 +21,8 @@ export type McpAdapterOptions = {
   riskFor?: (tool: McpToolDescriptor) => RiskLevel | undefined;
 };
 
-const READ_HINTS = /(^|[._-])(get|list|read|search|fetch|query|describe|inspect)([._-]|$)/i;
+// Matches read verbs delimited by ._- / boundaries AND camelCase (getWeather, listResources).
+const READ_HINTS = /(^|[._-])(get|list|read|search|fetch|query|describe|inspect)([._-]|[A-Z]|$)/i;
 
 /** Classify an MCP tool's risk from annotations, an override, or a name heuristic. */
 export function inferRisk(tool: McpToolDescriptor, opts: McpAdapterOptions = {}): RiskLevel {

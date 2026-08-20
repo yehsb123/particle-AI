@@ -99,6 +99,27 @@ describe("RuntimeCore — full loop", () => {
     expect(inc.permission?.denied.length).toBeGreaterThan(0);
   });
 
+  it("keeps memory and approvals isolated per session", async () => {
+    const core = createRuntimeCore(makeClock());
+    const a = await core.ingest({ ...ev("development.server_error", "critical", "ea"), sessionId: "A" });
+    const b = await core.ingest({ ...ev("development.server_error", "critical", "eb"), sessionId: "B" });
+    // both sessions get their own approval (ids differ by session), neither is dropped
+    expect(a.pendingApprovals.length).toBe(1);
+    expect(b.pendingApprovals.length).toBe(1);
+    expect(a.pendingApprovals[0]!.id).not.toBe(b.pendingApprovals[0]!.id);
+    // per-session memory: each has exactly one episode, not two
+    expect(core.memoryFor("A").episodic.count()).toBe(1);
+    expect(core.memoryFor("B").episodic.count()).toBe(1);
+  });
+
+  it("re-offers a capability after it was rejected", async () => {
+    const core = createRuntimeCore(makeClock());
+    const first = await core.ingest(ev("development.server_error", "critical", "e1"));
+    const id = first.pendingApprovals[0]!.id;
+    core.reject(id);
+    expect(core.approvals.get(id)).toBeUndefined(); // removed, so it can recur
+  });
+
   it("hydrates a session's UI + world from a snapshot (resume)", async () => {
     const source = createRuntimeCore(makeClock());
     await source.ingest(ev("development.server_error", "critical", "e1"));
@@ -119,7 +140,7 @@ describe("RuntimeCore — full loop", () => {
     const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
     const approvalId = inc.pendingApprovals[0]!.id;
     core.reject(approvalId);
-    expect(core.approvals.get(approvalId)?.status).toBe("rejected");
-    expect(await core.approve(approvalId)).toBeNull(); // already consumed
+    expect(core.approvals.get(approvalId)).toBeUndefined(); // removed so it can be re-offered
+    expect(await core.approve(approvalId)).toBeNull(); // cannot execute a rejected capability
   });
 });
