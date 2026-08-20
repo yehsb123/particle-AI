@@ -8,6 +8,8 @@ Instead of asking AI to use software, the AI **becomes** the software.
 
 > ⚠️ Experimental research software. Not production-ready.
 
+[한국어 README →](README.ko.md)
+
 ## The idea
 
 Conventional generative AI is `prompt → model → response`. Particle AI runs a
