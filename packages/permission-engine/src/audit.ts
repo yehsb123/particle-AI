@@ -4,8 +4,12 @@ import type { AuditRecord } from "@particle/contracts";
 export class AuditLog {
   private records: AuditRecord[] = [];
 
+  /** Bounded ring so a long-lived process doesn't grow the audit trail without limit. */
+  constructor(private readonly limit = 5_000) {}
+
   append(record: AuditRecord): AuditRecord {
     this.records.push(record);
+    if (this.records.length > this.limit) this.records.shift();
     return record;
   }
 

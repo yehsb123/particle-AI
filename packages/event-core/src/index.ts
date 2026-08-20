@@ -12,12 +12,23 @@ export class EventStore {
   private bySession = new Map<string, MatterEvent[]>();
   private handlers = new Set<EventHandler>();
 
+  /** Bounded to avoid unbounded growth on a long-lived process (oldest evicted first). */
+  constructor(private readonly limit = 10_000) {}
+
   append(input: unknown): MatterEvent {
     const event = MatterEvent.parse(input);
     this.events.push(event);
     const list = this.bySession.get(event.sessionId) ?? [];
     list.push(event);
     this.bySession.set(event.sessionId, list);
+    if (this.events.length > this.limit) {
+      const oldest = this.events.shift()!;
+      const sList = this.bySession.get(oldest.sessionId);
+      if (sList) {
+        sList.shift();
+        if (sList.length === 0) this.bySession.delete(oldest.sessionId);
+      }
+    }
     for (const h of this.handlers) h(event);
     return event;
   }

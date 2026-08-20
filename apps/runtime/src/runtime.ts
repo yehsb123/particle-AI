@@ -78,13 +78,7 @@ export class SessionRuntime {
       provider: result.providerId,
     });
 
-    // Durable snapshots of the reshaped body + belief state (when configured).
-    if (this.snapshotStore && result.morph.applied) {
-      const at = this.now();
-      await this.snapshotStore.save({ sessionId: event.sessionId, kind: "world", at, data: result.worldState });
-      await this.snapshotStore.save({ sessionId: event.sessionId, kind: "ui", at, data: result.blueprint });
-    }
-
+    // Broadcast first so clients stay in sync even if durability hiccups.
     this.emit({ kind: "world_state_changed", sessionId: event.sessionId, worldState: result.worldState });
     this.emit({ kind: "ai_presence_changed", sessionId: event.sessionId, state: result.presence });
     if (result.morph.applied) {
@@ -92,6 +86,18 @@ export class SessionRuntime {
     }
     if (result.audit.length) {
       this.emit({ kind: "decision_created", sessionId: event.sessionId, audit: result.audit });
+    }
+
+    // Durable snapshots of the reshaped body + belief state (best-effort — a DB failure must
+    // not abort ingest or diverge clients from the server).
+    if (this.snapshotStore && result.morph.applied) {
+      const at = this.now();
+      try {
+        await this.snapshotStore.save({ sessionId: event.sessionId, kind: "world", at, data: result.worldState });
+        await this.snapshotStore.save({ sessionId: event.sessionId, kind: "ui", at, data: result.blueprint });
+      } catch (err) {
+        this.log.warn("snapshot_save_failed", { sessionId: event.sessionId, error: (err as Error).message });
+      }
     }
     return { event, result };
   }
@@ -102,7 +108,7 @@ export class SessionRuntime {
       const rec: AuditRecord = {
         id: `aud-appr-${approvalId}`,
         at: this.now(),
-        sessionId: "",
+        sessionId: outcome.sessionId,
         kind: "capability_approved",
         detail: { approvalId, capabilityId: outcome.capabilityId, ok: outcome.result.ok },
       };

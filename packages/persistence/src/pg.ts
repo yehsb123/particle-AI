@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import type { MatterEvent } from "@particle/contracts";
 import { events, snapshots } from "./schema";
 import type { EventLogStore, Snapshot, SnapshotStore } from "./index";
@@ -65,7 +65,9 @@ export class PgSnapshotStore implements SnapshotStore {
     const where = kind
       ? and(eq(snapshots.sessionId, sessionId), eq(snapshots.kind, kind))
       : eq(snapshots.sessionId, sessionId);
-    const rows = await this.db.select().from(snapshots).where(where);
+    // Order by the monotonic serial id so callers relying on insertion order (resume picks the
+    // LATEST snapshot via reverse().find) are correct — Postgres gives no order without this.
+    const rows = await this.db.select().from(snapshots).where(where).orderBy(asc(snapshots.id));
     return rows.map((r) => ({ sessionId: r.sessionId, kind: r.kind, at: r.at, data: r.data }));
   }
 }

@@ -23,7 +23,19 @@ export async function buildServer(): Promise<BuildResult> {
     reply.header("access-control-allow-origin", "*");
     reply.header("access-control-allow-headers", "content-type");
     reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
-    if (req.method === "OPTIONS") reply.code(204).send();
+    // MUST return the reply to short-circuit the OPTIONS lifecycle (else double-send error).
+    if (req.method === "OPTIONS") return reply.code(204).send();
+  });
+
+  // Never leak internal/DB error messages; map validation to 400, everything else to 500.
+  app.setErrorHandler((err, _req, reply) => {
+    const e = err as { name?: string; statusCode?: number };
+    if (e.name === "ZodError" || e.statusCode === 400) {
+      reply.code(400).send({ error: "invalid request" });
+      return;
+    }
+    reply.code(e.statusCode && e.statusCode >= 400 && e.statusCode < 500 ? e.statusCode : 500)
+      .send({ error: "internal error" });
   });
 
   await app.register(websocket);

@@ -309,17 +309,18 @@ export class RuntimeCore {
   }
 
   /** Approve a pending capability and execute it (records an audit run). */
-  async approve(approvalId: string): Promise<ExecutionOutcome | null> {
+  async approve(approvalId: string): Promise<(ExecutionOutcome & { sessionId: string }) | null> {
     const pending = this.pendingExecutions.get(approvalId);
     const req = this.approvals.approve(approvalId);
     if (!pending || !req) return null;
     this.pendingExecutions.delete(approvalId);
     const s = this.session(pending.sessionId);
-    return this.executor.execute(pending.capabilityId, pending.input, {
+    const outcome = await this.executor.execute(pending.capabilityId, pending.input, {
       sessionId: pending.sessionId,
       worldState: s.world,
       now: this.deps.clock.iso(),
     });
+    return { ...outcome, sessionId: pending.sessionId };
   }
 
   /** Reject a pending capability; it will not run. */

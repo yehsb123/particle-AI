@@ -19,8 +19,10 @@ export interface SnapshotStore {
 
 export class InMemoryEventLogStore implements EventLogStore {
   private events: MatterEvent[] = [];
+  constructor(private readonly limit = 10_000) {}
   async append(event: MatterEvent): Promise<void> {
     this.events.push(event);
+    if (this.events.length > this.limit) this.events.shift();
   }
   async listBySession(sessionId: string): Promise<MatterEvent[]> {
     return this.events.filter((e) => e.sessionId === sessionId);
@@ -32,8 +34,10 @@ export class InMemoryEventLogStore implements EventLogStore {
 
 export class InMemorySnapshotStore implements SnapshotStore {
   private snaps: Snapshot[] = [];
+  constructor(private readonly limit = 5_000) {}
   async save(snapshot: Snapshot): Promise<void> {
     this.snaps.push(snapshot);
+    if (this.snaps.length > this.limit) this.snaps.shift();
   }
   async list(sessionId: string, kind?: string): Promise<Snapshot[]> {
     return this.snaps.filter((s) => s.sessionId === sessionId && (!kind || s.kind === kind));

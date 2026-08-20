@@ -28,7 +28,12 @@ export async function createPersistence(databaseUrl?: string): Promise<Persisten
     };
   }
   const { sql, db } = connect(databaseUrl);
-  await ensureSchema(sql);
+  try {
+    await ensureSchema(sql);
+  } catch (err) {
+    await sql.end(); // don't leak the pool if schema init fails
+    throw err;
+  }
   return {
     events: new PgEventLogStore(db),
     snapshots: new PgSnapshotStore(db),
