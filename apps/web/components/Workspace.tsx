@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import type { ApprovalRequest, AttentionState, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
+import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
@@ -43,6 +43,7 @@ export function Workspace() {
   const [mode, setMode] = useState<"local" | "connected">("local");
   const [connected, setConnected] = useState(false);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
   const counter = useRef(0);
 
@@ -278,7 +279,31 @@ export function Workspace() {
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">mode</span><span>{blueprint.mode}</span>
             <span className="k">focus</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
+            <span className="k">autonomy</span>
+            <span>
+              <select
+                className="select"
+                style={{ width: "auto", padding: "4px 8px" }}
+                value={autonomy}
+                onChange={(e) => {
+                  const n = Number(e.target.value) as AutonomyLevel;
+                  setAutonomy(n);
+                  core.current.setAutonomyLevel(n);
+                  pushLog(`autonomy level → L${n}`, "note");
+                }}
+              >
+                <option value={0}>L0 · manual</option>
+                <option value={1}>L1 · suggestive</option>
+                <option value={2}>L2 · adaptive UI</option>
+                <option value={3}>L3 · assisted</option>
+                <option value={4}>L4 · autonomous</option>
+              </select>
+            </span>
           </div>
+          <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
+            Higher levels let more capability risks run without asking. Change it, then emit
+            HTTP 500: at L4 the remediation auto-runs; at L0/L1 even reads need consent.
+          </p>
         </section>
 
         {approvals.length ? (

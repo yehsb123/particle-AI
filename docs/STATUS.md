@@ -2,6 +2,20 @@
 
 Updated at the end of each phase.
 
+## Completion sprint (all committed)
+- **@particle/memory** (§20): working/episodic/preference stores + `PatternDetector` that
+  suggests reusable-template candidates (suggest-only). Fed by `RuntimeCore` on each morph;
+  `IngestResult.patternSuggestions`.
+- **Approval flow end-to-end** (§18, criterion J): `development.revert_diff` (external_effect)
+  is planned, gated to `needs_approval` at level 2, surfaced as an `ApprovalRequest`, shown in
+  the web "Approval required" UI, and **executed on approve** (`RuntimeCore.approve`, server
+  `/api/approvals/:id/approve`). Verified in unit + server + E2E.
+- **Snapshot persistence**: world + ui snapshots saved to `SnapshotStore` on morph
+  (`/api/sessions/:id/snapshots`); live-verified against Postgres.
+- **Material 3 redesign**: purple (#6750A4) token system, light + dark; served on :4000.
+- **CI**: GitHub Actions (typecheck + tests w/ Postgres service + web build + Playwright E2E).
+  LICENSE (MIT), CONTRIBUTING, README badges + Korean README.
+
 ## Post-MVP additions (name: **Particle AI**)
 - Rebranded the product to **Particle AI** (repo `particle-AI`); internal namespace stays `@particle/*`.
 - **Developer Inspector** (spec §31): toggleable in-UI panel — event trace, world state,

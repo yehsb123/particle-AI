@@ -117,6 +117,14 @@ export class RuntimeCore {
     return s;
   }
 
+  getAutonomyLevel(): AutonomyLevel {
+    return this.autonomyLevel;
+  }
+  /** Change the autonomy level — governs which capability risks auto-run vs need approval. */
+  setAutonomyLevel(level: AutonomyLevel): void {
+    this.autonomyLevel = level;
+  }
+
   getWorld(sessionId: string): WorldState {
     return this.session(sessionId).world;
   }
