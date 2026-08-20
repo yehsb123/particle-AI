@@ -21,4 +21,10 @@ test("connected mode morphs from server ui_patch frames", async ({ page, request
   await page.getByRole("button", { name: "HTTP 500" }).click();
   await expect(page.getByText("Runtime incident")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Error logs")).toBeVisible();
+
+  // The server also returns the pending approval for the risky remediation; approving it
+  // hits the server, which executes the capability.
+  await expect(page.getByText("Approval required")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Approve" }).first().click();
+  await expect(page.getByText("Approval required")).toHaveCount(0);
 });
