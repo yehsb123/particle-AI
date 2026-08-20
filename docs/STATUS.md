@@ -2,6 +2,15 @@
 
 Updated at the end of each phase.
 
+## Post-MVP additions (name: **Particle AI**)
+- Rebranded the product to **Particle AI** (repo `particle-AI`); internal namespace stays `@dm/*`.
+- **Developer Inspector** (spec §31): toggleable in-UI panel — event trace, world state,
+  structured decision, and audit trail.
+- **Connected mode**: the web app can drive the runtime **server** over WebSocket
+  (`RuntimeClient`), morphing the UI from `ui_patch` frames. Verified end to end in a real
+  browser (`e2e/connected.spec.ts`) and via a WS protocol probe. Local (client-loop) mode
+  remains the default so the demo is self-contained.
+
 ## Phase 0 — Architecture — ✅ in progress → done when skeleton installs
 - Implemented: monorepo skeleton, root config (pnpm/turbo/tsconfig), CLAUDE.md, README,
   core docs (VISION, ARCHITECTURE, RUNTIME_LOOP, UI_PROTOCOL, MORPH_ENGINE), ADRs 0001–0003,
