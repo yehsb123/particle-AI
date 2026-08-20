@@ -32,6 +32,7 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
 
   if (problems.length > 0) {
     const critical = problems.some((p) => p.severity === "critical");
+    const primary = problems.find((p) => p.severity === "critical") ?? problems[0]!;
     decision = {
       id,
       significance: significance.score,
@@ -51,6 +52,7 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
         intent: "surface_incident",
         targetMode: "incident",
         confidence: critical ? 0.92 : 0.85,
+        variant: primary.kind,
         reasonSummary:
           "An unresolved problem is active during development; surface an incident workspace beside the editor without discarding unsaved work.",
       },

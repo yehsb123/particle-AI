@@ -1,4 +1,4 @@
-import type { UIBlueprint, UIPatch } from "@particle/contracts";
+import type { UIBlueprint, UIComponent, UIPatch } from "@particle/contracts";
 import { UI_SCHEMA_VERSION } from "@particle/contracts";
 
 /**
@@ -72,119 +72,249 @@ export function developmentBlueprint(now: string, decisionId = "seed"): UIBluepr
   };
 }
 
-/**
- * The autonomous morph applied when a runtime incident is detected. It does NOT destroy
- * the editor — it reduces the file explorer and adds an incident panel beside the work.
- */
-export function incidentPatch(decisionId = "decision-incident"): UIPatch {
+export type IncidentKind = "runtime_error" | "build_failure" | "test_failure";
+
+const ACTIONS: UIComponent = {
+  id: "incident-actions",
+  type: "ActionPanel",
+  props: { title: "Suggested actions" },
+  children: [
+    {
+      id: "action-revert",
+      type: "Button",
+      props: { text: "Revert recent diff", tone: "primary" },
+      actions: [{ event: "user.requested_action", capabilityId: "development.revert_diff" }],
+    },
+    {
+      id: "action-undo-morph",
+      type: "Button",
+      props: { text: "Undo this change", tone: "muted" },
+      actions: [{ event: "user.requested_undo" }],
+    },
+  ],
+};
+
+/** Build the incident panel (id "incident") for a given problem kind. */
+function incidentPanel(kind: IncidentKind): UIComponent {
+  if (kind === "build_failure") {
+    return {
+      id: "incident",
+      type: "Panel",
+      props: { title: "Build failure", tone: "critical", badge: "BUILD" },
+      children: [
+        {
+          id: "incident-grid",
+          type: "Grid",
+          props: { columns: 2, gap: "md" },
+          children: [
+            {
+              id: "incident-logs",
+              type: "LogViewer",
+              props: {
+                title: "Compiler errors",
+                lines: [
+                  "src/routes.ts:2:19 - error TS2551: Property 'users' does not exist on type 'DB'.",
+                  "  Did you mean 'user'?",
+                  "Found 1 error in src/routes.ts",
+                ],
+              },
+            },
+            {
+              id: "incident-diff",
+              type: "DiffViewer",
+              props: {
+                title: "Recent changes",
+                diff: "- return db.users.findById(id);\n+ return db.user.findById(id);",
+              },
+            },
+            {
+              id: "incident-assessment",
+              type: "Card",
+              props: { title: "AI assessment" },
+              children: [
+                {
+                  id: "incident-assessment-text",
+                  type: "Markdown",
+                  props: { text: "The rename `db.users` → `db.user` broke the type check. Revert or fix the reference." },
+                },
+                { id: "incident-confidence", type: "Progress", props: { value: 0.9, label: "confidence" } },
+              ],
+            },
+            {
+              id: "incident-timeline",
+              type: "Timeline",
+              props: {
+                title: "Build timeline",
+                items: [
+                  { time: "T+0s", label: "Build started" },
+                  { time: "T+3s", label: "Type error in src/routes.ts" },
+                  { time: "T+3s", label: "Build failed" },
+                ],
+              },
+            },
+          ],
+        },
+        ACTIONS,
+      ],
+    };
+  }
+
+  if (kind === "test_failure") {
+    return {
+      id: "incident",
+      type: "Panel",
+      props: { title: "Test failure", tone: "critical", badge: "TESTS" },
+      children: [
+        {
+          id: "incident-grid",
+          type: "Grid",
+          props: { columns: 2, gap: "md" },
+          children: [
+            {
+              id: "incident-tests",
+              type: "Table",
+              props: {
+                title: "Failing tests",
+                columns: ["Test", "Status"],
+                rows: [
+                  ["getUser returns a user", "failed"],
+                  ["getUser handles missing id", "passed"],
+                ],
+              },
+            },
+            {
+              id: "incident-diff",
+              type: "DiffViewer",
+              props: {
+                title: "Assertion",
+                diff: "- expected: { id: '42', name: 'Ada' }\n+ received: undefined",
+              },
+            },
+            {
+              id: "incident-assessment",
+              type: "Card",
+              props: { title: "AI assessment" },
+              children: [
+                {
+                  id: "incident-assessment-text",
+                  type: "Markdown",
+                  props: { text: "`getUser` returns undefined — the `db.user` lookup likely misses. Confidence 78%." },
+                },
+                { id: "incident-confidence", type: "Progress", props: { value: 0.78, label: "confidence" } },
+              ],
+            },
+            {
+              id: "incident-timeline",
+              type: "Timeline",
+              props: {
+                title: "Test timeline",
+                items: [
+                  { time: "T+0s", label: "Test run started" },
+                  { time: "T+2s", label: "1 assertion failed" },
+                  { time: "T+2s", label: "Suite failed" },
+                ],
+              },
+            },
+          ],
+        },
+        ACTIONS,
+      ],
+    };
+  }
+
+  // runtime_error (default)
   return {
-    patchId: "patch-incident",
+    id: "incident",
+    type: "Panel",
+    props: { title: "Runtime incident", tone: "critical", badge: "CRITICAL" },
+    children: [
+      {
+        id: "incident-grid",
+        type: "Grid",
+        props: { columns: 2, gap: "md" },
+        children: [
+          {
+            id: "incident-logs",
+            type: "LogViewer",
+            props: {
+              title: "Error logs",
+              lines: [
+                "GET /users/42 → 500 Internal Server Error",
+                "TypeError: Cannot read properties of undefined (reading 'findById')",
+                "  at getUser (src/routes.ts:2:19)",
+              ],
+            },
+          },
+          {
+            id: "incident-diff",
+            type: "DiffViewer",
+            props: {
+              title: "Recent changes",
+              diff: "- return db.users.findById(id);\n+ return db.user.findById(id);",
+            },
+          },
+          {
+            id: "incident-services",
+            type: "Table",
+            props: {
+              title: "Service state",
+              columns: ["Service", "State"],
+              rows: [
+                ["API", "failed"],
+                ["DB", "healthy"],
+              ],
+            },
+          },
+          {
+            id: "incident-assessment",
+            type: "Card",
+            props: { title: "AI assessment" },
+            children: [
+              {
+                id: "incident-assessment-text",
+                type: "Markdown",
+                props: { text: "Probable cause: `db.users` renamed to `db.user` in the recent diff. Confidence 82%." },
+              },
+              { id: "incident-confidence", type: "Progress", props: { value: 0.82, label: "confidence" } },
+            ],
+          },
+          {
+            id: "incident-timeline",
+            type: "Timeline",
+            props: {
+              title: "Incident timeline",
+              items: [
+                { time: "T+0s", label: "First 500 on GET /users/42" },
+                { time: "T+1s", label: "Error rate spike detected" },
+                { time: "T+2s", label: "Probable cause localized to recent diff" },
+              ],
+            },
+          },
+          {
+            id: "incident-chart",
+            type: "Chart",
+            props: { title: "Errors / min", data: [0, 0, 1, 4, 9, 12, 7] },
+          },
+        ],
+      },
+      ACTIONS,
+    ],
+  };
+}
+
+/**
+ * The autonomous morph applied when a problem is detected. It does NOT destroy the editor —
+ * it reduces the file explorer and adds an incident panel (id "incident") beside the work.
+ * The layout adapts to the problem kind (runtime error / build failure / test failure).
+ */
+export function incidentPatch(decisionId = "decision-incident", kind: IncidentKind = "runtime_error"): UIPatch {
+  return {
+    patchId: `patch-incident-${kind}`,
     fromWorkspaceId: "ws-dev",
     decisionId,
     operations: [
       { op: "collapse", targetId: "files" },
-      {
-        op: "add",
-        parentId: "workspace",
-        index: 2,
-        component: {
-          id: "incident",
-          type: "Panel",
-          props: { title: "Runtime incident", tone: "critical", badge: "CRITICAL" },
-          children: [
-            {
-              id: "incident-grid",
-              type: "Grid",
-              props: { columns: 2, gap: "md" },
-              children: [
-                {
-                  id: "incident-logs",
-                  type: "LogViewer",
-                  props: {
-                    title: "Error logs",
-                    lines: [
-                      "GET /users/42 → 500 Internal Server Error",
-                      "TypeError: Cannot read properties of undefined (reading 'findById')",
-                      "  at getUser (src/routes.ts:2:19)",
-                    ],
-                  },
-                },
-                {
-                  id: "incident-diff",
-                  type: "DiffViewer",
-                  props: {
-                    title: "Recent changes",
-                    diff: "- return db.users.findById(id);\n+ return db.user.findById(id);",
-                  },
-                },
-                {
-                  id: "incident-services",
-                  type: "Table",
-                  props: {
-                    title: "Service state",
-                    columns: ["Service", "State"],
-                    rows: [
-                      ["API", "failed"],
-                      ["DB", "healthy"],
-                    ],
-                  },
-                },
-                {
-                  id: "incident-assessment",
-                  type: "Card",
-                  props: { title: "AI assessment" },
-                  children: [
-                    {
-                      id: "incident-assessment-text",
-                      type: "Markdown",
-                      props: {
-                        text: "Probable cause: `db.users` renamed to `db.user` in the recent diff. Confidence 82%.",
-                      },
-                    },
-                    { id: "incident-confidence", type: "Progress", props: { value: 0.82, label: "confidence" } },
-                  ],
-                },
-                {
-                  id: "incident-timeline",
-                  type: "Timeline",
-                  props: {
-                    title: "Incident timeline",
-                    items: [
-                      { time: "T+0s", label: "First 500 on GET /users/42" },
-                      { time: "T+1s", label: "Error rate spike detected" },
-                      { time: "T+2s", label: "Probable cause localized to recent diff" },
-                    ],
-                  },
-                },
-                {
-                  id: "incident-chart",
-                  type: "Chart",
-                  props: { title: "Errors / min", data: [0, 0, 1, 4, 9, 12, 7] },
-                },
-              ],
-            },
-            {
-              id: "incident-actions",
-              type: "ActionPanel",
-              props: { title: "Suggested actions" },
-              children: [
-                {
-                  id: "action-revert",
-                  type: "Button",
-                  props: { text: "Revert recent diff", tone: "primary" },
-                  actions: [{ event: "user.requested_action", capabilityId: "development.revert_diff" }],
-                },
-                {
-                  id: "action-undo-morph",
-                  type: "Button",
-                  props: { text: "Undo this change", tone: "muted" },
-                  actions: [{ event: "user.requested_undo" }],
-                },
-              ],
-            },
-          ],
-        },
-      },
+      { op: "add", parentId: "workspace", index: 2, component: incidentPanel(kind) },
       { op: "highlight", targetId: "incident" },
     ],
   };

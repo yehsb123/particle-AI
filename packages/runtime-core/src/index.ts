@@ -204,7 +204,7 @@ export class RuntimeCore {
 
     // Morphology → guard → apply
     const intent = decision.uiPlan?.intent ?? "none";
-    const desired = planMorph(s.blueprint, intent, decision.id);
+    const desired = planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant);
     const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
     let patternSuggestions: PatternCandidate[] = [];
 

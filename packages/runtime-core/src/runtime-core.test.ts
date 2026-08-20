@@ -43,6 +43,20 @@ describe("RuntimeCore — full loop", () => {
     expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
   });
 
+  it("adapts the incident layout to the problem kind", async () => {
+    const build = createRuntimeCore(makeClock());
+    await build.ingest(ev("development.build_failed", "warning", "b1"));
+    expect(findById(build.getBlueprint("s").root, "incident")?.props?.title).toBe("Build failure");
+
+    const test = createRuntimeCore(makeClock());
+    await test.ingest(ev("development.test_failed", "warning", "t1"));
+    expect(findById(test.getBlueprint("s").root, "incident")?.props?.title).toBe("Test failure");
+
+    const runtime = createRuntimeCore(makeClock());
+    await runtime.ingest(ev("development.server_error", "critical", "r1"));
+    expect(findById(runtime.getBlueprint("s").root, "incident")?.props?.title).toBe("Runtime incident");
+  });
+
   it("protects the editor: an incident never removes unsaved work", async () => {
     const core = createRuntimeCore(makeClock());
     await core.ingest(ev("development.server_error", "critical", "e1"));

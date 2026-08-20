@@ -1,5 +1,10 @@
 import type { UIBlueprint, UIComponent, UIMorphIntent, UIPatch } from "@particle/contracts";
-import { incidentPatch, recoveryPatch } from "./blueprints";
+import { incidentPatch, recoveryPatch, type IncidentKind } from "./blueprints";
+
+const INCIDENT_KINDS: IncidentKind[] = ["runtime_error", "build_failure", "test_failure"];
+function asIncidentKind(v: string | undefined): IncidentKind {
+  return (v && INCIDENT_KINDS.includes(v as IncidentKind) ? v : "runtime_error") as IncidentKind;
+}
 
 function findById(node: UIComponent, id: string): UIComponent | undefined {
   if (node.id === id) return node;
@@ -20,11 +25,12 @@ export function planMorph(
   current: UIBlueprint,
   intent: UIMorphIntent,
   decisionId = "decision",
+  variant?: string,
 ): UIPatch | null {
   const incidentPresent = !!findById(current.root, "incident");
   switch (intent) {
     case "surface_incident":
-      return incidentPresent ? null : incidentPatch(decisionId);
+      return incidentPresent ? null : incidentPatch(decisionId, asIncidentKind(variant));
     case "restore_normal":
       return incidentPresent ? recoveryPatch(decisionId) : null;
     case "augment":

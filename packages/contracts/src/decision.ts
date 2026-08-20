@@ -25,6 +25,8 @@ export const UIMorphPlan = z.object({
   targetMode: z.string().min(1),
   confidence: Confidence,
   reasonSummary: z.string(),
+  /** which incident layout to surface, e.g. "runtime_error" | "build_failure" | "test_failure" */
+  variant: z.string().optional(),
 });
 export type UIMorphPlan = z.infer<typeof UIMorphPlan>;
 
