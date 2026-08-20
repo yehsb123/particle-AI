@@ -3,7 +3,7 @@ import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { EventStore } from "@particle/event-core";
 import { AuditLog } from "@particle/permission-engine";
 import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
-import type { EventLogStore } from "@particle/persistence";
+import type { EventLogStore, SnapshotStore } from "@particle/persistence";
 
 /** Messages the runtime publishes to connected clients. */
 export type RuntimeMessage =
@@ -24,7 +24,11 @@ export class SessionRuntime {
   private core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
-  constructor(private readonly now: () => string, private readonly eventLog?: EventLogStore) {
+  constructor(
+    private readonly now: () => string,
+    private readonly eventLog?: EventLogStore,
+    private readonly snapshotStore?: SnapshotStore,
+  ) {
     this.core = createRuntimeCoreFromEnv({ iso: now, ms: () => Date.parse(now()) || 0 });
   }
 
@@ -47,6 +51,13 @@ export class SessionRuntime {
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
+
+    // Durable snapshots of the reshaped body + belief state (when configured).
+    if (this.snapshotStore && result.morph.applied) {
+      const at = this.now();
+      await this.snapshotStore.save({ sessionId: event.sessionId, kind: "world", at, data: result.worldState });
+      await this.snapshotStore.save({ sessionId: event.sessionId, kind: "ui", at, data: result.blueprint });
+    }
 
     this.emit({ kind: "world_state_changed", sessionId: event.sessionId, worldState: result.worldState });
     this.emit({ kind: "ai_presence_changed", sessionId: event.sessionId, state: result.presence });

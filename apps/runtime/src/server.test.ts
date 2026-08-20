@@ -82,6 +82,13 @@ describe("runtime REST", () => {
     expect(list.json().approvals.some((a: { status: string }) => a.status === "approved")).toBe(true);
   });
 
+  it("persists world + ui snapshots when the UI morphs", async () => {
+    await app.inject({ method: "POST", url: "/api/sim/s7/http-500" });
+    const snaps = await app.inject({ method: "GET", url: "/api/sessions/s7/snapshots" });
+    const kinds = (snaps.json().snapshots as { kind: string }[]).map((s) => s.kind).sort();
+    expect(kinds).toEqual(["ui", "world"]);
+  });
+
   it("serves a seed development UI blueprint per session", async () => {
     const res = await app.inject({ method: "GET", url: "/api/sessions/s3/ui" });
     expect(res.statusCode).toBe(200);

@@ -14,7 +14,7 @@ function isoNow(): string {
 export async function buildServer(): Promise<BuildResult> {
   const app = Fastify({ logger: false });
   const persistence = await createPersistence(process.env.DATABASE_URL);
-  const runtime = new SessionRuntime(isoNow, persistence.events);
+  const runtime = new SessionRuntime(isoNow, persistence.events, persistence.snapshots);
   app.addHook("onClose", async () => {
     await persistence.close();
   });
@@ -47,6 +47,7 @@ export async function buildServer(): Promise<BuildResult> {
   app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.getUI(req.params.id));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/decisions", async (req) => ({ audit: runtime.audit.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/approvals", async () => ({ approvals: runtime.approvals.list() }));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/snapshots", async (req) => ({ snapshots: await persistence.snapshots.list(req.params.id) }));
 
   app.get("/api/sim", async () => ({
     events: Object.entries(SIM_EVENTS).map(([key, s]) => ({ key, label: s.label, type: s.type })),
