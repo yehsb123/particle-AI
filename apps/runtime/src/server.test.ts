@@ -83,8 +83,10 @@ describe("runtime REST", () => {
   });
 
   it("persists world + ui snapshots when the UI morphs", async () => {
-    await app.inject({ method: "POST", url: "/api/sim/s7/http-500" });
-    const snaps = await app.inject({ method: "GET", url: "/api/sessions/s7/snapshots" });
+    // unique session so a reused Postgres instance doesn't accumulate across runs
+    const sess = `s7-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    await app.inject({ method: "POST", url: `/api/sim/${sess}/http-500` });
+    const snaps = await app.inject({ method: "GET", url: `/api/sessions/${sess}/snapshots` });
     const kinds = (snaps.json().snapshots as { kind: string }[]).map((s) => s.kind).sort();
     expect(kinds).toEqual(["ui", "world"]);
   });
