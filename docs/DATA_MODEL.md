@@ -25,3 +25,13 @@ the log lives, not the logic — see `packages/persistence` for the store seam.
 
 Use JSONB for the naturally-evolving payloads when Postgres lands, but keep the strongly
 typed application contracts above as the source of truth — do not degrade into untyped JSON.
+
+## Postgres backend (implemented)
+
+`@dm/persistence` now ships a Drizzle + postgres-js backend (`events`, `snapshots` tables,
+JSONB `data`). `createPersistence(DATABASE_URL)` returns the Postgres stores (and
+auto-creates the schema) when a URL is set, else the in-memory stores. The runtime server
+wires it automatically: with `DATABASE_URL` set, every ingested event is durably appended
+(`/health` reports `backend: "postgres"`). Verified end to end against Postgres 16 — events
+persist and read back, inserts are idempotent. `docker compose up -d postgres` starts a
+local instance.

@@ -39,3 +39,8 @@ export class InMemorySnapshotStore implements SnapshotStore {
     return this.snaps.filter((s) => s.sessionId === sessionId && (!kind || s.kind === kind));
   }
 }
+
+// Postgres backend + factory (loaded lazily by consumers that need durability).
+export * from "./pg";
+export * from "./schema";
+export * from "./factory";

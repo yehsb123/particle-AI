@@ -1,9 +1,10 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
+import { createPersistence, type Persistence } from "@dm/persistence";
 import { SessionRuntime } from "./runtime";
 import { SIM_EVENTS } from "./sim";
 
-export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime };
+export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence };
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -11,7 +12,11 @@ function isoNow(): string {
 
 export async function buildServer(): Promise<BuildResult> {
   const app = Fastify({ logger: false });
-  const runtime = new SessionRuntime(isoNow);
+  const persistence = await createPersistence(process.env.DATABASE_URL);
+  const runtime = new SessionRuntime(isoNow, persistence.events);
+  app.addHook("onClose", async () => {
+    await persistence.close();
+  });
 
   app.addHook("onRequest", async (req, reply) => {
     reply.header("access-control-allow-origin", "*");
@@ -22,7 +27,7 @@ export async function buildServer(): Promise<BuildResult> {
 
   await app.register(websocket);
 
-  app.get("/health", async () => ({ ok: true, events: runtime.store.count() }));
+  app.get("/health", async () => ({ ok: true, events: runtime.store.count(), backend: persistence.backend }));
 
   app.post("/api/events", async (req, reply) => {
     try {
@@ -89,5 +94,5 @@ export async function buildServer(): Promise<BuildResult> {
     socket.on("close", off);
   });
 
-  return { app, runtime };
+  return { app, runtime, persistence };
 }

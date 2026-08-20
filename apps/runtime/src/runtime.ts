@@ -3,6 +3,7 @@ import { MatterEvent as MatterEventSchema } from "@dm/contracts";
 import { EventStore } from "@dm/event-core";
 import { AuditLog, ApprovalStore } from "@dm/permission-engine";
 import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@dm/runtime-core";
+import type { EventLogStore } from "@dm/persistence";
 
 /** Messages the runtime publishes to connected clients. */
 export type RuntimeMessage =
@@ -24,7 +25,7 @@ export class SessionRuntime {
   private core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
-  constructor(private readonly now: () => string) {
+  constructor(private readonly now: () => string, private readonly eventLog?: EventLogStore) {
     this.core = createRuntimeCore({ iso: now, ms: () => Date.parse(now()) || 0 });
   }
 
@@ -38,6 +39,7 @@ export class SessionRuntime {
   async ingest(input: unknown): Promise<{ event: MatterEvent; result: IngestResult }> {
     const event = MatterEventSchema.parse(input);
     this.store.append(event);
+    if (this.eventLog) await this.eventLog.append(event); // durable append when configured
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
