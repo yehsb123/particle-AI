@@ -44,6 +44,14 @@ export async function buildServer(): Promise<BuildResult> {
 
   app.get("/api/brain", async () => ({ providers: await describeProviders(process.env) }));
 
+  app.get("/api/autonomy", async () => ({ level: runtime.getAutonomy() }));
+  app.post<{ Params: { level: string } }>("/api/autonomy/:level", async (req, reply) => {
+    const n = Number(req.params.level);
+    if (![0, 1, 2, 3, 4].includes(n)) { reply.code(400); return { error: "level must be 0-4" }; }
+    runtime.setAutonomy(n as 0 | 1 | 2 | 3 | 4);
+    return { level: n };
+  });
+
   app.post("/api/events", async (req, reply) => {
     try {
       const { event, result } = await runtime.ingest(req.body);

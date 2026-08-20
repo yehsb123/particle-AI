@@ -106,6 +106,14 @@ describe("runtime REST", () => {
     expect(traces[traces.length - 1]!.morphApplied).toBe(true);
   });
 
+  it("sets and reports the autonomy level", async () => {
+    expect((await app.inject({ method: "GET", url: "/api/autonomy" })).json().level).toBe(2);
+    const set = await app.inject({ method: "POST", url: "/api/autonomy/4" });
+    expect(set.json().level).toBe(4);
+    expect((await app.inject({ method: "GET", url: "/api/autonomy" })).json().level).toBe(4);
+    expect((await app.inject({ method: "POST", url: "/api/autonomy/9" })).statusCode).toBe(400);
+  });
+
   it("returns 404 for an unknown sim key", async () => {
     const res = await app.inject({ method: "POST", url: "/api/sim/s1/nope" });
     expect(res.statusCode).toBe(404);

@@ -83,6 +83,10 @@ export class RuntimeClient {
     await fetch(`${this.httpBase}/api/approvals/${approvalId}/reject`, { method: "POST" });
   }
 
+  async setAutonomy(level: number): Promise<void> {
+    await fetch(`${this.httpBase}/api/autonomy/${level}`, { method: "POST" });
+  }
+
   async getUI(): Promise<UIBlueprint> {
     const res = await fetch(`${this.httpBase}/api/sessions/${this.sessionId}/ui`);
     return (await res.json()) as UIBlueprint;

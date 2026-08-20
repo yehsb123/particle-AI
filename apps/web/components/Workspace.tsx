@@ -320,7 +320,8 @@ export function Workspace() {
                   const n = Number(e.target.value) as AutonomyLevel;
                   setAutonomy(n);
                   core.current.setAutonomyLevel(n);
-                  pushLog(`autonomy level → L${n}`, "note");
+                  if (mode === "connected" && client.current) void client.current.setAutonomy(n);
+                  pushLog(`autonomy level → L${n}${mode === "connected" ? " (server)" : ""}`, "note");
                 }}
               >
                 <option value={0}>L0 · manual</option>

@@ -32,7 +32,20 @@ export class SessionRuntime {
     private readonly eventLog?: EventLogStore,
     private readonly snapshotStore?: SnapshotStore,
   ) {
-    this.core = createRuntimeCoreFromEnv({ iso: now, ms: () => Date.parse(now()) || 0 });
+    this.core = createRuntimeCoreFromEnv({
+      iso: now,
+      ms: () => {
+        const t = Date.parse(now());
+        return Number.isNaN(t) ? Date.now() : t; // never freeze cooldowns on a bad clock
+      },
+    });
+  }
+
+  setAutonomy(level: 0 | 1 | 2 | 3 | 4): void {
+    this.core.setAutonomyLevel(level);
+  }
+  getAutonomy(): number {
+    return this.core.getAutonomyLevel();
   }
 
   /** Approval store lives on the core (which also executes on approve). */
