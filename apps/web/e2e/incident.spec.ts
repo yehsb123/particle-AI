@@ -22,6 +22,12 @@ test.describe("Particle AI — autonomous incident morph", () => {
     // inspector explains why
     await expect(page.getByText(/ran·development.read_logs/)).toBeVisible();
 
+    // the risky remediation is gated behind approval (external effect never auto-runs)
+    await expect(page.getByText("Approval required")).toBeVisible();
+    await expect(page.getByText("development.revert_diff", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByText("Approval required")).toHaveCount(0);
+
     // 3. Recovery returns to the development workspace.
     await page.getByRole("button", { name: "Service recovered" }).click();
     await expect(page.getByText("Runtime incident")).toHaveCount(0);

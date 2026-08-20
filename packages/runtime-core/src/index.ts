@@ -24,7 +24,7 @@ import {
   CapabilityRegistry,
   type ExecutionOutcome,
 } from "@particle/capability-core";
-import { evaluatePlan, type PermissionEvaluation } from "@particle/permission-engine";
+import { evaluatePlan, ApprovalStore, type PermissionEvaluation } from "@particle/permission-engine";
 import {
   applyPatch,
   guardPatch,
@@ -34,6 +34,7 @@ import {
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
 import { MemorySystem, type PatternCandidate } from "@particle/memory";
+import type { ApprovalRequest } from "@particle/contracts";
 
 export type RuntimeClock = { iso: () => string; ms: () => number };
 
@@ -70,6 +71,8 @@ export type IngestResult = {
   audit: AuditRecord[];
   /** reusable-template suggestions surfaced by pattern detection this step (§20) */
   patternSuggestions: PatternCandidate[];
+  /** approval requests created this step for risky capabilities awaiting a human decision */
+  pendingApprovals: ApprovalRequest[];
 };
 
 type SessionState = {
@@ -91,6 +94,9 @@ export class RuntimeCore {
   private executor: CapabilityExecutor;
   private autonomyLevel: AutonomyLevel;
   readonly memory = new MemorySystem();
+  readonly approvals = new ApprovalStore();
+  /** pending capability executions awaiting approval, keyed by approval id */
+  private pendingExecutions = new Map<string, { capabilityId: string; input?: unknown; sessionId: string }>();
 
   constructor(private readonly deps: RuntimeCoreDeps) {
     this.executor = new CapabilityExecutor(deps.registry, deps.clock.iso);
@@ -144,6 +150,7 @@ export class RuntimeCore {
       presence: s.presence,
       audit,
       patternSuggestions: [],
+      pendingApprovals: [],
     };
 
     if (!significance.shouldDeliberate) {
@@ -163,13 +170,28 @@ export class RuntimeCore {
       capabilityId: c.capabilityId,
       risk: this.deps.registry.riskOf(c.capabilityId) ?? ("external_effect" as const),
     }));
+    const inputById = new Map(decision.capabilityPlan.capabilities.map((c) => [c.capabilityId, c.input]));
     const permission = evaluatePlan(items, this.autonomyLevel);
     const capabilityRuns = await this.executor.executeMany(
-      permission.authorized.map((i) => ({ capabilityId: i.capabilityId })),
+      permission.authorized.map((i) => ({ capabilityId: i.capabilityId, input: inputById.get(i.capabilityId) })),
       { sessionId: event.sessionId, worldState: s.world, now: this.deps.clock.iso() },
     );
-    if (permission.needsApproval.length) {
-      audit.push(this.record(event.sessionId, "approval_required", { capabilities: permission.needsApproval.map((i) => i.capabilityId) }));
+
+    // Risky capabilities do not auto-run — create an approval request a human must decide on.
+    const pendingApprovals: ApprovalRequest[] = [];
+    for (const item of permission.needsApproval) {
+      const id = `appr-${decision.id}-${item.capabilityId}`;
+      if (this.approvals.get(id)) continue;
+      const req = this.approvals.create({
+        id,
+        capabilityId: item.capabilityId,
+        risk: item.risk,
+        reason: `${item.risk} capability requires approval at autonomy level ${this.autonomyLevel}`,
+        createdAt: this.deps.clock.iso(),
+      });
+      this.pendingExecutions.set(id, { capabilityId: item.capabilityId, input: inputById.get(item.capabilityId), sessionId: event.sessionId });
+      pendingApprovals.push(req);
+      audit.push(this.record(event.sessionId, "approval_required", { approvalId: id, capabilityId: item.capabilityId, risk: item.risk }));
     }
 
     // Morphology → guard → apply
@@ -242,7 +264,28 @@ export class RuntimeCore {
       blueprint: s.blueprint,
       presence: s.presence,
       patternSuggestions,
+      pendingApprovals,
     };
+  }
+
+  /** Approve a pending capability and execute it (records an audit run). */
+  async approve(approvalId: string): Promise<ExecutionOutcome | null> {
+    const pending = this.pendingExecutions.get(approvalId);
+    const req = this.approvals.approve(approvalId);
+    if (!pending || !req) return null;
+    this.pendingExecutions.delete(approvalId);
+    const s = this.session(pending.sessionId);
+    return this.executor.execute(pending.capabilityId, pending.input, {
+      sessionId: pending.sessionId,
+      worldState: s.world,
+      now: this.deps.clock.iso(),
+    });
+  }
+
+  /** Reject a pending capability; it will not run. */
+  reject(approvalId: string): ApprovalRequest | undefined {
+    this.pendingExecutions.delete(approvalId);
+    return this.approvals.reject(approvalId);
   }
 
   undo(sessionId: string): UIBlueprint | null {

@@ -1,7 +1,7 @@
 import type { AuditRecord, MatterEvent, UIBlueprint, WorldState } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { EventStore } from "@particle/event-core";
-import { AuditLog, ApprovalStore } from "@particle/permission-engine";
+import { AuditLog } from "@particle/permission-engine";
 import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import type { EventLogStore } from "@particle/persistence";
 
@@ -16,17 +16,21 @@ export type RuntimeListener = (msg: RuntimeMessage) => void;
 
 /**
  * Server-side composition of the shared RuntimeCore: validates and stores events, runs the
- * full loop, records audit + approvals, and broadcasts changes over WebSocket.
+ * full loop, records audit, delegates approvals to the core, and broadcasts changes over WS.
  */
 export class SessionRuntime {
   readonly store = new EventStore();
   readonly audit = new AuditLog();
-  readonly approvals = new ApprovalStore();
   private core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
   constructor(private readonly now: () => string, private readonly eventLog?: EventLogStore) {
     this.core = createRuntimeCoreFromEnv({ iso: now, ms: () => Date.parse(now()) || 0 });
+  }
+
+  /** Approval store lives on the core (which also executes on approve). */
+  get approvals() {
+    return this.core.approvals;
   }
 
   getWorld(sessionId: string): WorldState {
@@ -43,17 +47,6 @@ export class SessionRuntime {
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
-    if (result.permission) {
-      for (const item of result.permission.needsApproval) {
-        this.approvals.create({
-          id: `appr-${event.id}-${item.capabilityId}`,
-          capabilityId: item.capabilityId,
-          risk: item.risk,
-          reason: `requires approval at current autonomy level`,
-          createdAt: this.now(),
-        });
-      }
-    }
 
     this.emit({ kind: "world_state_changed", sessionId: event.sessionId, worldState: result.worldState });
     this.emit({ kind: "ai_presence_changed", sessionId: event.sessionId, state: result.presence });
@@ -64,6 +57,25 @@ export class SessionRuntime {
       this.emit({ kind: "decision_created", sessionId: event.sessionId, audit: result.audit });
     }
     return { event, result };
+  }
+
+  async approve(approvalId: string) {
+    const outcome = await this.core.approve(approvalId);
+    if (outcome) {
+      const rec: AuditRecord = {
+        id: `aud-appr-${approvalId}`,
+        at: this.now(),
+        sessionId: "",
+        kind: "capability_approved",
+        detail: { approvalId, capabilityId: outcome.capabilityId, ok: outcome.result.ok },
+      };
+      this.audit.append(rec);
+    }
+    return outcome;
+  }
+
+  reject(approvalId: string) {
+    return this.core.reject(approvalId);
   }
 
   undo(sessionId: string): UIBlueprint | null {

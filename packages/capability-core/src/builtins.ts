@@ -96,5 +96,18 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
         return { stored: key };
       },
     ),
+    // External-effect capability — reverts the offending diff. Because it changes the world
+    // outside the runtime, it requires explicit human approval at the default autonomy level.
+    cap(
+      manifest({
+        id: "development.revert_diff",
+        name: "Revert recent diff",
+        description: "Reverts the most recent change that likely caused the incident.",
+        risk: "external_effect",
+        tags: ["development", "remediation"],
+        latencyClass: "fast",
+      }),
+      (input) => ({ reverted: true, target: (input as { target?: string })?.target ?? "recent diff" }),
+    ),
   ];
 }

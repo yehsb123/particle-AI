@@ -35,7 +35,7 @@ export async function buildServer(): Promise<BuildResult> {
   app.post("/api/events", async (req, reply) => {
     try {
       const { event, result } = await runtime.ingest(req.body);
-      return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated };
+      return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals };
     } catch (err) {
       reply.code(400);
       return { error: (err as Error).message };
@@ -67,7 +67,7 @@ export async function buildServer(): Promise<BuildResult> {
       severity: spec.severity,
       payload: spec.payload ?? {},
     });
-    return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated };
+    return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals };
   });
 
   app.post<{ Params: { id: string } }>("/api/morph/:id/undo", async (req) => {
@@ -76,12 +76,12 @@ export async function buildServer(): Promise<BuildResult> {
   });
 
   app.post<{ Params: { aid: string } }>("/api/approvals/:aid/approve", async (req, reply) => {
-    const r = runtime.approvals.approve(req.params.aid);
-    if (!r) { reply.code(404); return { error: "not found" }; }
-    return r;
+    const outcome = await runtime.approve(req.params.aid);
+    if (!outcome) { reply.code(404); return { error: "not found or already decided" }; }
+    return { approved: true, capabilityId: outcome.capabilityId, result: outcome.result };
   });
   app.post<{ Params: { aid: string } }>("/api/approvals/:aid/reject", async (req, reply) => {
-    const r = runtime.approvals.reject(req.params.aid);
+    const r = runtime.reject(req.params.aid);
     if (!r) { reply.code(404); return { error: "not found" }; }
     return r;
   });

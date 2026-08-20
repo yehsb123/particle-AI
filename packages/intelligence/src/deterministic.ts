@@ -43,6 +43,8 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
           { capabilityId: "development.read_logs" },
           { capabilityId: "development.read_build_state" },
           { capabilityId: "data.inspect" },
+          // remediation — external effect, gated behind human approval
+          { capabilityId: "development.revert_diff", input: { target: "recent diff" } },
         ],
       },
       uiPlan: {

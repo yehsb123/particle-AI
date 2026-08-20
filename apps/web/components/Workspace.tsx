@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import type { AttentionState, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
+import type { ApprovalRequest, AttentionState, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
@@ -42,8 +42,17 @@ export function Workspace() {
   const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
   const [mode, setMode] = useState<"local" | "connected">("local");
   const [connected, setConnected] = useState(false);
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const client = useRef<RuntimeClient | null>(null);
   const counter = useRef(0);
+
+  const addApprovals = useCallback((incoming: ApprovalRequest[]) => {
+    if (!incoming?.length) return;
+    setApprovals((a) => {
+      const ids = new Set(a.map((x) => x.id));
+      return [...a, ...incoming.filter((x) => !ids.has(x.id))];
+    });
+  }, []);
 
   const pushLog = useCallback((text: string, kind: LogEntry["kind"]) => {
     setLog((l) => [{ id: `${Date.now()}-${Math.random()}`, text, kind }, ...l].slice(0, 40));
@@ -54,6 +63,7 @@ export function Workspace() {
       setBlueprint(res.blueprint);
       setPresence(res.presence as Presence);
       setCanUndo(core.current.canUndo(SESSION));
+      addApprovals(res.pendingApprovals);
       setInspector({
         significance: res.significance.score,
         deliberated: res.deliberated,
@@ -93,7 +103,7 @@ export function Workspace() {
         audit: [...res.audit.map((a) => ({ id: a.id, kind: a.kind, detail: a.detail })), ...d.audit].slice(0, 60),
       }));
     },
-    [],
+    [addApprovals],
   );
 
   const ingest = useCallback(
@@ -114,11 +124,29 @@ export function Workspace() {
     if (mode === "connected" && client.current) {
       pushLog(`${spec.type} · ${spec.severity} → server`, "event");
       setPresence("evaluating");
-      void client.current.emitSim(spec.key);
+      void client.current.emitSim(spec.key).then((resp) => {
+        if (resp?.pendingApprovals) addApprovals(resp.pendingApprovals);
+      });
       return;
     }
     void ingest(buildEvent(spec, SESSION, `e${++counter.current}`, nowIso()));
   };
+
+  const decideApproval = useCallback(
+    async (approval: ApprovalRequest, accept: boolean) => {
+      if (mode === "connected" && client.current) {
+        await (accept ? client.current.approve(approval.id) : client.current.reject(approval.id));
+      } else if (accept) {
+        const outcome = await core.current.approve(approval.id);
+        pushLog(`approved ${approval.capabilityId} → ${outcome?.result.ok ? "executed" : "failed"}`, outcome?.result.ok ? "morph" : "blocked");
+      } else {
+        core.current.reject(approval.id);
+        pushLog(`rejected ${approval.capabilityId}`, "note");
+      }
+      setApprovals((a) => a.filter((x) => x.id !== approval.id));
+    },
+    [mode, pushLog],
+  );
 
   const undo = useCallback(() => {
     if (mode === "connected" && client.current) {
@@ -252,6 +280,29 @@ export function Workspace() {
             <span className="k">focus</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
           </div>
         </section>
+
+        {approvals.length ? (
+          <section style={{ background: "var(--warn-bg)" }}>
+            <h3>Approval required</h3>
+            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
+              The AI proposed a risky action. External effects never run without your consent.
+            </p>
+            <div className="stack" style={{ gap: 10 }}>
+              {approvals.map((a) => (
+                <div key={a.id} className="card">
+                  <div className="panel-title" style={{ marginBottom: 6 }}>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 12.5 }}>{a.capabilityId}</span>
+                    <span className="badge crit"><span className="dot" />{a.risk}</span>
+                  </div>
+                  <div className="simrow">
+                    <button className="btn primary" onClick={() => void decideApproval(a, true)}>Approve</button>
+                    <button className="btn muted" onClick={() => void decideApproval(a, false)}>Reject</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section>
           <h3>Inspector — why did the UI change?</h3>

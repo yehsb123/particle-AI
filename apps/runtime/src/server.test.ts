@@ -68,6 +68,20 @@ describe("runtime REST", () => {
     expect(JSON.stringify(ui.json())).not.toContain('"id":"incident"');
   });
 
+  it("surfaces a pending approval for the risky remediation and executes it on approve", async () => {
+    const sim = await app.inject({ method: "POST", url: "/api/sim/s6/http-500" });
+    const pending = sim.json().pendingApprovals as { id: string; capabilityId: string }[];
+    const revert = pending.find((p) => p.capabilityId === "development.revert_diff");
+    expect(revert).toBeTruthy();
+
+    const approve = await app.inject({ method: "POST", url: `/api/approvals/${revert!.id}/approve` });
+    expect(approve.statusCode).toBe(200);
+    expect(approve.json().result.ok).toBe(true);
+
+    const list = await app.inject({ method: "GET", url: "/api/sessions/s6/approvals" });
+    expect(list.json().approvals.some((a: { status: string }) => a.status === "approved")).toBe(true);
+  });
+
   it("serves a seed development UI blueprint per session", async () => {
     const res = await app.inject({ method: "GET", url: "/api/sessions/s3/ui" });
     expect(res.statusCode).toBe(200);

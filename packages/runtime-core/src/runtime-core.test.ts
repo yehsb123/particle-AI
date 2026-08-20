@@ -51,4 +51,29 @@ describe("RuntimeCore — full loop", () => {
     expect(editor).toBeDefined();
     expect(editor?.volatile).toBe(true);
   });
+
+  it("gates the external-effect remediation behind human approval, then executes on approve", async () => {
+    const core = createRuntimeCore(makeClock());
+    const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
+
+    // read-only diagnostics ran automatically; the risky revert did NOT
+    expect(inc.capabilityRuns.map((r) => r.capabilityId)).not.toContain("development.revert_diff");
+    expect(inc.pendingApprovals.map((a) => a.capabilityId)).toContain("development.revert_diff");
+    const approvalId = inc.pendingApprovals.find((a) => a.capabilityId === "development.revert_diff")!.id;
+
+    // approving executes the capability
+    const outcome = await core.approve(approvalId);
+    expect(outcome?.result.ok).toBe(true);
+    expect((outcome?.result.output as { reverted: boolean }).reverted).toBe(true);
+    expect(core.approvals.get(approvalId)?.status).toBe("approved");
+  });
+
+  it("does not execute a rejected capability", async () => {
+    const core = createRuntimeCore(makeClock());
+    const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
+    const approvalId = inc.pendingApprovals[0]!.id;
+    core.reject(approvalId);
+    expect(core.approvals.get(approvalId)?.status).toBe("rejected");
+    expect(await core.approve(approvalId)).toBeNull(); // already consumed
+  });
 });

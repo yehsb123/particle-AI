@@ -1,4 +1,4 @@
-import type { UIBlueprint, WorldState } from "@particle/contracts";
+import type { ApprovalRequest, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type ServerMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
@@ -38,12 +38,21 @@ export class RuntimeClient {
     this.ws = undefined;
   }
 
-  async emitSim(key: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST" });
+  async emitSim(key: string): Promise<{ pendingApprovals?: ApprovalRequest[] } | null> {
+    const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST" });
+    return (await res.json().catch(() => null)) as { pendingApprovals?: ApprovalRequest[] } | null;
   }
 
   async undo(): Promise<void> {
     await fetch(`${this.httpBase}/api/morph/${this.sessionId}/undo`, { method: "POST" });
+  }
+
+  async approve(approvalId: string): Promise<void> {
+    await fetch(`${this.httpBase}/api/approvals/${approvalId}/approve`, { method: "POST" });
+  }
+
+  async reject(approvalId: string): Promise<void> {
+    await fetch(`${this.httpBase}/api/approvals/${approvalId}/reject`, { method: "POST" });
   }
 
   async getUI(): Promise<UIBlueprint> {
