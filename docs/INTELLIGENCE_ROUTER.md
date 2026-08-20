@@ -31,3 +31,19 @@ The decision engine validates every provider's output against `RuntimeDecision` 
 Invalid output is discarded and replaced by the deterministic decision, so an unreliable or
 adversarial model can never corrupt runtime state or the UI. `reasonSummary` is externally
 safe — chain-of-thought is never stored or exposed.
+
+## Enabling a real brain (server)
+
+The runtime server builds its provider fleet from the environment
+(`createRuntimeCoreFromEnv` → `buildDefaultProviders`). Set `ANTHROPIC_API_KEY` (or
+`OPENAI_API_KEY`, or `DM_LOCAL_MODEL_BASE_URL`) and restart — no code changes. Inspect the
+active fleet at `GET /api/brain`:
+
+```
+# no key      → {"providers":[{"id":"mock","tier":"free","healthy":true}]}
+# with a key  → {"providers":[{"id":"anthropic","tier":"premium",...},{"id":"mock",...}]}
+```
+
+Deliberation then routes to the most capable healthy provider; a failed/invalid real call
+falls back to the deterministic decision. A guarded live test exercises the real API when a
+key is present (`anthropic.live.test.ts`), and is skipped otherwise.

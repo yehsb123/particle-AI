@@ -32,6 +32,9 @@ importers:
       '@dm/event-core':
         specifier: workspace:*
         version: link:../../packages/event-core
+      '@dm/intelligence':
+        specifier: workspace:*
+        version: link:../../packages/intelligence
       '@dm/morph-engine':
         specifier: workspace:*
         version: link:../../packages/morph-engine

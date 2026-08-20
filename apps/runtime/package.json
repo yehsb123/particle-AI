@@ -20,6 +20,7 @@
     "@dm/permission-engine": "workspace:*",
     "@dm/runtime-core": "workspace:*",
     "@dm/persistence": "workspace:*",
+    "@dm/intelligence": "workspace:*",
     "@fastify/websocket": "^11.0.2",
     "fastify": "^5.2.0"
   },

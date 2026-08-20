@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
 import { createPersistence, type Persistence } from "@dm/persistence";
+import { describeProviders } from "@dm/intelligence";
 import { SessionRuntime } from "./runtime";
 import { SIM_EVENTS } from "./sim";
 
@@ -28,6 +29,8 @@ export async function buildServer(): Promise<BuildResult> {
   await app.register(websocket);
 
   app.get("/health", async () => ({ ok: true, events: runtime.store.count(), backend: persistence.backend }));
+
+  app.get("/api/brain", async () => ({ providers: await describeProviders(process.env) }));
 
   app.post("/api/events", async (req, reply) => {
     try {

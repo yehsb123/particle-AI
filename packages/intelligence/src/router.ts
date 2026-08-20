@@ -82,6 +82,16 @@ function pickByTier(
   return sorted.find((p) => tierOf(p.id) === "local") ?? sorted[0]!;
 }
 
+/** Describe the configured providers (id, tier, health) — for observability / a /api/brain view. */
+export async function describeProviders(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<{ id: string; tier: ModelTier; healthy: boolean }[]> {
+  const providers = buildDefaultProviders(env);
+  return Promise.all(
+    providers.map(async (p) => ({ id: p.id, tier: tierOf(p.id), healthy: (await p.health()).healthy })),
+  );
+}
+
 /** Build providers from environment: real ones when configured, plus the mock fallback. */
 export function buildDefaultProviders(env: NodeJS.ProcessEnv = process.env): IntelligenceProvider[] {
   const providers: IntelligenceProvider[] = [];
