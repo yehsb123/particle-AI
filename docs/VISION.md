@@ -4,13 +4,13 @@ Software today is a fixed set of applications that the human must learn, navigat
 operate. Windows are arranged by hand; information is copied between tools; the human is
 the integration layer.
 
-Digital Matter inverts this. The software continuously reshapes itself around the user's
+Particle AI inverts this. The software continuously reshapes itself around the user's
 current context, intent, environment, and goals. The AI is not a feature inside an app —
 the AI is the runtime, and the interface is its body.
 
 ## The organism metaphor
 
-| Biological | Digital Matter |
+| Biological | Particle AI |
 |---|---|
 | Senses | Events (`MatterEvent`) |
 | Brain | Two-speed intelligence (reflex + deliberation) |

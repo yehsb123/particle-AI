@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import type { AttentionState, MatterEvent, UIAction, UIBlueprint } from "@dm/contracts";
 import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@dm/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
+import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
 
 type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
@@ -36,6 +37,8 @@ export function Workspace() {
   const [inspector, setInspector] = useState<Inspector>({ capabilities: [], guardReasonCodes: [], dropped: [] });
   const [canUndo, setCanUndo] = useState(false);
   const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
+  const [devMode, setDevMode] = useState(false);
+  const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
   const counter = useRef(0);
 
   const pushLog = useCallback((text: string, kind: LogEntry["kind"]) => {
@@ -66,6 +69,25 @@ export function Workspace() {
         guardReasonCodes: res.morph.guardReasonCodes,
         dropped: res.morph.dropped,
       });
+      setDebug((d) => ({
+        worldState: res.worldState,
+        last: res,
+        traces: [
+          ...d.traces,
+          {
+            n: d.traces.length + 1,
+            eventType: res.worldState.recentEvents.at(-1)?.type ?? "event",
+            significance: res.significance.score,
+            deliberated: res.deliberated,
+            provider: res.providerId,
+            intent: res.decision?.uiPlan?.intent,
+            morphApplied: res.morph.applied,
+            capabilities: res.capabilityRuns.map((r) => r.capabilityId),
+            guardReasonCodes: res.morph.guardReasonCodes,
+          },
+        ].slice(-50),
+        audit: [...res.audit.map((a) => ({ id: a.id, kind: a.kind, detail: a.detail })), ...d.audit].slice(0, 60),
+      }));
     },
     [],
   );
@@ -120,7 +142,7 @@ export function Workspace() {
       <main className="stage">
         <div className="brandbar">
           <div className="brand">
-            Digital Matter <small>adaptive runtime · integrated loop</small>
+            Particle AI <small>adaptive runtime · integrated loop</small>
           </div>
           <div className="presence" data-state={presence}>
             <span className="orb" />
@@ -132,6 +154,11 @@ export function Workspace() {
             <Render node={blueprint.root} />
           </RendererProvider>
         </div>
+        {devMode ? (
+          <div style={{ paddingTop: 16 }}>
+            <DeveloperInspector debug={debug} />
+          </div>
+        ) : null}
       </main>
 
       <aside className="rail">
@@ -153,6 +180,7 @@ export function Workspace() {
           <div className="simrow">
             <button className="btn" onClick={undo} disabled={!canUndo}>Undo last morph</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>Theme: {theme}</button>
+            <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>Developer mode</button>
           </div>
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">mode</span><span>{blueprint.mode}</span>

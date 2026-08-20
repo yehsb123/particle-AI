@@ -1,4 +1,4 @@
-# Digital Matter
+# Particle AI
 
 An experimental adaptive computing runtime in which AI continuously interprets context
 and restructures its interface, capabilities and intelligence around the user's current
@@ -10,7 +10,7 @@ Instead of asking AI to use software, the AI **becomes** the software.
 
 ## The idea
 
-Conventional generative AI is `prompt → model → response`. Digital Matter runs a
+Conventional generative AI is `prompt → model → response`. Particle AI runs a
 continuous loop instead:
 
 ```

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Digital Matter — autonomous incident morph", () => {
+test.describe("Particle AI — autonomous incident morph", () => {
   test("morphs on incident, recovers, and undoes — without the user asking", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");

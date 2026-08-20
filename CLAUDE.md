@@ -1,4 +1,4 @@
-# CLAUDE.md — Digital Matter
+# CLAUDE.md — Particle AI
 
 Project guidance for Claude Code sessions. Read this before making changes.
 
