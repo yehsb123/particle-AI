@@ -33,6 +33,7 @@ import {
   type MorphPolicy,
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
+import { MemorySystem, type PatternCandidate } from "@particle/memory";
 
 export type RuntimeClock = { iso: () => string; ms: () => number };
 
@@ -67,6 +68,8 @@ export type IngestResult = {
   blueprint: UIBlueprint;
   presence: PresenceState;
   audit: AuditRecord[];
+  /** reusable-template suggestions surfaced by pattern detection this step (§20) */
+  patternSuggestions: PatternCandidate[];
 };
 
 type SessionState = {
@@ -87,6 +90,7 @@ export class RuntimeCore {
   private sessions = new Map<string, SessionState>();
   private executor: CapabilityExecutor;
   private autonomyLevel: AutonomyLevel;
+  readonly memory = new MemorySystem();
 
   constructor(private readonly deps: RuntimeCoreDeps) {
     this.executor = new CapabilityExecutor(deps.registry, deps.clock.iso);
@@ -139,6 +143,7 @@ export class RuntimeCore {
       blueprint: s.blueprint,
       presence: s.presence,
       audit,
+      patternSuggestions: [],
     };
 
     if (!significance.shouldDeliberate) {
@@ -171,6 +176,7 @@ export class RuntimeCore {
     const intent = decision.uiPlan?.intent ?? "none";
     const desired = planMorph(s.blueprint, intent, decision.id);
     const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
+    let patternSuggestions: PatternCandidate[] = [];
 
     if (desired) {
       const deEscalation = intent === "restore_normal";
@@ -204,6 +210,19 @@ export class RuntimeCore {
         morph.patch = guard.patch;
         s.presence = "acting";
         audit.push(this.record(event.sessionId, "ui_morph", { intent, patchId: guard.patch.patchId }));
+
+        // Experience: remember this situation, reinforce the preference, and detect patterns.
+        const iso = this.deps.clock.iso();
+        this.memory.episodic.record({
+          id: decision.id,
+          at: iso,
+          context: `${decision.recommendedMode ?? "development"}.${intent}`,
+          summary: decision.reasonSummary,
+          eventTypes: [event.type],
+        });
+        this.memory.preferences.reinforce(`morph:${intent}`);
+        this.memory.patterns.observe(`${event.type}->${intent}`, iso);
+        patternSuggestions = this.memory.patterns.takeSuggestions();
       } else {
         audit.push(this.record(event.sessionId, "morph_blocked", { intent, reasonCodes: guard.reasonCodes }));
       }
@@ -222,6 +241,7 @@ export class RuntimeCore {
       morph,
       blueprint: s.blueprint,
       presence: s.presence,
+      patternSuggestions,
     };
   }
 

@@ -206,6 +206,19 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/memory:
+    dependencies:
+      '@particle/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/morph-engine:
     dependencies:
       '@particle/contracts':
@@ -281,6 +294,9 @@ importers:
       '@particle/intelligence':
         specifier: workspace:*
         version: link:../intelligence
+      '@particle/memory':
+        specifier: workspace:*
+        version: link:../memory
       '@particle/morph-engine':
         specifier: workspace:*
         version: link:../morph-engine

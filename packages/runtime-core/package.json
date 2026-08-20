@@ -16,7 +16,8 @@
     "@particle/permission-engine": "workspace:*",
     "@particle/morph-engine": "workspace:*",
     "@particle/ui-registry": "workspace:*",
-    "@particle/intelligence": "workspace:*"
+    "@particle/intelligence": "workspace:*",
+    "@particle/memory": "workspace:*"
   },
   "devDependencies": {
     "@particle/ui-protocol": "workspace:*",
