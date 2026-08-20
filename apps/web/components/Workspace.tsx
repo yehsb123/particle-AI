@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
@@ -30,7 +30,9 @@ const SESSION = "session-local";
 const nowIso = () => new Date().toISOString();
 
 export function Workspace() {
-  const core = useRef<RuntimeCore>(createRuntimeCore({ iso: nowIso, ms: () => Date.now() }));
+  // Lazy, once-only construction — useRef's initializer must not re-run the factory each render.
+  const core = useRef<RuntimeCore>(undefined as unknown as RuntimeCore);
+  if (!core.current) core.current = createRuntimeCore({ iso: nowIso, ms: () => Date.now() });
   const [blueprint, setBlueprint] = useState<UIBlueprint>(() => core.current.getBlueprint(SESSION));
   const [attention, setAttention] = useState<AttentionState>({ typing: false });
   const [presence, setPresence] = useState<Presence>("observing");
@@ -191,6 +193,8 @@ export function Workspace() {
   );
 
   const toggleMode = useCallback(async () => {
+    // approvals/audit are per-runtime; clear cross-mode state when switching runtimes.
+    setApprovals([]);
     if (mode === "local") {
       const c = new RuntimeClient(SESSION);
       client.current = c;
@@ -229,6 +233,12 @@ export function Workspace() {
     if (t === "system") el.removeAttribute("data-theme");
     else el.setAttribute("data-theme", t);
   };
+
+  // Tear down the WebSocket if the component unmounts while connected (no leaked socket/state).
+  useEffect(() => () => {
+    client.current?.disconnect();
+    client.current = null;
+  }, []);
 
   return (
     <div className="app">

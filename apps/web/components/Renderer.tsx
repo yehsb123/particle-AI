@@ -9,7 +9,7 @@ type TimelineItem = { time?: string; label: string };
 export type RendererCtx = {
   emitAction: (action: UIAction) => void;
   setFocus: (id: string) => void;
-  clearFocus: (id: string) => void;
+  clearFocus: () => void;
 };
 
 const Ctx = createContext<RendererCtx>({
@@ -31,6 +31,18 @@ export function RendererProvider({
 function prop<T = unknown>(node: UIComponent, key: string, fallback: T): T {
   const v = node.props?.[key];
   return (v === undefined ? fallback : (v as T)) as T;
+}
+
+/** Numeric prop with coercion — never lets a non-number produce NaN in layout math. */
+function num(node: UIComponent, key: string, fallback: number): number {
+  const v = Number(node.props?.[key]);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+/** Array prop guaranteed to be an array — a malformed prop can never throw in .map/.join. */
+function arr<T>(node: UIComponent, key: string): T[] {
+  const v = node.props?.[key];
+  return Array.isArray(v) ? (v as T[]) : [];
 }
 
 function Children({ node }: { node: UIComponent }) {
@@ -66,12 +78,12 @@ export function Render({ node }: { node: UIComponent }) {
       );
     case "Grid":
       return wrap(
-        <div className="grid collapsible" style={{ gridTemplateColumns: `repeat(${prop(node, "columns", 2)}, minmax(0,1fr))` }}>
+        <div className="grid collapsible" style={{ gridTemplateColumns: `repeat(${num(node, "columns", 2)}, minmax(0,1fr))` }}>
           <Children node={node} />
         </div>,
       );
     case "SplitPane": {
-      const ratio = prop(node, "ratio", 0.5);
+      const ratio = num(node, "ratio", 0.5);
       return wrap(
         <div className="split collapsible" style={{ gridTemplateColumns: `${Math.round(ratio * 100)}% 1fr` }}>
           <Children node={node} />
@@ -101,7 +113,7 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
     case "Heading":
-      return wrap(<div className="heading" style={{ fontSize: 20 - (prop(node, "level", 2) - 1) * 2 }}>{prop(node, "text", "")}</div>);
+      return wrap(<div className="heading" style={{ fontSize: 20 - (num(node, "level", 2) - 1) * 2 }}>{prop(node, "text", "")}</div>);
     case "Text":
       return wrap(<div>{prop(node, "text", "")}</div>);
     case "Markdown":
@@ -123,8 +135,8 @@ export function Render({ node }: { node: UIComponent }) {
     case "Progress":
       return wrap(
         <div>
-          <div className="progress"><span style={{ width: `${Math.round(prop(node, "value", 0) * 100)}%` }} /></div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{prop(node, "label", "")} {Math.round(prop(node, "value", 0) * 100)}%</div>
+          <div className="progress"><span style={{ width: `${Math.round(num(node, "value", 0) * 100)}%` }} /></div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{prop(node, "label", "")} {Math.round(num(node, "value", 0) * 100)}%</div>
         </div>,
       );
     case "Metric":
@@ -140,13 +152,13 @@ export function Render({ node }: { node: UIComponent }) {
           defaultValue={prop(node, "value", "")}
           placeholder={prop(node, "placeholder", "")}
           onFocus={() => ctx.setFocus(node.id)}
-          onBlur={() => ctx.clearFocus(node.id)}
+          onBlur={() => ctx.clearFocus()}
         />,
       );
     case "Select":
       return wrap(
         <select className="select">
-          {prop<string[]>(node, "options", []).map((o) => <option key={o}>{o}</option>)}
+          {arr<string>(node, "options").map((o) => <option key={o}>{o}</option>)}
         </select>,
       );
     case "FileExplorer":
@@ -154,7 +166,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{prop(node, "title", "Files")}</span></div>
           <ul className="files collapsible">
-            {prop<string[]>(node, "items", []).map((f) => <li key={f}>{f}</li>)}
+            {arr<string>(node, "items").map((f) => <li key={f}>{f}</li>)}
           </ul>
         </div>,
       );
@@ -170,7 +182,7 @@ export function Render({ node }: { node: UIComponent }) {
             style={{ width: "100%", minHeight: 140, resize: "vertical" }}
             defaultValue={prop(node, "value", "")}
             onFocus={() => ctx.setFocus(node.id)}
-            onBlur={() => ctx.clearFocus(node.id)}
+            onBlur={() => ctx.clearFocus()}
           />
         </div>,
       );
@@ -180,11 +192,11 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div>
           <div className="panel-title"><span>{prop(node, "title", "Logs")}</span></div>
-          <pre className="logview">{prop<string[]>(node, "lines", []).join("\n")}</pre>
+          <pre className="logview">{arr<string>(node, "lines").join("\n")}</pre>
         </div>,
       );
     case "DiffViewer": {
-      const diff = prop(node, "diff", "");
+      const diff = String(prop(node, "diff", ""));
       return wrap(
         <div>
           <div className="panel-title"><span>{prop(node, "title", "Diff")}</span></div>
@@ -199,8 +211,8 @@ export function Render({ node }: { node: UIComponent }) {
     case "JSONViewer":
       return wrap(<pre className="code">{JSON.stringify(prop(node, "data", {}), null, 2)}</pre>);
     case "Table": {
-      const columns = prop<string[]>(node, "columns", []);
-      const rows = prop<string[][]>(node, "rows", []);
+      const columns = arr<string>(node, "columns");
+      const rows = arr<string[]>(node, "rows");
       return wrap(
         <div>
           {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{prop(node, "title", "")}</span></div> : null}
@@ -223,7 +235,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{prop(node, "title", "Activity")}</span></div>
           <div className="stack collapsible">
-            {prop<string[]>(node, "items", []).map((it, i) => <div key={i} className="muted" style={{ fontSize: 12.5 }}>{it}</div>)}
+            {arr<string>(node, "items").map((it, i) => <div key={i} className="muted" style={{ fontSize: 12.5 }}>{it}</div>)}
           </div>
         </div>,
       );
@@ -233,7 +245,7 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div className="panel">
           {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{prop(node, "title", "")}</span></div> : null}
-          <div className="collapsible"><TreeNodes nodes={prop<TreeItem[]>(node, "nodes", [])} /></div>
+          <div className="collapsible"><TreeNodes nodes={arr<TreeItem>(node, "nodes")} /></div>
         </div>,
       );
     case "Timeline":
@@ -241,7 +253,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{prop(node, "title", "Timeline")}</span></div>
           <div className="timeline collapsible">
-            {prop<TimelineItem[]>(node, "items", []).map((it, i) => (
+            {arr<TimelineItem>(node, "items").map((it, i) => (
               <div key={i} className="tl-item">
                 <span className="tl-dot" />
                 <span className="muted" style={{ minWidth: 64, fontFamily: "var(--mono)", fontSize: 11 }}>{it.time ?? ""}</span>
@@ -252,7 +264,7 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
     case "Chart": {
-      const data = prop<number[]>(node, "data", []);
+      const data = arr<number>(node, "data").map((v) => (Number.isFinite(Number(v)) ? Number(v) : 0));
       const max = Math.max(1, ...data);
       return wrap(
         <div className="panel">
@@ -270,7 +282,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{prop(node, "title", "Inspector")}</span></div>
           <div className="kv collapsible">
-            {prop<{ k: string; v: string }[]>(node, "entries", []).map((e, i) => (
+            {arr<{ k: string; v: string }>(node, "entries").map((e, i) => (
               <React.Fragment key={i}><span className="k">{e.k}</span><span>{e.v}</span></React.Fragment>
             ))}
           </div>
@@ -307,12 +319,14 @@ export function Render({ node }: { node: UIComponent }) {
 function TabsNode({ node }: { node: UIComponent }) {
   const panels = node.children ?? [];
   const [active, setActive] = useState(0);
-  const current = panels[Math.min(active, panels.length - 1)];
+  // Clamp so both the highlight and the shown panel agree even after a morph changes the tabs.
+  const activeIdx = Math.min(active, Math.max(0, panels.length - 1));
+  const current = panels[activeIdx];
   return (
     <div className="panel">
       <div className="devtabs" style={{ margin: "-12px -12px 12px" }}>
         {panels.map((p, i) => (
-          <button key={p.id} className={`devtab${i === active ? " active" : ""}`} onClick={() => setActive(i)}>
+          <button key={p.id} className={`devtab${i === activeIdx ? " active" : ""}`} onClick={() => setActive(i)}>
             {(p.props?.title as string) ?? `Tab ${i + 1}`}
           </button>
         ))}
