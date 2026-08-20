@@ -1,5 +1,8 @@
 # Particle AI
 
+[![CI](https://github.com/yehsb123/particle-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/yehsb123/particle-AI/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 An experimental adaptive computing runtime in which AI continuously interprets context
 and restructures its interface, capabilities and intelligence around the user's current
 situation.
@@ -55,3 +58,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
 
 Built in phases (see `docs/STATUS.md`). Phase 1 (UI Matter) renders and morphs a
 structured interface from validated blueprints and patches, with undo and a morph guard.
+
+## License
+
+[MIT](LICENSE) — © 2026 Particle AI contributors. Experimental research software.

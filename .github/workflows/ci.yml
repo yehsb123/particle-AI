@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dm
+          POSTGRES_PASSWORD: dm
+          POSTGRES_DB: digital_matter
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dm -d digital_matter"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://dm:dm@localhost:5432/digital_matter
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r --workspace-concurrency=1 typecheck
+
+      - name: Test (unit + integration, incl. Postgres)
+        run: pnpm -r --workspace-concurrency=1 test
+
+      - name: Build web
+        run: pnpm --filter @particle/web build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build web
+        run: pnpm --filter @particle/web build
+      - name: Install Playwright browser
+        run: pnpm --filter @particle/web exec playwright install --with-deps chromium
+      - name: Start web + run E2E
+        run: |
+          pnpm --filter @particle/web start &
+          npx --yes wait-on http://localhost:3000
+          pnpm --filter @particle/web exec playwright test incident.spec.ts
