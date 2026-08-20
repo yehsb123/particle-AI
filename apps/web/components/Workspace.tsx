@@ -6,6 +6,7 @@ import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@dm/runt
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
+import { RuntimeClient, type ServerMessage } from "../lib/runtimeClient";
 
 type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
 type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
@@ -39,6 +40,9 @@ export function Workspace() {
   const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
   const [devMode, setDevMode] = useState(false);
   const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
+  const [mode, setMode] = useState<"local" | "connected">("local");
+  const [connected, setConnected] = useState(false);
+  const client = useRef<RuntimeClient | null>(null);
   const counter = useRef(0);
 
   const pushLog = useCallback((text: string, kind: LogEntry["kind"]) => {
@@ -107,16 +111,68 @@ export function Workspace() {
   );
 
   const emitSim = (spec: SimSpec) => {
+    if (mode === "connected" && client.current) {
+      pushLog(`${spec.type} · ${spec.severity} → server`, "event");
+      setPresence("evaluating");
+      void client.current.emitSim(spec.key);
+      return;
+    }
     void ingest(buildEvent(spec, SESSION, `e${++counter.current}`, nowIso()));
   };
 
   const undo = useCallback(() => {
+    if (mode === "connected" && client.current) {
+      void client.current.undo();
+      pushLog("undo → server", "undo");
+      return;
+    }
     const bp = core.current.undo(SESSION);
     if (!bp) return;
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
     pushLog("undo — reverted last morph", "undo");
-  }, [pushLog]);
+  }, [mode, pushLog]);
+
+  const handleServerMessage = useCallback(
+    (m: ServerMessage) => {
+      if (m.kind === "ui_patch") {
+        setBlueprint(m.blueprint);
+        setCanUndo(true);
+        setPresence("acting");
+        pushLog("server morph → ui_patch", "morph");
+        setTimeout(() => setPresence("observing"), 600);
+      } else if (m.kind === "world_state_changed") {
+        setDebug((d) => ({ ...d, worldState: m.worldState }));
+      } else if (m.kind === "ai_presence_changed") {
+        setPresence(m.state as Presence);
+      } else if (m.kind === "decision_created") {
+        setDebug((d) => ({ ...d, audit: [...m.audit, ...d.audit].slice(0, 60) }));
+        pushLog("server decision", "note");
+      }
+    },
+    [pushLog],
+  );
+
+  const toggleMode = useCallback(async () => {
+    if (mode === "local") {
+      const c = new RuntimeClient(SESSION);
+      client.current = c;
+      c.connect(handleServerMessage, setConnected);
+      try {
+        setBlueprint(await c.getUI());
+      } catch {
+        pushLog("could not reach runtime server (pnpm runtime)", "blocked");
+      }
+      setMode("connected");
+    } else {
+      client.current?.disconnect();
+      client.current = null;
+      setConnected(false);
+      setMode("local");
+      setBlueprint(core.current.getBlueprint(SESSION));
+      pushLog("switched to local runtime", "note");
+    }
+  }, [mode, handleServerMessage, pushLog]);
 
   const rendererCtx = useMemo(
     () => ({
@@ -181,7 +237,16 @@ export function Workspace() {
             <button className="btn" onClick={undo} disabled={!canUndo}>Undo last morph</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>Theme: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>Developer mode</button>
+            <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>
+              Runtime: {mode === "connected" ? (connected ? "server ●" : "server ○") : "local"}
+            </button>
           </div>
+          {mode === "connected" ? (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Events are sent to the runtime server; the UI morphs from WebSocket <code>ui_patch</code>
+              messages. Start it with <code>pnpm runtime</code>.
+            </p>
+          ) : null}
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">mode</span><span>{blueprint.mode}</span>
             <span className="k">focus</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>

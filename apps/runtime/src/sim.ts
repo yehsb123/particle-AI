@@ -16,5 +16,6 @@ export const SIM_EVENTS: Record<string, SimSpec> = {
   "recovered": { label: "Service recovered", type: "development.server_recovered", source: "development", severity: "info" },
   "build-ok": { label: "Build succeeded", type: "development.build_succeeded", source: "development", severity: "info" },
   "high-cpu": { label: "High CPU", type: "system.resource_warning", source: "system", severity: "warning", payload: { cpu: 0.94 } },
+  "critical-alert": { label: "Critical alert", type: "external.alert", source: "external", severity: "critical" },
   "open-file": { label: "Open file", type: "user.opened_file", source: "user", severity: "info", payload: { path: "src/db.ts" } },
 };
