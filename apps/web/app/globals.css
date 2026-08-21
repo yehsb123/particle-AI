@@ -74,6 +74,27 @@ body {
 .node[data-highlighted="true"] { outline: 2px solid var(--warn); outline-offset: 3px; background: var(--highlight); border-radius: var(--card-radius); }
 .node[data-collapsed="true"] > .collapsible { display: none; }
 
+/* the incident panel visibly morphs IN so the reshaping is felt, not just seen */
+@keyframes morphIn {
+  0%   { opacity: 0; transform: translateY(-40px) scale(.92); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes highlightPulse {
+  0%, 100% { outline-color: var(--warn); box-shadow: 0 0 0 0 rgba(217,138,0,0); }
+  50%      { outline-color: var(--crit); box-shadow: 0 0 0 10px rgba(217,138,0,.22); }
+}
+.panel.crit { animation: morphIn .8s cubic-bezier(.2,.8,.2,1); }
+.node[data-highlighted="true"] { animation: highlightPulse 1.1s ease 2; }
+/* each incident cell cascades in slightly later, so you SEE the workspace assemble itself */
+.panel.crit .grid > .node { animation: morphIn .7s cubic-bezier(.2,.8,.2,1) both; }
+.panel.crit .grid > .node:nth-child(1) { animation-delay: .10s; }
+.panel.crit .grid > .node:nth-child(2) { animation-delay: .18s; }
+.panel.crit .grid > .node:nth-child(3) { animation-delay: .26s; }
+.panel.crit .grid > .node:nth-child(4) { animation-delay: .34s; }
+.panel.crit .grid > .node:nth-child(5) { animation-delay: .42s; }
+.panel.crit .grid > .node:nth-child(6) { animation-delay: .50s; }
+.panel.crit > .collapsible > .node:last-child { animation: morphIn .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: .55s; }
+
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .row { display: flex; gap: 12px; }
 .grid { display: grid; gap: 12px; }
