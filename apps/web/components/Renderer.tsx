@@ -10,12 +10,15 @@ export type RendererCtx = {
   emitAction: (action: UIAction) => void;
   setFocus: (id: string) => void;
   clearFocus: () => void;
+  /** translate a content label (identity in English) */
+  tr: (s: string) => string;
 };
 
 const Ctx = createContext<RendererCtx>({
   emitAction: () => {},
   setFocus: () => {},
   clearFocus: () => {},
+  tr: (s) => s,
 });
 
 export function RendererProvider({
@@ -58,6 +61,8 @@ function Children({ node }: { node: UIComponent }) {
 /** Recursively render a validated UIComponent tree. No component-authored code runs here. */
 export function Render({ node }: { node: UIComponent }) {
   const ctx = useContext(Ctx);
+  // Translate a content label (title/text/badge/label) — identity in English.
+  const L = (key: string, fb = ""): string => ctx.tr(String(prop(node, key, fb)));
   const highlighted = prop(node, "__highlighted", false);
   const collapsed = prop(node, "__collapsed", false);
 
@@ -96,8 +101,8 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div className={`panel${crit ? " crit" : ""}`}>
           <div className="panel-title">
-            <span>{prop(node, "title", "")}</span>
-            {badge ? <span className="badge crit"><span className="dot" />{badge}</span> : null}
+            <span>{L("title", "")}</span>
+            {badge ? <span className="badge crit"><span className="dot" />{ctx.tr(badge)}</span> : null}
           </div>
           <div className="collapsible stack"><Children node={node} /></div>
         </div>,
@@ -107,28 +112,28 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div className="card">
           {prop<string | undefined>(node, "title", undefined) ? (
-            <div className="panel-title"><span>{prop(node, "title", "")}</span></div>
+            <div className="panel-title"><span>{L("title", "")}</span></div>
           ) : null}
           <div className="collapsible stack"><Children node={node} /></div>
         </div>,
       );
     case "Heading":
-      return wrap(<div className="heading" style={{ fontSize: 20 - (num(node, "level", 2) - 1) * 2 }}>{prop(node, "text", "")}</div>);
+      return wrap(<div className="heading" style={{ fontSize: 20 - (num(node, "level", 2) - 1) * 2 }}>{L("text", "")}</div>);
     case "Text":
-      return wrap(<div>{prop(node, "text", "")}</div>);
+      return wrap(<div>{L("text", "")}</div>);
     case "Markdown":
-      return wrap(<div className="muted" style={{ whiteSpace: "pre-wrap" }}>{prop(node, "text", "")}</div>);
+      return wrap(<div className="muted" style={{ whiteSpace: "pre-wrap" }}>{L("text", "")}</div>);
     case "Badge": {
       const tone = prop<string>(node, "tone", "muted");
       const cls = tone === "ok" ? "ok" : tone === "warn" ? "warn" : tone === "crit" ? "crit" : "";
-      return wrap(<span className={`badge ${cls}`}><span className="dot" />{prop(node, "text", "")}</span>);
+      return wrap(<span className={`badge ${cls}`}><span className="dot" />{L("text", "")}</span>);
     }
     case "Button": {
       const tone = prop<string>(node, "tone", "default");
       const cls = tone === "primary" ? "primary" : tone === "muted" ? "muted" : "";
       return wrap(
         <button className={`btn ${cls}`} onClick={() => (node.actions ?? []).forEach(ctx.emitAction)}>
-          {prop(node, "text", "Button")}
+          {L("text", "Button")}
         </button>,
       );
     }
@@ -136,15 +141,15 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div>
           <div className="progress"><span style={{ width: `${Math.round(num(node, "value", 0) * 100)}%` }} /></div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{prop(node, "label", "")} {Math.round(num(node, "value", 0) * 100)}%</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{L("label", "")} {Math.round(num(node, "value", 0) * 100)}%</div>
         </div>,
       );
     case "Metric":
-      return wrap(<div className="metric"><div className="value">{prop(node, "value", "")}</div><div className="label">{prop(node, "label", "")}</div></div>);
+      return wrap(<div className="metric"><div className="value">{prop(node, "value", "")}</div><div className="label">{L("label", "")}</div></div>);
     case "Divider":
       return wrap(<div className="divider" />);
     case "Alert":
-      return wrap(<div className="panel crit">{prop(node, "text", "")}</div>);
+      return wrap(<div className="panel crit">{L("text", "")}</div>);
     case "Input":
       return wrap(
         <input
@@ -164,7 +169,7 @@ export function Render({ node }: { node: UIComponent }) {
     case "FileExplorer":
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Files")}</span></div>
+          <div className="panel-title"><span>{L("title", "Files")}</span></div>
           <ul className="files collapsible">
             {arr<string>(node, "items").map((f) => <li key={f}>{f}</li>)}
           </ul>
@@ -174,8 +179,8 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div className="panel">
           <div className="panel-title">
-            <span>{prop(node, "title", "editor")}</span>
-            {node.volatile ? <span className="badge warn"><span className="dot" />unsaved</span> : null}
+            <span>{L("title", "editor")}</span>
+            {node.volatile ? <span className="badge warn"><span className="dot" />{ctx.tr("unsaved")}</span> : null}
           </div>
           <textarea
             className="code"
@@ -187,11 +192,11 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
     case "TerminalViewer":
-      return wrap(<pre className="term">{prop(node, "text", "")}</pre>);
+      return wrap(<pre className="term">{L("text", "")}</pre>);
     case "LogViewer":
       return wrap(
         <div>
-          <div className="panel-title"><span>{prop(node, "title", "Logs")}</span></div>
+          <div className="panel-title"><span>{L("title", "Logs")}</span></div>
           <pre className="logview">{arr<string>(node, "lines").join("\n")}</pre>
         </div>,
       );
@@ -199,7 +204,7 @@ export function Render({ node }: { node: UIComponent }) {
       const diff = String(prop(node, "diff", ""));
       return wrap(
         <div>
-          <div className="panel-title"><span>{prop(node, "title", "Diff")}</span></div>
+          <div className="panel-title"><span>{L("title", "Diff")}</span></div>
           <pre className="diff">
             {diff.split("\n").map((line, i) => (
               <div key={i} className={line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : ""}>{line}</div>
@@ -215,10 +220,10 @@ export function Render({ node }: { node: UIComponent }) {
       const rows = arr<string[]>(node, "rows");
       return wrap(
         <div>
-          {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{prop(node, "title", "")}</span></div> : null}
+          {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{L("title", "")}</span></div> : null}
           <table className="table">
-            <thead><tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr></thead>
-            <tbody>{rows.map((r, i) => <tr key={i}>{r.map((cell, j) => <td key={j}>{cell}</td>)}</tr>)}</tbody>
+            <thead><tr>{columns.map((c) => <th key={c}>{ctx.tr(c)}</th>)}</tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i}>{r.map((cell, j) => <td key={j}>{ctx.tr(String(cell))}</td>)}</tr>)}</tbody>
           </table>
         </div>,
       );
@@ -226,14 +231,14 @@ export function Render({ node }: { node: UIComponent }) {
     case "ActionPanel":
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Actions")}</span></div>
+          <div className="panel-title"><span>{L("title", "Actions")}</span></div>
           <div className="row collapsible" style={{ flexWrap: "wrap" }}><Children node={node} /></div>
         </div>,
       );
     case "ActivityFeed":
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Activity")}</span></div>
+          <div className="panel-title"><span>{L("title", "Activity")}</span></div>
           <div className="stack collapsible">
             {arr<string>(node, "items").map((it, i) => <div key={i} className="muted" style={{ fontSize: 12.5 }}>{it}</div>)}
           </div>
@@ -244,20 +249,20 @@ export function Render({ node }: { node: UIComponent }) {
     case "Tree":
       return wrap(
         <div className="panel">
-          {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{prop(node, "title", "")}</span></div> : null}
+          {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{L("title", "")}</span></div> : null}
           <div className="collapsible"><TreeNodes nodes={arr<TreeItem>(node, "nodes")} /></div>
         </div>,
       );
     case "Timeline":
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Timeline")}</span></div>
+          <div className="panel-title"><span>{L("title", "Timeline")}</span></div>
           <div className="timeline collapsible">
             {arr<TimelineItem>(node, "items").map((it, i) => (
               <div key={i} className="tl-item">
                 <span className="tl-dot" />
                 <span className="muted" style={{ minWidth: 64, fontFamily: "var(--mono)", fontSize: 11 }}>{it.time ?? ""}</span>
-                <span>{it.label}</span>
+                <span>{ctx.tr(it.label)}</span>
               </div>
             ))}
           </div>
@@ -268,7 +273,7 @@ export function Render({ node }: { node: UIComponent }) {
       const max = Math.max(1, ...data);
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Chart")}</span></div>
+          <div className="panel-title"><span>{L("title", "Chart")}</span></div>
           <div className="chart collapsible">
             {data.map((v, i) => (
               <span key={i} className="bar" style={{ height: `${Math.round((v / max) * 100)}%` }} title={String(v)} />
@@ -280,7 +285,7 @@ export function Render({ node }: { node: UIComponent }) {
     case "Inspector":
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Inspector")}</span></div>
+          <div className="panel-title"><span>{L("title", "Inspector")}</span></div>
           <div className="kv collapsible">
             {arr<{ k: string; v: string }>(node, "entries").map((e, i) => (
               <React.Fragment key={i}><span className="k">{e.k}</span><span>{e.v}</span></React.Fragment>
@@ -292,15 +297,15 @@ export function Render({ node }: { node: UIComponent }) {
     case "DocumentViewer":
       return wrap(
         <div className="panel">
-          <div className="panel-title"><span>{prop(node, "title", "Document")}</span></div>
-          <div className="collapsible" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{prop(node, "text", "")}</div>
+          <div className="panel-title"><span>{L("title", "Document")}</span></div>
+          <div className="collapsible" style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{L("text", "")}</div>
         </div>,
       );
     case "Drawer":
     case "Overlay":
       return wrap(
         <div className="panel" style={{ borderStyle: "dashed" }}>
-          <div className="panel-title"><span>{prop(node, "title", node.type)}</span><span className="badge">{node.type}</span></div>
+          <div className="panel-title"><span>{L("title", node.type)}</span><span className="badge">{node.type}</span></div>
           <div className="collapsible stack"><Children node={node} /></div>
         </div>,
       );

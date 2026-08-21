@@ -7,6 +7,7 @@ import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
 import { RuntimeClient, type ServerMessage } from "../lib/runtimeClient";
+import { t, tr, type Lang } from "../lib/i18n";
 
 type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
 type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
@@ -40,6 +41,7 @@ export function Workspace() {
   const [inspector, setInspector] = useState<Inspector>({ capabilities: [], guardReasonCodes: [], dropped: [] });
   const [canUndo, setCanUndo] = useState(false);
   const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
+  const [lang, setLang] = useState<Lang>("en");
   const [devMode, setDevMode] = useState(false);
   const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
   const [mode, setMode] = useState<"local" | "connected">("local");
@@ -223,8 +225,9 @@ export function Workspace() {
       },
       setFocus: (id: string) => setAttention({ typing: true, focusedComponentId: id, lastInteractionAt: nowIso() }),
       clearFocus: () => setAttention({ typing: false }),
+      tr: (s: string) => tr(s, lang),
     }),
-    [undo, pushLog],
+    [undo, pushLog, lang],
   );
 
   const applyTheme = (t: "system" | "dark" | "light") => {
@@ -258,11 +261,11 @@ export function Workspace() {
               <circle cx="16" cy="16" r="6" fill="url(#pcore)" />
               <circle cx="26.5" cy="10.5" r="2.1" fill="#D0BCFF" />
             </svg>
-            Particle AI <small>adaptive runtime · integrated loop</small>
+            Particle AI <small>{t("tagline", lang)}</small>
           </div>
           <div className="presence" data-state={presence}>
             <span className="orb" />
-            <span className="muted">AI · {presence}</span>
+            <span className="muted">AI · {t(presence, lang)}</span>
           </div>
         </div>
         <div style={{ paddingTop: 16 }}>
@@ -272,45 +275,40 @@ export function Workspace() {
         </div>
         {devMode ? (
           <div style={{ paddingTop: 16 }}>
-            <DeveloperInspector debug={debug} />
+            <DeveloperInspector debug={debug} lang={lang} />
           </div>
         ) : null}
       </main>
 
       <aside className="rail">
         <section>
-          <h3>Simulation lab</h3>
+          <h3>{t("simLab", lang)}</h3>
           <div className="simrow">
             {SIM_EVENTS.map((s) => (
-              <button key={s.label} className="btn" onClick={() => emitSim(s)}>{s.label}</button>
+              <button key={s.label} className="btn" onClick={() => emitSim(s)}>{tr(s.label, lang)}</button>
             ))}
           </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
-            You never ask for a dashboard. Emit an event; the runtime judges significance, decides,
-            runs read-only capabilities, and reshapes its own body — reversibly.
-          </p>
+          <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>{t("simIntro", lang)}</p>
         </section>
 
         <section>
-          <h3>Controls</h3>
+          <h3>{t("controls", lang)}</h3>
           <div className="simrow">
-            <button className="btn" onClick={undo} disabled={!canUndo}>Undo last morph</button>
-            <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>Theme: {theme}</button>
-            <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>Developer mode</button>
+            <button className="btn" onClick={undo} disabled={!canUndo}>{t("undo", lang)}</button>
+            <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
+            <button className="btn" onClick={() => setLang((l) => (l === "en" ? "ko" : "en"))}>{t("langButton", lang)}</button>
+            <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
             <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>
-              Runtime: {mode === "connected" ? (connected ? "server ●" : "server ○") : "local"}
+              {t("runtime", lang)}: {mode === "connected" ? (connected ? "server ●" : "server ○") : "local"}
             </button>
           </div>
           {mode === "connected" ? (
-            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-              Events are sent to the runtime server; the UI morphs from WebSocket <code>ui_patch</code>
-              messages. Start it with <code>pnpm runtime</code>.
-            </p>
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{t("connectedNote", lang)}</p>
           ) : null}
           <div className="kv" style={{ marginTop: 10 }}>
-            <span className="k">mode</span><span>{blueprint.mode}</span>
-            <span className="k">focus</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
-            <span className="k">autonomy</span>
+            <span className="k">{t("mode", lang)}</span><span>{tr(blueprint.mode, lang)}</span>
+            <span className="k">{t("focus", lang)}</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
+            <span className="k">{t("autonomy", lang)}</span>
             <span>
               <select
                 className="select"
@@ -332,18 +330,13 @@ export function Workspace() {
               </select>
             </span>
           </div>
-          <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
-            Higher levels let more capability risks run without asking. Change it, then emit
-            HTTP 500: at L4 the remediation auto-runs; at L0/L1 even reads need consent.
-          </p>
+          <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("autonomyHint", lang)}</p>
         </section>
 
         {approvals.length ? (
           <section style={{ background: "var(--warn-bg)" }}>
-            <h3>Approval required</h3>
-            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
-              The AI proposed a risky action. External effects never run without your consent.
-            </p>
+            <h3>{t("approvalTitle", lang)}</h3>
+            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>{t("approvalNote", lang)}</p>
             <div className="stack" style={{ gap: 10 }}>
               {approvals.map((a) => (
                 <div key={a.id} className="card">
@@ -352,8 +345,8 @@ export function Workspace() {
                     <span className="badge crit"><span className="dot" />{a.risk}</span>
                   </div>
                   <div className="simrow">
-                    <button className="btn primary" onClick={() => void decideApproval(a, true)}>Approve</button>
-                    <button className="btn muted" onClick={() => void decideApproval(a, false)}>Reject</button>
+                    <button className="btn primary" onClick={() => void decideApproval(a, true)}>{t("approve", lang)}</button>
+                    <button className="btn muted" onClick={() => void decideApproval(a, false)}>{t("reject", lang)}</button>
                   </div>
                 </div>
               ))}
@@ -362,13 +355,13 @@ export function Workspace() {
         ) : null}
 
         <section>
-          <h3>Inspector — why did the UI change?</h3>
+          <h3>{t("inspectorTitle", lang)}</h3>
           <div className="kv">
-            <span className="k">significance</span><span>{inspector.significance !== undefined ? `${Math.round(inspector.significance * 100)}%` : "—"}</span>
-            <span className="k">deliberated</span><span>{inspector.deliberated ? "yes" : "no"}</span>
-            <span className="k">provider</span><span>{inspector.provider ?? "—"}{inspector.usedFallback ? " (fallback)" : ""}</span>
-            <span className="k">confidence</span><span>{inspector.confidence !== undefined ? `${Math.round(inspector.confidence * 100)}%` : "—"}</span>
-            <span className="k">morph</span><span>{inspector.morphApplied ? "applied" : "none"}</span>
+            <span className="k">{t("significance", lang)}</span><span>{inspector.significance !== undefined ? `${Math.round(inspector.significance * 100)}%` : "—"}</span>
+            <span className="k">{t("deliberated", lang)}</span><span>{inspector.deliberated ? t("yes", lang) : t("no", lang)}</span>
+            <span className="k">{t("provider", lang)}</span><span>{inspector.provider ?? "—"}{inspector.usedFallback ? " (fallback)" : ""}</span>
+            <span className="k">{t("confidence", lang)}</span><span>{inspector.confidence !== undefined ? `${Math.round(inspector.confidence * 100)}%` : "—"}</span>
+            <span className="k">{t("morph", lang)}</span><span>{inspector.morphApplied ? t("applied", lang) : t("none", lang)}</span>
           </div>
           {inspector.reasonSummary ? <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>{inspector.reasonSummary}</p> : null}
           {inspector.capabilities.length ? (
@@ -394,9 +387,9 @@ export function Workspace() {
         </section>
 
         <section>
-          <h3>Event / morph log</h3>
+          <h3>{t("logTitle", lang)}</h3>
           <div className="stack" style={{ gap: 4 }}>
-            {log.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>No events yet.</span> : null}
+            {log.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>{t("noEvents", lang)}</span> : null}
             {log.map((e) => (
               <div key={e.id} style={{ fontSize: 12, fontFamily: "var(--mono)" }}>
                 <span className={e.kind === "blocked" ? "badge crit" : e.kind === "morph" ? "badge ok" : "badge"} style={{ marginRight: 6 }}>

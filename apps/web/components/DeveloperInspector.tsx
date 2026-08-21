@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { WorldState } from "@particle/contracts";
 import type { IngestResult } from "@particle/runtime-core";
+import { t, type Lang } from "../lib/i18n";
 
 export type TraceRow = {
   n: number;
@@ -41,14 +42,14 @@ function pretty(v: unknown): string {
  * event trace, world state, the structured decision, and the audit trail. Hidden in normal
  * use; toggled on for debugging.
  */
-export function DeveloperInspector({ debug }: { debug: DebugState }) {
+export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; lang?: Lang }) {
   const [tab, setTab] = useState<Tab>("trace");
   const tabs: { id: Tab; label: string }[] = [
-    { id: "trace", label: "Event trace" },
-    { id: "world", label: "World state" },
-    { id: "decision", label: "Decision" },
-    { id: "memory", label: "Memory" },
-    { id: "audit", label: "Audit" },
+    { id: "trace", label: t("tabTrace", lang) },
+    { id: "world", label: t("tabWorld", lang) },
+    { id: "decision", label: t("tabDecision", lang) },
+    { id: "memory", label: t("tabMemory", lang) },
+    { id: "audit", label: t("tabAudit", lang) },
   ];
 
   return (
@@ -114,11 +115,11 @@ export function DeveloperInspector({ debug }: { debug: DebugState }) {
       {tab === "memory" ? (
         <div className="devbody">
           {!debug.memory || (!debug.memory.episodes.length && !debug.memory.preferences.length && !debug.memory.patterns.length) ? (
-            <span className="muted">No experience yet — emit a few events.</span>
+            <span className="muted">{t("memNone", lang)}</span>
           ) : (
             <div className="stack" style={{ gap: 14 }}>
               <div>
-                <div className="panel-title"><span>Episodic</span></div>
+                <div className="panel-title"><span>{t("memEpisodic", lang)}</span></div>
                 {debug.memory.episodes.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>—</span> : null}
                 {debug.memory.episodes.map((e, i) => (
                   <div key={i} style={{ fontSize: 12.5 }}>
@@ -128,7 +129,7 @@ export function DeveloperInspector({ debug }: { debug: DebugState }) {
                 ))}
               </div>
               <div>
-                <div className="panel-title"><span>Preferences (reinforced)</span></div>
+                <div className="panel-title"><span>{t("memPreferences", lang)}</span></div>
                 <div className="reasons">
                   {debug.memory.preferences.map((p) => (
                     <span key={p.key} className="tag">{p.key} ·{p.weight}</span>
@@ -137,7 +138,7 @@ export function DeveloperInspector({ debug }: { debug: DebugState }) {
                 </div>
               </div>
               <div>
-                <div className="panel-title"><span>Pattern candidates (reusable-template suggestions)</span></div>
+                <div className="panel-title"><span>{t("memPatterns", lang)}</span></div>
                 <div className="reasons">
                   {debug.memory.patterns.map((p) => (
                     <span key={p.key} className="tag">{p.key} ·{p.count}×</span>
