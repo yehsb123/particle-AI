@@ -263,9 +263,19 @@ export function Workspace() {
             </svg>
             Particle AI <small>{t("tagline", lang)}</small>
           </div>
-          <div className="presence" data-state={presence}>
-            <span className="orb" />
-            <span className="muted">AI · {t(presence, lang)}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              className="btn primary"
+              style={{ padding: "6px 14px" }}
+              onClick={() => setLang((l) => (l === "en" ? "ko" : "en"))}
+              title="Language / 언어"
+            >
+              🌐 {t("langButton", lang)}
+            </button>
+            <div className="presence" data-state={presence}>
+              <span className="orb" />
+              <span className="muted">AI · {t(presence, lang)}</span>
+            </div>
           </div>
         </div>
         <div style={{ paddingTop: 16 }}>
@@ -296,7 +306,6 @@ export function Workspace() {
           <div className="simrow">
             <button className="btn" onClick={undo} disabled={!canUndo}>{t("undo", lang)}</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
-            <button className="btn" onClick={() => setLang((l) => (l === "en" ? "ko" : "en"))}>{t("langButton", lang)}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
             <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>
               {t("runtime", lang)}: {mode === "connected" ? (connected ? "server ●" : "server ○") : "local"}
