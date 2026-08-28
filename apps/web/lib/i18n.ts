@@ -54,6 +54,11 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   memPatterns: { en: "Pattern candidates (reusable-template suggestions)", ko: "패턴 후보 (재사용 템플릿 제안)" },
   memNone: { en: "No experience yet — emit a few events.", ko: "아직 경험이 없습니다 — 이벤트를 몇 개 발생시켜 보세요." },
   langButton: { en: "한국어", ko: "English" },
+  coachText: {
+    en: "👉 Click a button on the right (try HTTP 500). You never ask for a screen — the AI notices the event and rebuilds the workspace by itself.",
+    ko: "👉 오른쪽 버튼을 눌러보세요 (HTTP 500 추천). 화면을 요청하지 않아도 — AI가 이벤트를 감지해 워크스페이스를 스스로 재구성합니다.",
+  },
+  coachDismiss: { en: "Got it", ko: "확인" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },

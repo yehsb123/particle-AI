@@ -42,6 +42,7 @@ export function Workspace() {
   const [canUndo, setCanUndo] = useState(false);
   const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
   const [lang, setLang] = useState<Lang>("en");
+  const [showCoach, setShowCoach] = useState(false);
   const [devMode, setDevMode] = useState(false);
   const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
   const [mode, setMode] = useState<"local" | "connected">("local");
@@ -235,6 +236,12 @@ export function Workspace() {
     const el = document.documentElement;
     if (t === "system") el.removeAttribute("data-theme");
     else el.setAttribute("data-theme", t);
+    try { localStorage.setItem("dm_theme", t); } catch {}
+  };
+
+  const dismissCoach = () => {
+    setShowCoach(false);
+    try { localStorage.setItem("dm_coach", "dismissed"); } catch {}
   };
 
   // Tear down the WebSocket if the component unmounts while connected (no leaked socket/state).
@@ -242,6 +249,27 @@ export function Workspace() {
     client.current?.disconnect();
     client.current = null;
   }, []);
+
+  // Restore saved preferences (language, theme, coach) on mount — no SSR mismatch.
+  useEffect(() => {
+    try {
+      const sl = localStorage.getItem("dm_lang");
+      if (sl === "ko" || sl === "en") setLang(sl);
+      const st = localStorage.getItem("dm_theme");
+      if (st === "dark" || st === "light" || st === "system") {
+        setTheme(st);
+        const el = document.documentElement;
+        if (st === "system") el.removeAttribute("data-theme");
+        else el.setAttribute("data-theme", st);
+      }
+      setShowCoach(localStorage.getItem("dm_coach") !== "dismissed");
+    } catch {
+      setShowCoach(true);
+    }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("dm_lang", lang); } catch {}
+  }, [lang]);
 
   return (
     <div className="app">
@@ -278,6 +306,12 @@ export function Workspace() {
             </div>
           </div>
         </div>
+        {showCoach ? (
+          <div className="coach">
+            <span>{t("coachText", lang)}</span>
+            <button className="btn" onClick={dismissCoach}>{t("coachDismiss", lang)}</button>
+          </div>
+        ) : null}
         <div style={{ paddingTop: 16 }}>
           <RendererProvider value={rendererCtx}>
             <Render node={blueprint.root} />
