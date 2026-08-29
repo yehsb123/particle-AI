@@ -292,6 +292,9 @@ export function Workspace() {
             Particle AI <small>{t("tagline", lang)}</small>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <a className="btn muted" style={{ padding: "6px 14px", textDecoration: "none" }} href="/pitch.html" target="_blank" rel="noreferrer">
+              {lang === "ko" ? "소개" : "About"}
+            </a>
             <button
               className="btn primary"
               style={{ padding: "6px 14px" }}

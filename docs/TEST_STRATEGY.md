@@ -31,6 +31,19 @@ pnpm --filter @particle/web test:e2e   # Playwright (needs a server on :3000)
 pnpm typecheck                   # strict typecheck across the monorepo
 ```
 
+## Postgres tests (local)
+
+The `@particle/persistence` integration test and the runtime server's durable path run only
+when `DATABASE_URL` is set. On Windows/Node, `localhost` may resolve to IPv6 (`::1`) while a
+Docker Postgres binds IPv4 — use `127.0.0.1` to avoid `ECONNREFUSED ::1`:
+
+```bash
+docker compose up -d postgres
+DATABASE_URL="postgres://dm:dm@127.0.0.1:5432/digital_matter" pnpm -r test
+```
+
+CI (Linux) resolves `localhost` to IPv4, so the workflow uses `localhost` without issue.
+
 ## Known Windows gotcha
 
 `next start` static chunks return 400 if a **stale** dev server holds the port after a
