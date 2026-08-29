@@ -5,6 +5,7 @@ const PROBLEM_OPENERS: Record<string, { kind: string; summary: string; severity:
   "development.server_error": { kind: "runtime_error", summary: "Service returned a runtime error", severity: "critical" },
   "development.build_failed": { kind: "build_failure", summary: "Build failed", severity: "warning" },
   "development.test_failed": { kind: "test_failure", summary: "Tests failed", severity: "warning" },
+  "security.vulnerability_detected": { kind: "security_alert", summary: "Vulnerable dependency detected", severity: "critical" },
 };
 
 /** Which problem kind an event resolves. */
@@ -12,6 +13,7 @@ const PROBLEM_CLOSERS: Record<string, string> = {
   "development.server_recovered": "runtime_error",
   "development.build_succeeded": "build_failure",
   "development.test_passed": "test_failure",
+  "security.vulnerability_patched": "security_alert",
 };
 
 function str(v: unknown): string | undefined {

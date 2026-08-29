@@ -18,6 +18,8 @@ export const SIM_EVENTS: SimSpec[] = [
   { label: "Service recovered", key: "recovered", type: "development.server_recovered", source: "development", severity: "info" },
   { label: "Build succeeded", key: "build-ok", type: "development.build_succeeded", source: "development", severity: "info" },
   { label: "High CPU", key: "high-cpu", type: "system.resource_warning", source: "system", severity: "warning", payload: { cpu: 0.94 } },
+  { label: "Vulnerability found", key: "vuln", type: "security.vulnerability_detected", source: "external", severity: "critical", payload: { advisory: "CVE-2026-1234" } },
+  { label: "Vulnerability patched", key: "vuln-patched", type: "security.vulnerability_patched", source: "external", severity: "info" },
   { label: "Critical alert", key: "critical-alert", type: "external.alert", source: "external", severity: "critical" },
 ];
 

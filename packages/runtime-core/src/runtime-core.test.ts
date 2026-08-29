@@ -99,6 +99,29 @@ describe("RuntimeCore — full loop", () => {
     expect(inc.permission?.denied.length).toBeGreaterThan(0);
   });
 
+  it("handles the security scenario: scan runs, update is gated, patched restores", async () => {
+    const core = createRuntimeCore(makeClock());
+    const vuln = await core.ingest({
+      id: "v1", sessionId: "s", timestamp: "2026-08-19T00:00:00Z",
+      source: "external", type: "security.vulnerability_detected", severity: "critical", payload: {},
+    });
+    expect(vuln.morph.applied).toBe(true);
+    expect(findById(core.getBlueprint("s").root, "incident")?.props?.title).toBe("Security alert");
+    // read-only scan ran automatically; the external-effect update did NOT
+    expect(vuln.capabilityRuns.map((r) => r.capabilityId)).toContain("security.scan_dependencies");
+    expect(vuln.pendingApprovals.map((a) => a.capabilityId)).toContain("security.update_dependency");
+    // approving executes the update
+    const out = await core.approve(vuln.pendingApprovals[0]!.id);
+    expect((out?.result.output as { updated: string }).updated).toBe("lodash@4.17.21");
+    // patched → back to development
+    const patched = await core.ingest({
+      id: "v2", sessionId: "s", timestamp: "2026-08-19T00:00:01Z",
+      source: "external", type: "security.vulnerability_patched", severity: "info", payload: {},
+    });
+    expect(patched.morph.applied).toBe(true);
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
+  });
+
   it("marks a repeated incident as recurring (experience shapes the body)", async () => {
     const core = createRuntimeCore(makeClock());
     // 1st incident: no recurrence badge

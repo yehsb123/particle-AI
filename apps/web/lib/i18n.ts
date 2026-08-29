@@ -153,6 +153,23 @@ const CONTENT: Record<string, string> = {
   "Test run started": "테스트 실행 시작",
   "Suite failed": "스위트 실패",
   recurring: "반복 발생",
+  // security scenario
+  "Security alert": "보안 경보",
+  SECURITY: "보안",
+  "Vulnerable dependency": "취약 의존성",
+  Package: "패키지",
+  Severity: "심각도",
+  Advisory: "권고",
+  critical: "심각",
+  "`lodash@4.17.20` has a known prototype-pollution vulnerability. Updating to 4.17.21 resolves it.":
+    "`lodash@4.17.20`에 알려진 프로토타입 오염 취약점이 있습니다. 4.17.21로 업데이트하면 해결됩니다.",
+  "Security timeline": "보안 타임라인",
+  "Advisory published": "권고 공개됨",
+  "Dependency matched in lockfile": "락파일에서 의존성 일치 확인",
+  "Awaiting your decision": "사용자 결정 대기",
+  "Update dependency": "의존성 업데이트",
+  "Vulnerability found": "취약점 발견",
+  "Vulnerability patched": "취약점 패치됨",
 };
 
 /** Translate a blueprint content string when in Korean; unknown strings (code, logs) pass through. */

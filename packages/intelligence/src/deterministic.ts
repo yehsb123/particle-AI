@@ -16,7 +16,27 @@ const PROBLEM_CLOSERS = new Set([
   "development.server_recovered",
   "development.build_succeeded",
   "development.test_passed",
+  "security.vulnerability_patched",
 ]);
+
+/** Capability plans per problem kind — diagnostics are read-only; remediation is gated. */
+function planFor(kind: string) {
+  if (kind === "security_alert") {
+    return [
+      { capabilityId: "security.scan_dependencies" },
+      { capabilityId: "workspace.get_state" },
+      // remediation — external effect, gated behind human approval
+      { capabilityId: "security.update_dependency", input: { pkg: "lodash", to: "4.17.21" } },
+    ];
+  }
+  return [
+    { capabilityId: "development.read_logs" },
+    { capabilityId: "development.read_build_state" },
+    { capabilityId: "data.inspect" },
+    // remediation — external effect, gated behind human approval
+    { capabilityId: "development.revert_diff", input: { target: "recent diff" } },
+  ];
+}
 
 /**
  * The deterministic "brain": derive a validated RuntimeDecision from the post-event world
@@ -39,15 +59,7 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
       worldStateUpdates: [],
       intent: { label: "resolve_incident", confidence: 0.9 },
       recommendedMode: "incident",
-      capabilityPlan: {
-        capabilities: [
-          { capabilityId: "development.read_logs" },
-          { capabilityId: "development.read_build_state" },
-          { capabilityId: "data.inspect" },
-          // remediation — external effect, gated behind human approval
-          { capabilityId: "development.revert_diff", input: { target: "recent diff" } },
-        ],
-      },
+      capabilityPlan: { capabilities: planFor(primary.kind) },
       uiPlan: {
         intent: "surface_incident",
         targetMode: "incident",

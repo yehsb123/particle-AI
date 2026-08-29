@@ -19,11 +19,13 @@ const PROBLEM_OPENERS = new Set([
   "development.server_error",
   "development.build_failed",
   "development.test_failed",
+  "security.vulnerability_detected",
 ]);
 const PROBLEM_CLOSERS = new Set([
   "development.server_recovered",
   "development.build_succeeded",
   "development.test_passed",
+  "security.vulnerability_patched",
 ]);
 
 /**

@@ -47,8 +47,9 @@ function blueprintStrings(): Set<string> {
   return shown;
 }
 
-// content that intentionally stays verbatim: code, logs, diffs, paths, proper nouns
-const VERBATIM = /^(src\/|package\.json|GET |[-+] |T\+|\d|confidence \d|export |API$|DB$)/;
+// content that intentionally stays verbatim: code, logs, diffs, paths, identifiers, advisories
+const VERBATIM =
+  /^(src\/|package\.json|GET |[-+] |T\+|\d|confidence \d|export |API$|DB$|CVE-|[a-z0-9@][\w-]*[.@/][\w.@/-]*$)/;
 
 describe("i18n consistency", () => {
   it("every chrome key used by the shell exists in both languages", () => {

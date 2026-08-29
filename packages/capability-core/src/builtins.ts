@@ -109,5 +109,26 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
       }),
       (input) => ({ reverted: true, target: (input as { target?: string })?.target ?? "recent diff" }),
     ),
+    // Security scenario: read-only dependency scan + gated remediation.
+    cap(
+      manifest({ id: "security.scan_dependencies", name: "Scan dependencies", risk: "read", tags: ["security"] }),
+      () => ({
+        vulnerable: [{ name: "lodash", version: "4.17.20", advisory: "CVE-2026-1234", severity: "critical" }],
+      }),
+    ),
+    cap(
+      manifest({
+        id: "security.update_dependency",
+        name: "Update dependency",
+        description: "Updates a vulnerable dependency to a patched version.",
+        risk: "external_effect",
+        tags: ["security", "remediation"],
+        latencyClass: "fast",
+      }),
+      (input) => {
+        const { pkg, to } = (input as { pkg?: string; to?: string }) ?? {};
+        return { updated: `${pkg ?? "lodash"}@${to ?? "4.17.21"}` };
+      },
+    ),
   ];
 }

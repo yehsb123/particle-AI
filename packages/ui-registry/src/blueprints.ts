@@ -72,7 +72,7 @@ export function developmentBlueprint(now: string, decisionId = "seed"): UIBluepr
   };
 }
 
-export type IncidentKind = "runtime_error" | "build_failure" | "test_failure";
+export type IncidentKind = "runtime_error" | "build_failure" | "test_failure" | "security_alert";
 
 const ACTIONS: UIComponent = {
   id: "incident-actions",
@@ -218,6 +218,76 @@ function incidentPanel(kind: IncidentKind): UIComponent {
           ],
         },
         ACTIONS,
+      ],
+    };
+  }
+
+  if (kind === "security_alert") {
+    return {
+      id: "incident",
+      type: "Panel",
+      props: { title: "Security alert", tone: "critical", badge: "SECURITY" },
+      children: [
+        {
+          id: "incident-grid",
+          type: "Grid",
+          props: { columns: 2, gap: "md" },
+          children: [
+            {
+              id: "incident-vuln",
+              type: "Table",
+              props: {
+                title: "Vulnerable dependency",
+                columns: ["Package", "Severity", "Advisory"],
+                rows: [["lodash@4.17.20", "critical", "CVE-2026-1234"]],
+              },
+            },
+            {
+              id: "incident-assessment",
+              type: "Card",
+              props: { title: "AI assessment" },
+              children: [
+                {
+                  id: "incident-assessment-text",
+                  type: "Markdown",
+                  props: { text: "`lodash@4.17.20` has a known prototype-pollution vulnerability. Updating to 4.17.21 resolves it." },
+                },
+                { id: "incident-confidence", type: "Progress", props: { value: 0.95, label: "confidence" } },
+              ],
+            },
+            {
+              id: "incident-timeline",
+              type: "Timeline",
+              props: {
+                title: "Security timeline",
+                items: [
+                  { time: "T+0s", label: "Advisory published" },
+                  { time: "T+1s", label: "Dependency matched in lockfile" },
+                  { time: "T+1s", label: "Awaiting your decision" },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          id: "incident-actions",
+          type: "ActionPanel",
+          props: { title: "Suggested actions" },
+          children: [
+            {
+              id: "action-update-dep",
+              type: "Button",
+              props: { text: "Update dependency", tone: "primary" },
+              actions: [{ event: "user.requested_action", capabilityId: "security.update_dependency" }],
+            },
+            {
+              id: "action-undo-morph",
+              type: "Button",
+              props: { text: "Undo this change", tone: "muted" },
+              actions: [{ event: "user.requested_undo" }],
+            },
+          ],
+        },
       ],
     };
   }
