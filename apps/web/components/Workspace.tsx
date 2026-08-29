@@ -43,6 +43,7 @@ export function Workspace() {
   const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
   const [lang, setLang] = useState<Lang>("en");
   const [showCoach, setShowCoach] = useState(false);
+  const [showPresence, setShowPresence] = useState(false);
   const [devMode, setDevMode] = useState(false);
   const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
   const [mode, setMode] = useState<"local" | "connected">("local");
@@ -303,9 +304,41 @@ export function Workspace() {
             >
               🌐 {t("langButton", lang)}
             </button>
-            <div className="presence" data-state={presence}>
-              <span className="orb" />
-              <span className="muted">AI · {t(presence, lang)}</span>
+            <div style={{ position: "relative" }}>
+              <button
+                className="presence"
+                data-state={presence}
+                onClick={() => setShowPresence((v) => !v)}
+                aria-expanded={showPresence}
+                title={t("presenceTitle", lang)}
+                style={{ cursor: "pointer", font: "inherit" }}
+              >
+                <span className="orb" />
+                <span className="muted">AI · {t(presence, lang)}</span>
+              </button>
+              {showPresence ? (
+                <div className="presence-pop" role="dialog" aria-label={t("presenceTitle", lang)}>
+                  <div className="panel-title" style={{ marginBottom: 10 }}>
+                    <span>{t("presenceTitle", lang)}</span>
+                    <button className="btn muted" style={{ padding: "2px 10px" }} onClick={() => setShowPresence(false)}>✕</button>
+                  </div>
+                  <div className="kv">
+                    <span className="k">{t("presenceState", lang)}</span><span>{t(presence, lang)}</span>
+                    <span className="k">{t("presenceWatching", lang)}</span><span>{t("presenceWatchingValue", lang)}</span>
+                    <span className="k">{t("presenceAutonomy", lang)}</span><span>L{autonomy}</span>
+                  </div>
+                  <div className="divider" style={{ margin: "10px 0" }} />
+                  <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLastReason", lang)}</div>
+                  <p style={{ fontSize: 13, margin: "6px 0 0" }}>
+                    {inspector.reasonSummary ?? t("presenceNoReason", lang)}
+                  </p>
+                  <div className="divider" style={{ margin: "10px 0" }} />
+                  <div className="k muted" style={{ fontSize: 12 }}>{t("presencePlanned", lang)}</div>
+                  <p style={{ fontSize: 13, margin: "6px 0 0", fontFamily: approvals.length ? "var(--mono)" : undefined }}>
+                    {approvals.length ? approvals.map((a) => a.capabilityId).join(", ") : t("presenceNothingPlanned", lang)}
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

@@ -38,6 +38,13 @@ test.describe("Particle AI — autonomous incident morph", () => {
     await page.getByRole("button", { name: "Undo last morph" }).click();
     await expect(page.getByText("Runtime incident")).toHaveCount(0);
 
+    // 4.5 The AI presence is inspectable (spec §23): click it, see why the UI changed.
+    await page.getByRole("button", { name: /^AI ·/ }).click();
+    await expect(page.getByText("What is the AI doing?")).toBeVisible();
+    await expect(page.locator(".presence-pop").getByText(/Problem detected|no morph yet/)).toBeVisible();
+    await page.getByRole("button", { name: "✕" }).click();
+    await expect(page.getByText("What is the AI doing?")).toHaveCount(0);
+
     // 5. An unrelated event does not morph the UI.
     await page.getByRole("button", { name: "High CPU" }).click();
     await expect(page.getByText("Runtime incident")).toHaveCount(0);

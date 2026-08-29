@@ -158,7 +158,13 @@ body {
 .reasons { display: flex; flex-wrap: wrap; gap: 6px; }
 .reasons .tag { font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--accent-low); color: var(--primary-700); border: 1px solid var(--border-low); }
 
-.presence { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border-low); }
+.presence { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border-low); color: var(--text); }
+button.presence:hover { border-color: var(--accent); }
+.presence-pop {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: 320px;
+  background: var(--panel); border: 1px solid var(--border-low); border-radius: var(--card-radius);
+  padding: 14px; box-shadow: var(--shadow-5); animation: morphIn .25s ease; text-align: left;
+}
 .presence .orb { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
 .presence[data-state="observing"] .orb { background: var(--accent); animation: pulse 2.4s ease-in-out infinite; }
 .presence[data-state="evaluating"] .orb { background: var(--warn); animation: pulse 1s ease-in-out infinite; }

@@ -59,6 +59,16 @@ const CHROME: Record<string, { en: string; ko: string }> = {
     ko: "👉 오른쪽 버튼을 눌러보세요 (HTTP 500 추천). 화면을 요청하지 않아도 — AI가 이벤트를 감지해 워크스페이스를 스스로 재구성합니다.",
   },
   coachDismiss: { en: "Got it", ko: "확인" },
+  // AI presence inspector popover (spec §23)
+  presenceTitle: { en: "What is the AI doing?", ko: "AI가 무엇을 하고 있나?" },
+  presenceState: { en: "state", ko: "상태" },
+  presenceWatching: { en: "observing", ko: "관찰 대상" },
+  presenceWatchingValue: { en: "workspace events (builds, tests, runtime)", ko: "워크스페이스 이벤트 (빌드·테스트·런타임)" },
+  presenceLastReason: { en: "why the UI changed", ko: "UI가 바뀐 이유" },
+  presenceNoReason: { en: "no morph yet — emit an event", ko: "아직 변형 없음 — 이벤트를 발생시켜 보세요" },
+  presencePlanned: { en: "awaiting your approval", ko: "승인 대기 중" },
+  presenceNothingPlanned: { en: "nothing pending", ko: "대기 중인 작업 없음" },
+  presenceAutonomy: { en: "autonomy level", ko: "자율성 레벨" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },
