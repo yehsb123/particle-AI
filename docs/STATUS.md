@@ -2,6 +2,24 @@
 
 Updated at the end of each phase.
 
+## Autonomous-loop additions (2026-08-29 ~)
+- **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
+  state, what it observes, autonomy level, why the UI last changed, capabilities awaiting
+  approval. E2E-covered.
+- **Pattern suggestion banner (spec §20)**: when a flow repeats to the threshold, a
+  dismissible banner suggests a reusable workspace template (suggest-only).
+- **Recurring incidents**: per-session episodic memory marks a repeated incident with a
+  `recurring ×N` badge — experience visibly shapes the morph.
+- **Security scenario (4th incident kind)**: `security.vulnerability_detected/patched`
+  full-stack — CVE table layout, `security.scan_dependencies` (read, auto) +
+  `security.update_dependency` (external effect, approval-gated).
+- **i18n**: EN/KO toggle in the header; chrome + blueprint content translated; audit test
+  (`i18n.test.ts`) guards against untranslated strings/raw keys.
+- **UX**: first-run coach mark; language/theme persisted (localStorage); morph-in animation
+  with staggered cells; Escape closes popover/coach; global focus-visible ring.
+- **One-pager**: `/pitch.html` (also published as a Claude artifact) with a self-playing
+  before→incident→recover demo and how-to-explain copy.
+
 ## Completion sprint (all committed)
 - **@particle/memory** (§20): working/episodic/preference stores + `PatternDetector` that
   suggests reusable-template candidates (suggest-only). Fed by `RuntimeCore` on each morph;

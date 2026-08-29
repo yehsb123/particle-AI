@@ -253,6 +253,8 @@ export function Workspace() {
     setShowCoach(false);
     try { localStorage.setItem("dm_coach", "dismissed"); } catch {}
   };
+  const dismissCoachRef = useRef(dismissCoach);
+  dismissCoachRef.current = dismissCoach;
 
   // Tear down the WebSocket if the component unmounts while connected (no leaked socket/state).
   useEffect(() => () => {
@@ -280,6 +282,20 @@ export function Workspace() {
   useEffect(() => {
     try { localStorage.setItem("dm_lang", lang); } catch {}
   }, [lang]);
+
+  // Escape closes transient surfaces (presence popover first, then the coach).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setShowPresence((open) => {
+        if (open) return false;
+        dismissCoachRef.current();
+        return open;
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="app">

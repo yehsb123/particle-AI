@@ -42,7 +42,8 @@ test.describe("Particle AI — autonomous incident morph", () => {
     await page.getByRole("button", { name: /^AI ·/ }).click();
     await expect(page.getByText("What is the AI doing?")).toBeVisible();
     await expect(page.locator(".presence-pop").getByText(/Problem detected|no morph yet/)).toBeVisible();
-    await page.getByRole("button", { name: "✕" }).click();
+    // Escape closes the popover (keyboard accessibility)
+    await page.keyboard.press("Escape");
     await expect(page.getByText("What is the AI doing?")).toHaveCount(0);
 
     // 5. An unrelated event does not morph the UI.
