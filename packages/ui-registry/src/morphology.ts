@@ -26,11 +26,12 @@ export function planMorph(
   intent: UIMorphIntent,
   decisionId = "decision",
   variant?: string,
+  recurrence = 0,
 ): UIPatch | null {
   const incidentPresent = !!findById(current.root, "incident");
   switch (intent) {
     case "surface_incident":
-      return incidentPresent ? null : incidentPatch(decisionId, asIncidentKind(variant));
+      return incidentPresent ? null : incidentPatch(decisionId, asIncidentKind(variant), recurrence);
     case "restore_normal":
       return incidentPresent ? recoveryPatch(decisionId) : null;
     case "augment":

@@ -229,7 +229,14 @@ export class RuntimeCore {
 
     // Morphology → guard → apply
     const intent = decision.uiPlan?.intent ?? "none";
-    const desired = planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant);
+    // Experience shapes the body: if episodic memory has seen this situation before, the
+    // incident surfaces WITH that knowledge (a "recurring ×N" badge). Episodes are recorded
+    // after a morph applies, so past occurrences + this one = recurrence.
+    const morphContext = `${decision.recommendedMode ?? "development"}.${intent}`;
+    const recurrence =
+      intent === "surface_incident" ? s.memory.episodic.search(morphContext).length + 1 : 0;
+
+    const desired = planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant, recurrence);
     const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
     let patternSuggestions: PatternCandidate[] = [];
 

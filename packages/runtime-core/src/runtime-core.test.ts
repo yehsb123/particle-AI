@@ -99,6 +99,21 @@ describe("RuntimeCore — full loop", () => {
     expect(inc.permission?.denied.length).toBeGreaterThan(0);
   });
 
+  it("marks a repeated incident as recurring (experience shapes the body)", async () => {
+    const core = createRuntimeCore(makeClock());
+    // 1st incident: no recurrence badge
+    await core.ingest(ev("development.server_error", "critical", "e1"));
+    expect(findById(core.getBlueprint("s").root, "incident-recurrence")).toBeUndefined();
+    await core.ingest(ev("development.server_recovered", "info", "e2"));
+    // 2nd incident: episodic memory has seen this — badge appears with ×2
+    await core.ingest(ev("development.server_error", "critical", "e3"));
+    const badge = findById(core.getBlueprint("s").root, "incident-recurrence-count");
+    expect(badge?.props?.text).toBe("×2");
+    // fresh session is unaffected (memory is per-session)
+    await core.ingest({ ...ev("development.server_error", "critical", "e4"), sessionId: "other" });
+    expect(findById(core.getBlueprint("other").root, "incident-recurrence")).toBeUndefined();
+  });
+
   it("keeps memory and approvals isolated per session", async () => {
     const core = createRuntimeCore(makeClock());
     const a = await core.ingest({ ...ev("development.server_error", "critical", "ea"), sessionId: "A" });

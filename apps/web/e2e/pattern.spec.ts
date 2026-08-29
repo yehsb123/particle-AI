@@ -15,6 +15,11 @@ test("pattern suggestion banner appears after repeated flows and can be dismisse
       await page.getByRole("button", { name: "HTTP 500" }).click();
       await expect(page.getByText("Runtime incident")).toBeVisible({ timeout: 1200 });
     }).toPass({ timeout: 15_000 });
+    // from the 2nd occurrence on, episodic memory marks the incident as recurring ×N
+    if (cycle >= 1) {
+      await expect(page.getByText("recurring")).toBeVisible();
+      await expect(page.getByText(`×${cycle + 1}`)).toBeVisible();
+    }
     await page.getByRole("button", { name: "Service recovered" }).click();
     await expect(page.getByText("Runtime incident")).toHaveCount(0);
   }

@@ -152,6 +152,7 @@ const CONTENT: Record<string, string> = {
     "`getUser`가 undefined 반환 — `db.user` 조회 실패 추정. 신뢰도 78%.",
   "Test run started": "테스트 실행 시작",
   "Suite failed": "스위트 실패",
+  recurring: "반복 발생",
 };
 
 /** Translate a blueprint content string when in Korean; unknown strings (code, logs) pass through. */

@@ -306,15 +306,37 @@ function incidentPanel(kind: IncidentKind): UIComponent {
  * The autonomous morph applied when a problem is detected. It does NOT destroy the editor —
  * it reduces the file explorer and adds an incident panel (id "incident") beside the work.
  * The layout adapts to the problem kind (runtime error / build failure / test failure).
+ *
+ * `recurrence` >= 2 marks the incident as recurring — the runtime's episodic memory has seen
+ * this situation before, and the body reflects that experience with a badge.
  */
-export function incidentPatch(decisionId = "decision-incident", kind: IncidentKind = "runtime_error"): UIPatch {
+export function incidentPatch(
+  decisionId = "decision-incident",
+  kind: IncidentKind = "runtime_error",
+  recurrence = 0,
+): UIPatch {
+  const panel = incidentPanel(kind);
+  if (recurrence >= 2) {
+    panel.children = [
+      {
+        id: "incident-recurrence",
+        type: "Row",
+        props: { align: "center" },
+        children: [
+          { id: "incident-recurrence-badge", type: "Badge", props: { text: "recurring", tone: "warn" } },
+          { id: "incident-recurrence-count", type: "Badge", props: { text: `×${recurrence}`, tone: "warn" } },
+        ],
+      },
+      ...(panel.children ?? []),
+    ];
+  }
   return {
     patchId: `patch-incident-${kind}`,
     fromWorkspaceId: "ws-dev",
     decisionId,
     operations: [
       { op: "collapse", targetId: "files" },
-      { op: "add", parentId: "workspace", index: 2, component: incidentPanel(kind) },
+      { op: "add", parentId: "workspace", index: 2, component: panel },
       { op: "highlight", targetId: "incident" },
     ],
   };
