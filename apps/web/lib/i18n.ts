@@ -118,6 +118,22 @@ const CONTENT: Record<string, string> = {
   Test: "테스트",
   Status: "상태",
   passed: "통과",
+  // incident content sentences
+  "Probable cause: `db.users` renamed to `db.user` in the recent diff. Confidence 82%.":
+    "추정 원인: 최근 변경에서 `db.users`가 `db.user`로 변경됨. 신뢰도 82%.",
+  "First 500 on GET /users/42": "GET /users/42 첫 500 발생",
+  "Error rate spike detected": "에러율 급증 감지",
+  "Probable cause localized to recent diff": "추정 원인을 최근 변경으로 좁힘",
+  "The rename `db.users` → `db.user` broke the type check. Revert or fix the reference.":
+    "`db.users` → `db.user` 변경이 타입 체크를 깨뜨렸습니다. 되돌리거나 참조를 수정하세요.",
+  "Build started": "빌드 시작",
+  "Type error in src/routes.ts": "src/routes.ts 타입 에러",
+  "getUser returns a user": "getUser가 사용자를 반환한다",
+  "getUser handles missing id": "getUser가 없는 id를 처리한다",
+  "`getUser` returns undefined — the `db.user` lookup likely misses. Confidence 78%.":
+    "`getUser`가 undefined 반환 — `db.user` 조회 실패 추정. 신뢰도 78%.",
+  "Test run started": "테스트 실행 시작",
+  "Suite failed": "스위트 실패",
 };
 
 /** Translate a blueprint content string when in Korean; unknown strings (code, logs) pass through. */
