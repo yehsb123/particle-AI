@@ -69,6 +69,14 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   presencePlanned: { en: "awaiting your approval", ko: "승인 대기 중" },
   presenceNothingPlanned: { en: "nothing pending", ko: "대기 중인 작업 없음" },
   presenceAutonomy: { en: "autonomy level", ko: "자율성 레벨" },
+  // pattern suggestion banner (spec §20 — suggest-only, never auto-mutates)
+  patternTitle: { en: "Pattern noticed", ko: "패턴 감지" },
+  patternText: {
+    en: "This flow keeps repeating. It could become a reusable workspace template.",
+    ko: "이 흐름이 계속 반복되고 있어요. 재사용 워크스페이스 템플릿으로 만들 수 있습니다.",
+  },
+  patternTimes: { en: "times", ko: "회 반복" },
+  patternLater: { en: "Maybe later", ko: "나중에" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },

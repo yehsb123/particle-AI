@@ -49,6 +49,7 @@ export function Workspace() {
   const [mode, setMode] = useState<"local" | "connected">("local");
   const [connected, setConnected] = useState(false);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
   const counter = useRef(0);
@@ -71,6 +72,14 @@ export function Workspace() {
       setPresence(res.presence as Presence);
       setCanUndo(core.current.canUndo(SESSION));
       addApprovals(res.pendingApprovals);
+      if (res.patternSuggestions.length) {
+        setPatternSugs((p) => [
+          ...p,
+          ...res.patternSuggestions
+            .filter((s) => !p.some((x) => x.key === s.key))
+            .map((s) => ({ key: s.key, count: s.count })),
+        ]);
+      }
       setInspector({
         significance: res.significance.score,
         deliberated: res.deliberated,
@@ -411,6 +420,23 @@ export function Workspace() {
           </div>
           <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("autonomyHint", lang)}</p>
         </section>
+
+        {patternSugs.length ? (
+          <section style={{ background: "var(--accent-low)" }}>
+            <h3>{t("patternTitle", lang)}</h3>
+            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>{t("patternText", lang)}</p>
+            <div className="stack" style={{ gap: 8 }}>
+              {patternSugs.map((s) => (
+                <div key={s.key} className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{s.key} · {s.count}{t("patternTimes", lang)}</span>
+                  <button className="btn muted" style={{ padding: "4px 12px" }} onClick={() => setPatternSugs((p) => p.filter((x) => x.key !== s.key))}>
+                    {t("patternLater", lang)}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {approvals.length ? (
           <section style={{ background: "var(--warn-bg)" }}>
