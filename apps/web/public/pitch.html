@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Particle AI — 스스로 재구성하는 인터페이스</title>
+<style>
+  :root {
+    --paper: #FBFAFD;
+    --surface: #FFFFFF;
+    --ink: #1C1B1F;
+    --ink-soft: #605D64;
+    --line: #E6E1E5;
+    --line-strong: #CAC4D0;
+    --accent: #6750A4;
+    --accent-ink: #4F378B;
+    --accent-soft: #F3EDFB;
+    --accent-bright: #7F67BE;
+    --crit: #B3261E;
+    --crit-soft: #FCEEEE;
+    --ok: #2E7D32;
+    --ok-soft: #E7F3E8;
+    --warn: #EF6C00;
+    --shadow: 0 1px 2px rgba(33,0,93,.04), 0 8px 30px rgba(33,0,93,.07);
+    --shadow-lg: 0 2px 4px rgba(33,0,93,.05), 0 24px 60px rgba(33,0,93,.12);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", Roboto, sans-serif;
+    --maxw: 1080px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121016; --surface: #1A171F; --ink: #ECE6F0; --ink-soft: #A9A2B3;
+      --line: #2A2530; --line-strong: #3A3442; --accent: #CDBBF5; --accent-ink: #D9C9FA;
+      --accent-soft: #241C33; --accent-bright: #B69DF8;
+      --crit: #F2B8B5; --crit-soft: #33161A; --ok: #A5D6A7; --ok-soft: #16281A; --warn: #FFB77C;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.5);
+      --shadow-lg: 0 2px 4px rgba(0,0,0,.5), 0 24px 60px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #FBFAFD; --surface: #FFFFFF; --ink: #1C1B1F; --ink-soft: #605D64; --line: #E6E1E5;
+    --line-strong: #CAC4D0; --accent: #6750A4; --accent-ink: #4F378B; --accent-soft: #F3EDFB;
+    --accent-bright: #7F67BE; --crit: #B3261E; --crit-soft: #FCEEEE; --ok: #2E7D32; --ok-soft: #E7F3E8; --warn: #EF6C00;
+    --shadow: 0 1px 2px rgba(33,0,93,.04), 0 8px 30px rgba(33,0,93,.07);
+    --shadow-lg: 0 2px 4px rgba(33,0,93,.05), 0 24px 60px rgba(33,0,93,.12);
+  }
+  :root[data-theme="dark"] {
+    --paper: #121016; --surface: #1A171F; --ink: #ECE6F0; --ink-soft: #A9A2B3; --line: #2A2530;
+    --line-strong: #3A3442; --accent: #CDBBF5; --accent-ink: #D9C9FA; --accent-soft: #241C33;
+    --accent-bright: #B69DF8; --crit: #F2B8B5; --crit-soft: #33161A; --ok: #A5D6A7; --ok-soft: #16281A; --warn: #FFB77C;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.5);
+    --shadow-lg: 0 2px 4px rgba(0,0,0,.5), 0 24px 60px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+    line-height: 1.6; -webkit-font-smoothing: antialiased; letter-spacing: -0.006em;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+  }
+  h1, h2, h3 { text-wrap: balance; letter-spacing: -0.03em; line-height: 1.08; margin: 0; }
+  a { color: inherit; }
+
+  /* ── top bar ── */
+  .topbar { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 86%, transparent); backdrop-filter: blur(10px); }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -0.02em; }
+  .logo svg { width: 26px; height: 26px; border-radius: 7px; box-shadow: 0 2px 10px rgba(103,80,164,.4); }
+  .themebtn { font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--line-strong);
+    background: var(--surface); color: var(--ink); padding: 7px 14px; border-radius: 999px; }
+  .themebtn:hover { border-color: var(--accent); }
+
+  /* ── hero ── */
+  .hero { padding: 84px 0 40px; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
+  .hero h1 { font-size: clamp(34px, 5vw, 58px); font-weight: 800; margin: 18px 0 0; }
+  .hero h1 .grad { color: var(--accent); }
+  .lead { font-size: clamp(16px, 1.6vw, 19px); color: var(--ink-soft); margin: 22px 0 0; max-width: 34ch; }
+  .herocta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pill { font-family: var(--mono); font-size: 12.5px; color: var(--accent-ink); background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); padding: 8px 14px; border-radius: 999px; }
+
+  /* ── live morphing demo (the thesis) ── */
+  .screen {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow-lg); overflow: hidden; }
+  .screen-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .screen-bar .dots { display: flex; gap: 6px; }
+  .screen-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); display: block; }
+  .presence { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
+  .presence b { width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    animation: presence 9s infinite; }
+  .screen-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 300px; }
+  .row { display: flex; gap: 12px; }
+  .card { background: color-mix(in srgb, var(--ink) 3%, var(--surface)); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px; flex: 1; }
+  .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--ink-soft);
+    text-transform: uppercase; margin-bottom: 9px; }
+  .bar { height: 8px; border-radius: 6px; background: var(--line-strong); margin: 7px 0; opacity: .8; }
+  .bar.sm { width: 55%; } .bar.md { width: 78%; } .bar.a { background: color-mix(in srgb, var(--accent) 55%, var(--line-strong)); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px;
+    padding: 3px 9px; border-radius: 999px; }
+  .chip.ok { color: var(--ok); background: var(--ok-soft); }
+
+  /* the event flash */
+  .event {
+    position: absolute; top: 14px; right: 16px; z-index: 5;
+    font-family: var(--mono); font-size: 11.5px; font-weight: 600; color: #fff; background: var(--crit);
+    padding: 4px 10px; border-radius: 999px; opacity: 0; transform: scale(.8);
+    animation: eventFlash 9s infinite; box-shadow: 0 4px 16px rgba(179,38,30,.4); }
+  .screen { position: relative; }
+
+  /* the incident panel that morphs IN and OUT on a loop */
+  .incident {
+    border: 1.5px solid var(--crit); background: var(--crit-soft); border-radius: 12px;
+    overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-10px);
+    animation: incident 9s infinite; }
+  .incident .inner { padding: 12px; }
+  .incident .lbl { color: var(--crit); }
+  .mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 42px; margin-top: 6px; }
+  .mini-chart i { flex: 1; background: linear-gradient(var(--accent-bright), var(--accent)); border-radius: 3px 3px 0 0; display: block; }
+  .caption { text-align: center; font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); margin-top: 14px; }
+  .caption b { color: var(--accent); }
+
+  @keyframes presence {
+    0%, 16% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
+    22%, 50% { background: var(--crit); box-shadow: 0 0 0 4px color-mix(in srgb, var(--crit) 20%, transparent); }
+    56%, 100% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
+  }
+  @keyframes eventFlash {
+    0%, 15% { opacity: 0; transform: scale(.8); }
+    18% { opacity: 1; transform: scale(1.08); }
+    26% { opacity: 1; transform: scale(1); }
+    40% { opacity: 0; transform: scale(1); }
+    100% { opacity: 0; }
+  }
+  @keyframes incident {
+    0%, 17% { max-height: 0; opacity: 0; transform: translateY(-10px); }
+    24% { opacity: 1; }
+    40%, 78% { max-height: 260px; opacity: 1; transform: none; }
+    90%, 100% { max-height: 0; opacity: 0; transform: translateY(-10px); }
+  }
+
+  /* ── sections ── */
+  section { padding: 64px 0; border-top: 1px solid var(--line); }
+  .sec-head { max-width: 40ch; margin-bottom: 40px; }
+  .sec-head h2 { font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; margin-top: 12px; }
+  .sec-head p { color: var(--ink-soft); font-size: 16.5px; margin: 16px 0 0; }
+
+  /* the loop as a real sequence */
+  .loop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; position: relative; }
+  .step .n { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: .08em; }
+  .step h3 { font-size: 18px; font-weight: 750; margin: 12px 0 8px; }
+  .step p { color: var(--ink-soft); font-size: 14px; margin: 0; }
+  .step:not(:last-child)::after { content: "→"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%);
+    color: var(--line-strong); font-weight: 700; z-index: 2; }
+
+  /* differentiators */
+  .diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .diff { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
+  .diff .k { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; text-transform: uppercase; }
+  .diff h3 { font-size: 20px; font-weight: 780; margin: 14px 0 10px; }
+  .diff p { color: var(--ink-soft); font-size: 14.5px; margin: 0; }
+  .diff ul { margin: 12px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .diff li { font-size: 13.5px; color: var(--ink); display: flex; gap: 8px; }
+  .diff li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+
+  /* pitch / how-to-explain */
+  .pitch { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+    border-radius: 20px; padding: 40px; }
+  .pitch .big { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.03em; margin: 0; color: var(--accent-ink); }
+  .pitch .sub { color: var(--ink-soft); margin: 16px 0 0; font-size: 16px; }
+  .say { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; }
+  .say div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .say .who { font-family: var(--mono); font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
+  .say .q { font-size: 14px; margin-top: 8px; }
+
+  footer { padding: 40px 0 64px; color: var(--ink-soft); font-size: 13px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .mono { font-family: var(--mono); }
+
+  @media (max-width: 860px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+    .loop { grid-template-columns: 1fr 1fr; }
+    .step:not(:last-child)::after { display: none; }
+    .diffs, .say { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .presence b, .event, .incident { animation: none !important; }
+    .incident { max-height: 260px; opacity: 1; transform: none; }
+    .event { opacity: 0; }
+  }
+</style>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><defs><radialGradient id="c" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#D0BCFF"/><stop offset="60%" stop-color="#7F67BE"/><stop offset="100%" stop-color="#4F378B"/></radialGradient></defs><rect width="32" height="32" rx="7" fill="#21005D"/><ellipse cx="16" cy="16" rx="12" ry="5" fill="none" stroke="#B69DF8" stroke-width="1.4" opacity=".55" transform="rotate(-28 16 16)"/><circle cx="16" cy="16" r="6" fill="url(#c)"/><circle cx="26.5" cy="10.5" r="2.1" fill="#D0BCFF"/></svg>
+      Particle AI
+    </div>
+    <button class="themebtn" onclick="(function(){var r=document.documentElement;var d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');})()">테마 전환</button>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Adaptive Computing Runtime</span>
+      <h1>화면을 <span class="grad">당신이</span> 바꾸는 게 아니라,<br><span class="grad">AI가</span> 알아서 바꿉니다.</h1>
+      <p class="lead">보통 앱은 사람이 메뉴를 눌러 화면을 찾아다닙니다. Particle AI는 상황을 스스로 감지해 그 순간 필요한 화면을 직접 조립합니다.</p>
+      <div class="herocta">
+        <span class="pill">observe → decide → morph</span>
+        <span class="pill">API 키 불필요 · 되돌리기 가능</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="screen" role="img" aria-label="개발 화면이 서버 에러를 감지하면 인시던트 화면으로 스스로 재구성되는 데모">
+        <div class="screen-bar">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <div class="presence"><b></b> AI · 실시간 관찰</div>
+        </div>
+        <div class="screen-body">
+          <div class="event">● HTTP 500</div>
+          <div class="row">
+            <div class="card" style="flex:.4">
+              <div class="lbl">파일</div>
+              <div class="bar sm"></div><div class="bar md"></div><div class="bar sm"></div>
+            </div>
+            <div class="card">
+              <div class="lbl">src/routes.ts</div>
+              <div class="bar a md"></div><div class="bar sm"></div><div class="bar md"></div>
+            </div>
+          </div>
+
+          <div class="incident">
+            <div class="inner">
+              <div class="lbl">● 런타임 인시던트 — 위험</div>
+              <div class="row">
+                <div class="card" style="background:transparent;border-color:color-mix(in srgb, var(--crit) 25%, transparent)">
+                  <div class="lbl">에러 로그</div><div class="bar md"></div><div class="bar sm"></div>
+                </div>
+                <div class="card" style="background:transparent;border-color:color-mix(in srgb, var(--crit) 25%, transparent)">
+                  <div class="lbl">분당 에러</div>
+                  <div class="mini-chart"><i style="height:12%"></i><i style="height:20%"></i><i style="height:34%"></i><i style="height:62%"></i><i style="height:92%"></i><i style="height:70%"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="card" style="flex:1">
+              <div class="lbl">개발 상태</div>
+              <span class="chip ok">● Build: passing</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">사용자는 아무것도 요청하지 않았습니다. <b>AI가 스스로 화면을 재구성합니다.</b></p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The Loop</span>
+      <h2>런타임이 쉬지 않고 도는 하나의 순환</h2>
+      <p>기존 생성형 AI가 '프롬프트 → 응답'이라면, Particle AI는 사건을 관찰하고 스스로 결정해 인터페이스를 계속 재구성합니다.</p>
+    </div>
+    <div class="loop">
+      <div class="step"><div class="n">01</div><h3>관찰</h3><p>빌드 실패, HTTP 500 같은 사건을 이벤트로 계속 감지합니다.</p></div>
+      <div class="step"><div class="n">02</div><h3>판단</h3><p>지금 상황과 관련된 중요한 변화인지 값싸게 먼저 가려냅니다.</p></div>
+      <div class="step"><div class="n">03</div><h3>결정</h3><p>무엇을 보여주고 어떤 능력을 실행할지 구조화된 결정을 내립니다.</p></div>
+      <div class="step"><div class="n">04</div><h3>재구성</h3><p>승인된 부품만 조합해 화면을 변형합니다 — 언제든 되돌릴 수 있게.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Why it's different</span>
+      <h2>똑똑하게 반응하고, 안전하게 실행합니다</h2>
+    </div>
+    <div class="diffs">
+      <div class="diff">
+        <div class="k">Autonomous</div>
+        <h3>자율적</h3>
+        <p>사용자 요청 없이 상황에 반응해 스스로 화면을 재구성합니다.</p>
+        <ul><li>사건 감지 → 자동 변형</li><li>무관한 이벤트는 무시</li></ul>
+      </div>
+      <div class="diff">
+        <div class="k">Safe</div>
+        <h3>안전함</h3>
+        <p>모델이 코드를 만들지 않고, 검증된 UI 데이터만 생성합니다.</p>
+        <ul><li>모든 변형 되돌리기 가능</li><li>위험 작업은 사람 승인 필수</li><li>모든 결정 감사 가능</li></ul>
+      </div>
+      <div class="diff">
+        <div class="k">Independent</div>
+        <h3>독립적</h3>
+        <p>특정 모델에 묶이지 않습니다.</p>
+        <ul><li>API 키 없이도 작동</li><li>어떤 LLM으로도 교체</li><li>로컬 모델 지원</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="pitch">
+      <span class="eyebrow">How to explain it</span>
+      <p class="big" style="margin-top:14px">"AI를 쓰는 게 아니라,<br>AI가 소프트웨어가 됩니다."</p>
+      <p class="sub">인터페이스는 AI의 몸입니다. 상황이 바뀌면, 몸이 바뀝니다.</p>
+      <div class="say">
+        <div><div class="who">개발자에게</div><div class="q">"인시던트·빌드 실패마다 필요한 화면이 자동으로 준비됩니다."</div></div>
+        <div><div class="who">경영진에게</div><div class="q">"직원이 도구를 찾는 게 아니라, 도구가 상황에 맞춰 스스로 준비됩니다."</div></div>
+        <div><div class="who">투자자에게</div><div class="q">"응답하는 AI가 아니라, 스스로를 재구성하는 AI 런타임."</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="mono">Particle AI — 실험적 적응형 컴퓨팅 런타임</span>
+    <span class="mono">observe · decide · morph</span>
+  </div>
+</footer>
+
+</body>
+</html>
