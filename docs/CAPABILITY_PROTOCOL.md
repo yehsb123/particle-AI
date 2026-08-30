@@ -26,9 +26,15 @@ gating (see `AUTONOMY_AND_SECURITY.md`).
 
 Read-only: `system.get_status`, `workspace.get_state`, `development.read_logs`,
 `development.read_build_state`, `development.read_test_state`, `data.inspect`,
-`ui.focus_component`, `memory.search`. Plus `memory.store` (safe_write) to exercise gating.
-External-effect / destructive capabilities are intentionally deferred until the approval
-flow is exercised end to end.
+`ui.focus_component`, `memory.search`, `security.scan_dependencies`. Plus `memory.store`
+(safe_write) to exercise gating.
+
+External effect (approval-gated at the default autonomy level, auto at L4):
+`development.revert_diff` (runtime/build/test incidents) and `security.update_dependency`
+(security alerts). The deterministic brain picks a plan per problem kind (`planFor(kind)`).
+
+Outputs double as UI data: `read_logs.lines` and `scan_dependencies.rows` are bound into the
+incident layouts via `UIComponent.bindings` (see `UI_PROTOCOL.md`).
 
 ## MCP as a capability source
 

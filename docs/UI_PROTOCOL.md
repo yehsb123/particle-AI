@@ -48,6 +48,22 @@ persists — this is what lets the morph engine diff and preserve focus.
 
 Any `type` outside this set fails Zod validation and is rejected before render.
 
+## Data bindings (implemented)
+
+`UIComponent.bindings` connects a prop to live data produced by a capability during the same
+runtime step:
+
+```ts
+{ prop: "lines", source: "capability:development.read_logs:lines" }
+```
+
+`runtime-core.resolvePatchBindings(patch, outputs)` (pure) resolves every binding in the
+desired patch **before** the morph guard: when the capability ran successfully and the field
+exists on its output, the bound prop is overwritten. Blueprints keep a harmless placeholder
+(`lines: ["collecting…"]`, `rows: []`) so the layout is valid even if a capability was denied
+or failed. This is how "execution → feedback → body" closes: the incident LogViewer shows the
+real `read_logs` output and the security table shows real `scan_dependencies` rows.
+
 ## UIPatch — morphing by diff, not regeneration
 
 The interface is never regenerated wholesale. The model (or planner) proposes a patch:

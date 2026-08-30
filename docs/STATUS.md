@@ -19,6 +19,10 @@ Updated at the end of each phase.
   with staggered cells; Escape closes popover/coach; global focus-visible ring.
 - **One-pager**: `/pitch.html` (also published as a Claude artifact) with a self-playing
   before→incident→recover demo and how-to-explain copy.
+- **Data bindings (spec §5)**: `resolvePatchBindings` feeds capability outputs into the
+  morphed body — incident logs and the CVE table are live, not hardcoded.
+- **Replay & verify (spec §21)**: Developer mode button replays the session's event log
+  through a fresh core and reports whether the UI is reproduced exactly.
 
 ## Completion sprint (all committed)
 - **@particle/memory** (§20): working/episodic/preference stores + `PatternDetector` that
