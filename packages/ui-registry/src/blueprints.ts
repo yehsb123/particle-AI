@@ -236,11 +236,9 @@ function incidentPanel(kind: IncidentKind): UIComponent {
             {
               id: "incident-vuln",
               type: "Table",
-              props: {
-                title: "Vulnerable dependency",
-                columns: ["Package", "Severity", "Advisory"],
-                rows: [["lodash@4.17.20", "critical", "CVE-2026-1234"]],
-              },
+              // real rows come from the security.scan_dependencies capability at morph time
+              props: { title: "Vulnerable dependency", columns: ["Package", "Severity", "Advisory"], rows: [] },
+              bindings: [{ prop: "rows", source: "capability:security.scan_dependencies:rows" }],
             },
             {
               id: "incident-assessment",
@@ -306,14 +304,9 @@ function incidentPanel(kind: IncidentKind): UIComponent {
           {
             id: "incident-logs",
             type: "LogViewer",
-            props: {
-              title: "Error logs",
-              lines: [
-                "GET /users/42 → 500 Internal Server Error",
-                "TypeError: Cannot read properties of undefined (reading 'findById')",
-                "  at getUser (src/routes.ts:2:19)",
-              ],
-            },
+            // real lines come from the development.read_logs capability at morph time
+            props: { title: "Error logs", lines: ["collecting…"] },
+            bindings: [{ prop: "lines", source: "capability:development.read_logs:lines" }],
           },
           {
             id: "incident-diff",

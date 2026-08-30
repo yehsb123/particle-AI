@@ -99,6 +99,24 @@ describe("RuntimeCore — full loop", () => {
     expect(inc.permission?.denied.length).toBeGreaterThan(0);
   });
 
+  it("resolves data bindings: capability outputs feed the morphed body (spec 5)", async () => {
+    const core = createRuntimeCore(makeClock());
+    // runtime incident: LogViewer lines come from development.read_logs, not the placeholder
+    await core.ingest(ev("development.server_error", "critical", "e1"));
+    const logs = findById(core.getBlueprint("s").root, "incident-logs");
+    expect(logs?.props?.lines).not.toEqual(["collecting…"]);
+    expect(JSON.stringify(logs?.props?.lines)).toContain("500 Internal Server Error");
+
+    // security incident: Table rows come from security.scan_dependencies
+    const sec = createRuntimeCore(makeClock());
+    await sec.ingest({
+      id: "v1", sessionId: "s", timestamp: "2026-08-19T00:00:00Z",
+      source: "external", type: "security.vulnerability_detected", severity: "critical", payload: {},
+    });
+    const vuln = findById(sec.getBlueprint("s").root, "incident-vuln");
+    expect(vuln?.props?.rows).toEqual([["lodash@4.17.20", "critical", "CVE-2026-1234"]]);
+  });
+
   it("handles the security scenario: scan runs, update is gated, patched restores", async () => {
     const core = createRuntimeCore(makeClock());
     const vuln = await core.ingest({

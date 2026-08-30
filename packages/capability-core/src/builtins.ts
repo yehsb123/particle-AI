@@ -114,6 +114,8 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
       manifest({ id: "security.scan_dependencies", name: "Scan dependencies", risk: "read", tags: ["security"] }),
       () => ({
         vulnerable: [{ name: "lodash", version: "4.17.20", advisory: "CVE-2026-1234", severity: "critical" }],
+        // table-shaped view for UI bindings
+        rows: [["lodash@4.17.20", "critical", "CVE-2026-1234"]],
       }),
     ),
     cap(

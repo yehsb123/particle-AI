@@ -88,6 +88,31 @@ type SessionState = {
 };
 
 /**
+ * Resolve data bindings in a desired patch against capability outputs (spec §5).
+ * Source format: `capability:<capabilityId>:<field>` — when the capability ran and the field
+ * exists on its output, the bound prop is overwritten with live data. Pure (clones the patch).
+ */
+export function resolvePatchBindings(patch: UIPatch, lookup: Map<string, unknown>): UIPatch {
+  const next: UIPatch = structuredClone(patch);
+  const resolveNode = (node: { bindings?: { prop: string; source: string }[]; props?: Record<string, unknown>; children?: unknown[] }) => {
+    for (const b of node.bindings ?? []) {
+      const m = /^capability:([^:]+):(.+)$/.exec(b.source);
+      if (!m) continue;
+      const output = lookup.get(m[1]!) as Record<string, unknown> | undefined;
+      const value = output?.[m[2]!];
+      if (value !== undefined) {
+        node.props = { ...(node.props ?? {}), [b.prop]: value };
+      }
+    }
+    for (const c of (node.children ?? []) as typeof node[]) resolveNode(c);
+  };
+  for (const op of next.operations) {
+    if (op.op === "add" || op.op === "replace") resolveNode(op.component);
+  }
+  return next;
+}
+
+/**
  * The canonical runtime loop, shared by the server and the web app:
  * perception → world → significance → (deliberate) decision → permission → capability →
  * morphology → guard → apply → audit. Deterministic given a fixed clock and the mock brain.
@@ -236,7 +261,13 @@ export class RuntimeCore {
     const recurrence =
       intent === "surface_incident" ? s.memory.episodic.search(morphContext).length + 1 : 0;
 
-    const desired = planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant, recurrence);
+    let desired = planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant, recurrence);
+    // Feedback into the body: capability outputs resolve declared data bindings (spec §5),
+    // so the morphed workspace shows LIVE diagnostics, not placeholder content.
+    if (desired) {
+      const lookup = new Map(capabilityRuns.filter((r) => r.result.ok).map((r) => [r.capabilityId, r.result.output]));
+      desired = resolvePatchBindings(desired, lookup);
+    }
     const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
     let patternSuggestions: PatternCandidate[] = [];
 
