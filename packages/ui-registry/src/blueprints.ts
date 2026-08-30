@@ -529,7 +529,13 @@ export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind 
           props: { title: "You seem stuck on this" },
           children: [
             { id: "context-text", type: "Markdown", props: { text: "The same action has repeated several times. Related context is now beside your work." } },
-            { id: "context-diff", type: "DiffViewer", props: { title: "Recent changes", diff: "- return db.users.findById(id);\n+ return db.user.findById(id);" } },
+            {
+              id: "context-facts",
+              type: "Table",
+              // what actually repeated, from the world state — never a fixture
+              props: { title: "What repeated", columns: ["Signal", "Detail"], rows: [] },
+              bindings: [{ prop: "rows", source: "capability:workspace.get_state:stuckRows" }],
+            },
             { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo", payload: { targetId: "context" } }] },
           ],
         };

@@ -77,6 +77,12 @@ Updated at the end of each phase.
     the undo stack; `morphMeta` bounded with the history.
   - agent: watcher errors no longer crash the daemon; token header. web: `dm_events` bounded (500).
   - runtime-core 25 tests, runtime 13; 12/12 E2E.
+  - honesty: the web page now announces its own layers (`sensor.layers_changed` web: interactions /
+    idle / visibility) and batches interaction COUNTS every 10 s; the indicator is derived only from
+    what sensors reported (no hard-coded line). The "stuck" card lost its fixture diff — it shows a
+    table of the real facts (`workspace.get_state:stuckRows`: repeated key ×N, open problems,
+    recent places). Korean coverage: augment card strings, autonomy level labels, runtime
+    server/local, typing, fallback.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

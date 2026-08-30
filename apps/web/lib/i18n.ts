@@ -128,6 +128,16 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_files: { en: "file saves", ko: "파일 저장" },
   layer_output: { en: "test/build output", ko: "테스트/빌드 출력" },
   layer_git: { en: "git branch", ko: "git 브랜치" },
+  sensingNone: { en: "nothing reported yet", ko: "아직 보고된 센서 없음" },
+  runtimeServer: { en: "server", ko: "서버" },
+  runtimeLocal: { en: "local", ko: "로컬" },
+  typing: { en: "typing", ko: "입력 중" },
+  fallback: { en: "fallback", ko: "폴백" },
+  autonomy_0: { en: "manual", ko: "수동" },
+  autonomy_1: { en: "suggestive", ko: "제안만" },
+  autonomy_2: { en: "adaptive UI", ko: "적응형 UI" },
+  autonomy_3: { en: "assisted", ko: "보조 실행" },
+  autonomy_4: { en: "autonomous", ko: "자율" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },
@@ -235,6 +245,21 @@ const CONTENT: Record<string, string> = {
   "Watching for recovery": "복구 감시 중",
   "API 503": "API 503",
   "API recovered": "API 복구",
+  // augment cards (behavior-driven, no error involved)
+  "Welcome back": "다시 오셨네요",
+  "You were away. Nothing broke while you were gone — here is where you left off.":
+    "자리를 비우셨었네요. 그동안 깨진 것은 없습니다 — 여기서 이어가시면 됩니다.",
+  "You seem stuck on this": "여기서 막힌 것 같아요",
+  "The same action has repeated several times. Related context is now beside your work.":
+    "같은 행동이 여러 번 반복됐습니다. 관련 컨텍스트를 작업 옆에 두었습니다.",
+  Dismiss: "닫기",
+  "What repeated": "반복된 것",
+  Signal: "신호",
+  Detail: "내용",
+  "Repeated action": "반복한 행동",
+  "Open problems": "열린 문제",
+  none: "없음",
+  "Recent places": "최근 위치",
   // switching (augment)
   "Juggling several things": "여러 가지를 오가는 중",
   "You keep moving between a few places. They are pinned here so you don't have to hold them in your head.":

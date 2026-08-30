@@ -128,6 +128,9 @@ describe("RuntimeCore — full loop", () => {
     expect(third.worldState.inferredIntent?.label).toBe("stuck");
     expect(third.morph.applied).toBe(true);
     expect(findById(core.getBlueprint("s").root, "context")?.props?.title).toBe("You seem stuck on this");
+    // the card shows the real repeated key, not a fixture
+    const rows = findById(core.getBlueprint("s").root, "context-facts")?.props?.rows as string[][];
+    expect(rows[0]).toEqual(["Repeated action", "`rerun-tests` ×3"]);
   });
 
   it("resolves data bindings: capability outputs feed the morphed body (spec 5)", async () => {

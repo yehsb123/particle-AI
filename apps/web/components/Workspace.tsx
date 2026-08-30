@@ -61,11 +61,9 @@ export function Workspace() {
   // Honest indicator: this page's own in-app sensors + whatever other sensors REPORTED to this
   // session (extension / agent announce their consented layers via sensor.layers_changed).
   const sensingLine = useMemo(() => {
-    const own: [string, string[]] = ["web", ["interactions", "dwell", "idle", "visibility"]];
-    const others = Object.entries(debug.worldState?.sensing ?? {}).filter(([k]) => k !== "web") as [string, string[]][];
-    return [own, ...others]
-      .map(([s, ls]) => `${t(`sensor_${s}`, lang)}: ${ls.map((l) => t(`layer_${l}`, lang)).join(", ")}`)
-      .join(" · ");
+    const reported = Object.entries(debug.worldState?.sensing ?? {}) as [string, string[]][];
+    if (!reported.length) return t("sensingNone", lang);
+    return reported.map(([s, ls]) => `${t(`sensor_${s}`, lang)}: ${ls.map((l) => t(`layer_${l}`, lang)).join(", ")}`).join(" · ");
   }, [debug.worldState, lang]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
@@ -400,6 +398,11 @@ export function Workspace() {
     let hiddenAt: number | null = null;
     let lastInteraction = Date.now();
     let idleReported = false;
+    let interactions = 0;
+    // announce exactly what this page observes — the indicator is derived from these reports only
+    if (modeRef.current === "local") {
+      void ingestRef.current({ id: `sense${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "sensor", type: "sensor.layers_changed", severity: "debug", payload: { sensor: "web", layers: ["interactions", "idle", "visibility"] } });
+    }
     const onVis = () => {
       if (document.hidden) { hiddenAt = Date.now(); return; }
       const away = hiddenAt ? Math.round((Date.now() - hiddenAt) / 1000) : 0;
@@ -408,7 +411,15 @@ export function Workspace() {
         void ingestRef.current({ id: `vis${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.visibility", severity: "info", payload: { visible: true, awaySeconds: away } });
       }
     };
-    const onInteract = () => { lastInteraction = Date.now(); idleReported = false; };
+    const onInteract = () => { lastInteraction = Date.now(); idleReported = false; interactions += 1; };
+    // L0: THAT interaction happened (a count every 10 s) — never which key, which target, or what text
+    const batchTimer = setInterval(() => {
+      if (interactions > 0 && modeRef.current === "local") {
+        const count = interactions;
+        interactions = 0;
+        void ingestRef.current({ id: `int${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.interaction", severity: "debug", payload: { count } });
+      }
+    }, 10_000);
     const idleTimer = setInterval(() => {
       const idle = Math.round((Date.now() - lastInteraction) / 1000);
       if (idle >= 60 && !idleReported && modeRef.current === "local") {
@@ -422,6 +433,7 @@ export function Workspace() {
     window.addEventListener("scroll", onInteract, true);
     return () => {
       clearInterval(idleTimer);
+      clearInterval(batchTimer);
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("pointerdown", onInteract);
       window.removeEventListener("keydown", onInteract);
@@ -585,7 +597,7 @@ export function Workspace() {
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
             <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>
-              {t("runtime", lang)}: {mode === "connected" ? (connected ? "server ●" : "server ○") : "local"}
+              {t("runtime", lang)}: {mode === "connected" ? `${t("runtimeServer", lang)} ${connected ? "●" : "○"}` : t("runtimeLocal", lang)}
             </button>
           </div>
           {mode === "connected" ? (
@@ -593,7 +605,7 @@ export function Workspace() {
           ) : null}
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">{t("mode", lang)}</span><span>{tr(blueprint.mode, lang)}</span>
-            <span className="k">{t("focus", lang)}</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
+            <span className="k">{t("focus", lang)}</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? ` (${t("typing", lang)})` : ""}</span>
             <span className="k">{t("intentTitle", lang)}</span>
             <span>{debug.worldState?.inferredIntent ? `${t(`intent_${debug.worldState.inferredIntent.label}`, lang)} · ${Math.round(debug.worldState.inferredIntent.confidence * 100)}%` : "—"}</span>
             <span className="k">{t("autonomy", lang)}</span>
@@ -611,11 +623,11 @@ export function Workspace() {
                   pushLog(`autonomy level → L${n}${mode === "connected" ? " (server)" : ""}`, "note");
                 }}
               >
-                <option value={0}>L0 · manual</option>
-                <option value={1}>L1 · suggestive</option>
-                <option value={2}>L2 · adaptive UI</option>
-                <option value={3}>L3 · assisted</option>
-                <option value={4}>L4 · autonomous</option>
+                <option value={0}>L0 · {t("autonomy_0", lang)}</option>
+                <option value={1}>L1 · {t("autonomy_1", lang)}</option>
+                <option value={2}>L2 · {t("autonomy_2", lang)}</option>
+                <option value={3}>L3 · {t("autonomy_3", lang)}</option>
+                <option value={4}>L4 · {t("autonomy_4", lang)}</option>
               </select>
             </span>
           </div>
@@ -677,7 +689,7 @@ export function Workspace() {
           <div className="kv">
             <span className="k">{t("significance", lang)}</span><span>{inspector.significance !== undefined ? `${Math.round(inspector.significance * 100)}%` : "—"}</span>
             <span className="k">{t("deliberated", lang)}</span><span>{inspector.deliberated ? t("yes", lang) : t("no", lang)}</span>
-            <span className="k">{t("provider", lang)}</span><span>{inspector.provider ?? "—"}{inspector.usedFallback ? " (fallback)" : ""}</span>
+            <span className="k">{t("provider", lang)}</span><span>{inspector.provider ?? "—"}{inspector.usedFallback ? ` (${t("fallback", lang)})` : ""}</span>
             <span className="k">{t("confidence", lang)}</span><span>{inspector.confidence !== undefined ? `${Math.round(inspector.confidence * 100)}%` : "—"}</span>
             <span className="k">{t("morph", lang)}</span><span>{inspector.morphApplied ? t("applied", lang) : t("none", lang)}</span>
           </div>

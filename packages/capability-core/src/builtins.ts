@@ -49,11 +49,20 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
           ? `${problems.length} open problem(s): ${problems.map((p) => p.summary).join("; ")}.`
           : `Nothing broke while you were away. ${files.length ? `Recent files: ${files.slice(-3).join(", ")}.` : "Workspace is calm."}`;
         const juggling = [...new Set((w?.behavior.recentKeys ?? []).slice(-6))];
+        const b = w?.behavior;
+        const recent = b?.recentEntities ?? [];
+        // for the "stuck" context card: the facts behind the inference (identifiers only)
+        const stuckRows: string[][] = [
+          ["Repeated action", b?.lastActionKey ? `\`${b.lastActionKey}\` ×${b.repeatCount}` : "—"],
+          ["Open problems", problems.length ? problems.map((p) => p.kind).join(", ") : "none"],
+          ["Recent places", recent.length ? recent.slice(-4).join(", ") : "—"],
+        ];
         return {
           activeContext: w?.activeContext ?? {},
           activeProblems: problems,
           goal: w?.currentGoal ?? null,
           summary,
+          stuckRows,
           // for the "switching" context card: the few places the person keeps moving between
           juggling: juggling.length
             ? `Moving between: ${juggling.map((k) => `\`${k}\``).join(" · ")}. Pinned here so you don't have to hold them in your head.`
