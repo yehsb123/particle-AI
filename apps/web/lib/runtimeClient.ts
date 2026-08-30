@@ -1,5 +1,12 @@
 import type { ApprovalRequest, UIBlueprint, WorldState } from "@particle/contracts";
 
+export type SimResponse = {
+  deliberated?: boolean;
+  morph?: { applied: boolean; guardReasonCodes: string[] };
+  pendingApprovals?: ApprovalRequest[];
+  patternSuggestions?: { key: string; count: number }[];
+};
+
 export type ServerMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
@@ -66,9 +73,9 @@ export class RuntimeClient {
     this.ws = undefined;
   }
 
-  async emitSim(key: string): Promise<{ pendingApprovals?: ApprovalRequest[] } | null> {
+  async emitSim(key: string): Promise<SimResponse | null> {
     const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST" });
-    return (await res.json().catch(() => null)) as { pendingApprovals?: ApprovalRequest[] } | null;
+    return (await res.json().catch(() => null)) as SimResponse | null;
   }
 
   async undo(): Promise<void> {

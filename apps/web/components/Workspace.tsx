@@ -165,6 +165,13 @@ export function Workspace() {
       setPresence("evaluating");
       void client.current.emitSim(spec.key).then((resp) => {
         if (resp?.pendingApprovals) addApprovals(resp.pendingApprovals);
+        if (resp?.deliberated && resp.morph && !resp.morph.applied && resp.morph.guardReasonCodes.length) {
+          setHeld({ codes: resp.morph.guardReasonCodes, at: Date.now() });
+        }
+        if (resp?.morph?.applied) setHeld(null);
+        if (resp?.patternSuggestions?.length) {
+          setPatternSugs((p) => [...p, ...resp.patternSuggestions!.filter((x) => !p.some((y) => y.key === x.key))]);
+        }
       });
       return;
     }

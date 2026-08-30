@@ -46,6 +46,7 @@ describe("runtime REST", () => {
     const sim = await app.inject({ method: "POST", url: "/api/sim/s2/http-500" });
     expect(sim.statusCode).toBe(200);
     expect(sim.json().morph.applied).toBe(true);
+    expect(Array.isArray(sim.json().patternSuggestions)).toBe(true); // connected-mode parity
 
     const state = await app.inject({ method: "GET", url: "/api/sessions/s2/state" });
     expect(state.json().activeProblems.some((p: { kind: string }) => p.kind === "runtime_error")).toBe(true);
