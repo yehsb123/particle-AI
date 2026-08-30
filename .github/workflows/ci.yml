@@ -62,10 +62,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build web
         run: pnpm --filter @particle/web build
+      - name: Build browser extension
+        run: pnpm --filter @particle/extension build
       - name: Install Playwright browser
         run: pnpm --filter @particle/web exec playwright install --with-deps chromium
-      - name: Start web + run E2E
+      - name: Start runtime + web, run E2E (incl. connected + extension specs)
         run: |
+          pnpm --filter @particle/runtime start &
           pnpm --filter @particle/web start &
-          npx --yes wait-on http://localhost:3000
+          npx --yes wait-on http://localhost:8787/api/brain http://localhost:3000
           pnpm --filter @particle/web exec playwright test

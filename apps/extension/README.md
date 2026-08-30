@@ -27,6 +27,12 @@ pnpm web                                    # http://localhost:3000 (the body)
    `http://localhost:3000/?connect=1&session=ext` (auto-connects to the runtime).
 3. Right-click the icon → **Options** to toggle sensing layers.
 
+## Verified by E2E
+
+`apps/web/e2e/extension.spec.ts` loads `dist/` into Chromium, navigates to a synthetic site and
+asserts against the live runtime: hostname-only event, announced layers, no path/query in the log,
+no network events without consent, side panel body connected. Runs in CI.
+
 ## Files
 
 - `src/background.ts` — service worker: focus/navigation/webRequest → shape events → runtime.

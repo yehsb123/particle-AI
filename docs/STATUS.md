@@ -53,6 +53,12 @@ Updated at the end of each phase.
   the "Juggling several things" card whose text is bound to `workspace.get_state:juggling` (the
   actual places being alternated). Agent senses git branch switches (`user.action branch:<name>`,
   name only) and announces the `git` layer. intent-engine 9, world-model 9, runtime-core 21.
+- **Extension E2E** (2026-08-31): `apps/web/e2e/extension.spec.ts` loads the built MV3 extension
+  into a Chromium persistent context against the live runtime: navigating to a (locally fulfilled)
+  site becomes `site:<host>` + the announced layers; the event log provably contains no path/query
+  and no `network.request` (opt-in off); the side panel page embeds the body already connected.
+  CI e2e job now builds the extension and starts the runtime, so `connected` and `extension`
+  specs run for real instead of skipping. 12 specs.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
