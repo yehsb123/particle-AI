@@ -98,12 +98,15 @@ export class NetworkShaper {
       this.prune();
       return "failure";
     }
-    const ok = status > 0 && status < 400;
-    if (ok && this.failing.has(host)) {
+    // any non-error answer (1xx-3xx) proves the host is back; only 2xx are worth sampling
+    const answered = status > 0 && status < 400;
+    if (answered && this.failing.has(host)) {
       this.failing.delete(host);
       this.lastFailureAt.delete(host);
+      this.lastSampleAt.set(host, now); // the recovery IS this window's sample
       return "recovery";
     }
+    const ok = status >= 200 && status < 300;
     if (ok && (shape.ms ?? 0) >= this.cfg.slowMs) {
       return this.sample(host, now, "slow");
     }
