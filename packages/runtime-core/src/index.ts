@@ -188,6 +188,16 @@ export class RuntimeCore {
   getBlueprint(sessionId: string): UIBlueprint {
     return this.session(sessionId).blueprint;
   }
+  hasSession(sessionId: string): boolean {
+    return this.sessions.has(sessionId);
+  }
+  /** Read without creating: an unknown id yields a fresh default and leaves the LRU untouched. */
+  peekWorld(sessionId: string): WorldState {
+    return this.sessions.get(sessionId)?.world ?? emptyWorldState(sessionId, this.deps.clock.iso());
+  }
+  peekBlueprint(sessionId: string): UIBlueprint {
+    return this.sessions.get(sessionId)?.blueprint ?? developmentBlueprint(this.deps.clock.iso());
+  }
 
   /** Restore a session's belief state and body from persisted snapshots (resume). */
   hydrate(sessionId: string, state: { world?: WorldState; blueprint?: UIBlueprint }): void {
@@ -362,7 +372,7 @@ export class RuntimeCore {
           variant: decision.uiPlan?.variant,
           componentIds: guard.patch.operations.flatMap((op) => (op.op === "add" || op.op === "replace" ? [op.component.id] : [])),
         });
-        if (s.morphMeta.length > 50) s.morphMeta.shift(); // stays paired with the bounded MorphHistory
+        while (s.morphMeta.length > s.history.depth) s.morphMeta.shift(); // stays paired with the bounded MorphHistory
         s.blueprint = next;
         const t = this.deps.clock.ms();
         s.lastMorphAt = t;
@@ -450,11 +460,34 @@ export class RuntimeCore {
     const s = this.session(sessionId);
     const inverse = s.history.peek();
     if (!inverse) return null;
+    const top = s.morphMeta[s.morphMeta.length - 1];
+    if (opts.componentId && top && !top.componentIds.includes(opts.componentId)) {
+      // The person dismissed a specific card that is NOT the newest morph. Popping the stack would
+      // revert something else, so remove just that card (itself an undoable step) and count the
+      // dismissal against the morph that introduced it.
+      const owner = [...s.morphMeta].reverse().find((m) => m.componentIds.includes(opts.componentId!));
+      if (!owner) return null; // nothing we introduced has that id — refuse rather than guess
+      const remove: UIPatch = {
+        patchId: `patch-dismiss-${opts.componentId}`,
+        fromWorkspaceId: "ws-dev",
+        decisionId: "user-dismiss",
+        operations: [{ op: "remove", targetId: opts.componentId }],
+      };
+      const { next, inverse: inv } = applyPatch(s.blueprint, remove, this.deps.clock.iso());
+      s.history.push(inv);
+      s.morphMeta.push({ intent: "dismiss", variant: opts.componentId, componentIds: [opts.componentId] });
+      while (s.morphMeta.length > s.history.depth) s.morphMeta.shift();
+      if (opts.learn ?? true) s.memory.preferences.reinforce(`dismissed:${owner.intent}:${owner.variant ?? ""}`);
+      s.blueprint = next;
+      s.lastMorphAt = undefined;
+      s.lastMajorMorphAt = undefined;
+      return s.blueprint;
+    }
     // apply FIRST — if the inverse cannot apply, nothing is popped and nothing is learned
     const { next } = applyPatch(s.blueprint, inverse, this.deps.clock.iso());
     s.history.pop();
     const meta = s.morphMeta.pop();
-    const learn = (opts.learn ?? true) && (!opts.componentId || !!meta?.componentIds.includes(opts.componentId));
+    const learn = (opts.learn ?? true) && meta?.intent !== "dismiss" && (!opts.componentId || !!meta?.componentIds.includes(opts.componentId));
     if (meta && learn) s.memory.preferences.reinforce(`dismissed:${meta.intent}:${meta.variant ?? ""}`);
     s.blueprint = next;
     // Undo is a deliberate user action — clear morph timing so a re-morph isn't rate-limited.

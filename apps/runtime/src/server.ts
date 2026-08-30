@@ -37,9 +37,14 @@ export async function buildServer(): Promise<BuildResult> {
     reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
     // MUST return the reply to short-circuit the OPTIONS lifecycle (else double-send error).
     if (req.method === "OPTIONS") return reply.code(204).send();
-    if (req.method === "POST") {
-      if (origin && !originAllowed(origin)) return reply.code(403).send({ error: "origin not allowed" });
-      if (token && req.headers["x-particle-token"] !== token) return reply.code(401).send({ error: "token required" });
+    // A browser page that is not the body/extension gets nothing — reads included (WebSocket
+    // upgrades are not covered by CORS, and world state lists every host you visited).
+    if (origin && !originAllowed(origin)) return reply.code(403).send({ error: "origin not allowed" });
+    // Shared secret (when configured) guards every read and write except the health probe.
+    // WebSocket clients cannot set headers → `?token=` is accepted for the upgrade.
+    if (token && req.url !== "/health") {
+      const q = new URL(req.url, "http://local").searchParams.get("token");
+      if (req.headers["x-particle-token"] !== token && q !== token) return reply.code(401).send({ error: "token required" });
     }
   });
 
@@ -78,9 +83,9 @@ export async function buildServer(): Promise<BuildResult> {
     }
   });
 
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/state", async (req) => runtime.getWorld(req.params.id));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/state", async (req) => runtime.peekWorld(req.params.id));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/events", async (req) => ({ events: runtime.store.listBySession(req.params.id) }));
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.getUI(req.params.id));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.peekUI(req.params.id));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/decisions", async (req) => ({ audit: runtime.audit.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/traces", async (req) => ({ traces: runtime.traces.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/approvals", async (req) => ({
@@ -111,8 +116,13 @@ export async function buildServer(): Promise<BuildResult> {
     return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned };
   });
 
-  app.post<{ Params: { id: string } }>("/api/morph/:id/undo", async (req) => {
-    const blueprint = runtime.undo(req.params.id);
+  app.post<{ Params: { id: string }; Body: { componentId?: unknown; learn?: unknown } | null }>("/api/morph/:id/undo", async (req) => {
+    // attribution travels with the gesture: which card was dismissed, and whether it should teach
+    const body = (req.body ?? {}) as { componentId?: unknown; learn?: unknown };
+    const blueprint = runtime.undo(req.params.id, {
+      componentId: typeof body.componentId === "string" ? body.componentId : undefined,
+      learn: typeof body.learn === "boolean" ? body.learn : undefined,
+    });
     return { undone: !!blueprint, blueprint };
   });
 
@@ -134,7 +144,7 @@ export async function buildServer(): Promise<BuildResult> {
 
   app.get<{ Params: { id: string } }>("/ws/sessions/:id", { websocket: true }, (socket, req) => {
     const sessionId = req.params.id;
-    socket.send(JSON.stringify({ kind: "world_state_changed", sessionId, worldState: runtime.getWorld(sessionId) }));
+    socket.send(JSON.stringify({ kind: "world_state_changed", sessionId, worldState: runtime.peekWorld(sessionId) }));
     const off = runtime.onMessage((msg) => {
       if (msg.sessionId === sessionId) {
         try { socket.send(JSON.stringify(msg)); } catch { /* closing */ }

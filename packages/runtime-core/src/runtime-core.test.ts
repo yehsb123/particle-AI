@@ -343,19 +343,25 @@ describe("RuntimeCore — undo attribution & hydrate", () => {
     });
     for (let i = 1; i <= 3; i++) await core.ingest(act(i)); // stuck → context card
     await core.ingest(ev("development.server_error", "critical", "e1")); // incident on top
-    // "Dismiss" on the context card while the incident is on top: undo happens (top of stack), but
-    // it is NOT a dismissal of the context card → no preference learned for either kind
+    // "Dismiss" on the context card while the incident is the newest morph: ONLY the card goes,
+    // the incident stays, and the dismissal is counted against the morph that introduced the card
     core.undo("s", { componentId: "context" });
     const prefs = core.memoryFor("s").preferences;
+    expect(findById(core.getBlueprint("s").root, "context")).toBeUndefined();
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
     expect(prefs.weightOf("dismissed:surface_incident:runtime_error")).toBe(0);
-    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
-    // now the context card IS on top → dismissing it counts
-    core.undo("s", { componentId: "context" });
     expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    // that targeted dismissal is itself undoable — and undoing it teaches nothing
+    core.undo("s");
+    expect(findById(core.getBlueprint("s").root, "context")).toBeDefined();
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    // an id we never introduced is refused rather than guessed
+    expect(core.undo("s", { componentId: "nope" })).toBeNull();
     // multi-step "go back" gestures do not teach anything
-    await core.ingest(act(4));
+    core.undo("s", { learn: false });
     core.undo("s", { learn: false });
     expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    expect(prefs.weightOf("dismissed:surface_incident:runtime_error")).toBe(0);
   });
 
   it("hydrate resets the undo stack (inverses described the old blueprint) and undo never pops before applying", async () => {

@@ -24,7 +24,7 @@ export class SessionRuntime {
   readonly audit = new AuditLog();
   readonly traces = new TraceStore();
   private readonly log = createLogger((process.env.DM_LOG_LEVEL as LogLevel) ?? "info");
-  private core: RuntimeCore;
+  core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
   constructor(
@@ -53,6 +53,13 @@ export class SessionRuntime {
     return this.core.approvals;
   }
 
+  /** Read-only views never create sessions (an unauthenticated GET must not evict real ones). */
+  peekWorld(sessionId: string): WorldState {
+    return this.core.peekWorld(sessionId);
+  }
+  peekUI(sessionId: string): UIBlueprint {
+    return this.core.peekBlueprint(sessionId);
+  }
   getWorld(sessionId: string): WorldState {
     return this.core.getWorld(sessionId);
   }
@@ -135,14 +142,17 @@ export class SessionRuntime {
     return this.core.reject(approvalId);
   }
 
-  undo(sessionId: string): UIBlueprint | null {
-    const bp = this.core.undo(sessionId);
+  undo(sessionId: string, opts: { componentId?: string; learn?: boolean } = {}): UIBlueprint | null {
+    const bp = this.core.undo(sessionId, opts);
     if (bp) {
       this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
-      // undo is feedback — what was just learned must survive a restart (best-effort)
-      void this.snapshotStore
-        ?.save({ sessionId, kind: "memory", at: this.now(), data: this.core.exportMemory(sessionId) })
-        .catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
+      // undo is feedback — what was just learned AND the reverted body must survive a restart
+      // (otherwise resume would resurrect the dismissed card). Best-effort.
+      const at = this.now();
+      void Promise.all([
+        this.snapshotStore?.save({ sessionId, kind: "ui", at, data: bp }),
+        this.snapshotStore?.save({ sessionId, kind: "memory", at, data: this.core.exportMemory(sessionId) }),
+      ]).catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
     }
     return bp;
   }

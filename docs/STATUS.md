@@ -102,6 +102,18 @@ Updated at the end of each phase.
   the light audit could not see: the code editor textarea inherited the UA default (black on the
   dark panel), the `ok` badge (#81C784 on #1B5E20 ≈ 3.9:1 → #A5D6A7, 5.0:1), and the reason tags
   (primary-700 on accent-low, 1.4:1 → primary-200, also under `prefers-color-scheme: dark`). 13 specs.
+- **Second review, batch A** (2026-08-31): runtime reads are protected too — a non-allow-listed
+  browser Origin is refused for every method (WebSocket upgrades are not covered by CORS and the
+  world state lists every host you visited); when `DM_INGEST_TOKEN` is set it guards reads and
+  writes (`?token=` accepted for WS), `/health` excepted; the server binds loopback by default
+  (`DM_HOST`); GET/WS reads use non-creating `peekWorld/peekBlueprint`, so junk ids cannot evict
+  real sessions. Undo attribution travels over REST (`{componentId, learn}`) and a dismissal of a
+  card that is not the newest morph removes just that card (an undoable step, counted against the
+  morph that introduced it) instead of reverting something else; server undo also snapshots the UI
+  so resume cannot resurrect a dismissed card. Extension webRequest listeners are registered
+  synchronously (MV3 wake-ups) with consent checked inside, and `ready` always resolves.
+  `environment.files` bounded (50). Agent: first readable HEAD is a baseline, not a switch.
+  runtime 16 tests, runtime-core 26.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

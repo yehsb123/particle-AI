@@ -89,6 +89,7 @@ function watchGitBranch(root: string): boolean {
   const check = () => {
     const branch = read();
     if (!branch || branch === last) return;
+    if (last === undefined) { last = branch; return; } // first readable HEAD is the baseline, not a switch
     last = branch;
     void send(matterEvent(SESSION, "user", "user.action", "debug", { key: `branch:${branch}` }));
   };

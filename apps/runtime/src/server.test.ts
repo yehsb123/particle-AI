@@ -144,3 +144,39 @@ describe("runtime access control", () => {
     expect(res.json().approvals).toEqual([]);
   });
 });
+
+describe("runtime access control — reads are protected too", () => {
+  it("refuses reads from a non-allow-listed browser origin and requires the token on reads when configured", async () => {
+    const bad = await app.inject({ method: "GET", url: "/api/sessions/s1/state", headers: { origin: "https://evil.example" } });
+    expect(bad.statusCode).toBe(403);
+    process.env.DM_INGEST_TOKEN = "t0k";
+    try {
+      const { app: secured } = await buildServer();
+      await secured.ready();
+      try {
+        expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state" })).statusCode).toBe(401);
+        expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state", headers: { "x-particle-token": "t0k" } })).statusCode).toBe(200);
+        expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state?token=t0k" })).statusCode).toBe(200); // WS-style
+        expect((await secured.inject({ method: "GET", url: "/health" })).statusCode).toBe(200); // probe stays open
+      } finally {
+        await secured.close();
+      }
+    } finally {
+      delete process.env.DM_INGEST_TOKEN;
+    }
+  });
+  it("reading an unknown session does not create it (no eviction by junk ids)", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/sessions/ghost/state" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().sessionId).toBe("ghost");
+    expect(runtime.core.hasSession("ghost")).toBe(false);
+  });
+  it("undo carries attribution (componentId / learn) to the core", async () => {
+    // surface an incident, then dismiss with learn:false — nothing must be learned
+    await app.inject({ method: "POST", url: "/api/sim/u1/http-500" });
+    const res = await app.inject({ method: "POST", url: "/api/morph/u1/undo", payload: { componentId: "incident", learn: false } });
+    expect(res.json().undone).toBe(true);
+    // morph:* reinforcement is normal; no dismissal may have been learned
+    expect(runtime.core.exportMemory("u1").preferences.filter((p) => p.key.startsWith("dismissed:"))).toEqual([]);
+  });
+});

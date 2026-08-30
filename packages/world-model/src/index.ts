@@ -169,8 +169,9 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
       const path = str(event.payload.path);
       if (path) {
         const files = new Set(next.environment.files ?? []);
-        files.add(path);
-        next.environment.files = [...files];
+        files.delete(path);
+        files.add(path); // most recent last
+        next.environment.files = [...files].slice(-50); // bounded: fed by every navigation (site:<host>)
         next.activeContext.focusedEntity = path;
       }
       break;

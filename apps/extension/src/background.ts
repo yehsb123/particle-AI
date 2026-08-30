@@ -33,17 +33,16 @@ function applySettings(v: Record<string, unknown>): void {
 }
 
 /** Resolves once consent has been read — every sender awaits this. */
-const ready: Promise<void> = chrome.storage.sync.get(["consent", "token"]).then((v) => {
-  applySettings(v);
-  syncNetworkListeners();
-  announce();
-});
+const ready: Promise<void> = chrome.storage.sync
+  .get(["consent", "token"])
+  .then((v) => applySettings(v))
+  .catch(() => applySettings({})) // storage unavailable → defaults (fail closed for network), never a stuck promise
+  .then(() => announce());
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "sync" || !(changes.consent || changes.token)) return;
   void chrome.storage.sync.get(["consent", "token"]).then((v) => {
     applySettings(v);
-    syncNetworkListeners();
     announce();
   });
 });
@@ -92,52 +91,45 @@ chrome.webNavigation.onCommitted.addListener((d) => {
   })();
 });
 
-// ── L2: network shape (host/status/latency only) — OPT-IN. Listeners exist only while consented. ──
+// ── L2: network shape (host/status/latency only) — OPT-IN ──
+// Listeners are registered synchronously at top level (MV3 only wakes the worker for events whose
+// listeners exist at first evaluation); consent is checked inside, after storage has been read.
 // Only transitions (fail/recover), slowness and a sparse sample are sent — never every request.
 const shaper = new NetworkShaper();
 const started = new Map<string, number>();
-let networkAttached = false;
 const FILTER = { urls: ["<all_urls>"] };
 
-const onBeforeRequest = (d: chrome.webRequest.WebRequestBodyDetails): void => {
-  started.set(d.requestId, Date.now());
+chrome.webRequest.onBeforeRequest.addListener((d) => {
+  started.set(d.requestId, Date.now()); // timestamp only — cleared when the request settles
   if (started.size > 2000) started.delete(started.keys().next().value as string); // long-lived streams never complete
-};
-const onCompleted = (d: chrome.webRequest.WebResponseCacheDetails): void => {
+}, FILTER);
+chrome.webRequest.onCompleted.addListener((d) => {
   const t0 = started.get(d.requestId);
   started.delete(d.requestId);
-  const host = hostOf(d.url);
-  if (isSelfHost(host) || d.type === "image" || d.type === "font" || d.type === "stylesheet") return;
-  const now = Date.now();
-  const shape = { host, status: d.statusCode, ms: t0 ? now - t0 : undefined };
-  const why = shaper.admit(shape, now);
-  if (!why) return;
-  void send(matterEvent(SESSION, "sensor", "network.request", networkSeverity(shape), { ...shape, why }));
-};
-const onErrorOccurred = (d: chrome.webRequest.WebResponseErrorDetails): void => {
+  const observedAt = Date.now();
+  void (async () => {
+    await ready;
+    if (!consent.network) return;
+    const host = hostOf(d.url);
+    if (isSelfHost(host) || d.type === "image" || d.type === "font" || d.type === "stylesheet") return;
+    const shape = { host, status: d.statusCode, ms: t0 ? observedAt - t0 : undefined };
+    const why = shaper.admit(shape, observedAt);
+    if (!why) return;
+    void send(matterEvent(SESSION, "sensor", "network.request", networkSeverity(shape), { ...shape, why }));
+  })();
+}, FILTER);
+chrome.webRequest.onErrorOccurred.addListener((d) => {
   started.delete(d.requestId);
-  if (isTransientError(d.error)) return;
-  const host = hostOf(d.url);
-  if (isSelfHost(host)) return;
-  const shape = { host, error: true };
-  if (!shaper.admit(shape, Date.now())) return;
-  void send(matterEvent(SESSION, "sensor", "network.request", "warning", { ...shape, why: "failure" }));
-};
-
-function syncNetworkListeners(): void {
-  if (consent.network && !networkAttached) {
-    chrome.webRequest.onBeforeRequest.addListener(onBeforeRequest, FILTER);
-    chrome.webRequest.onCompleted.addListener(onCompleted, FILTER);
-    chrome.webRequest.onErrorOccurred.addListener(onErrorOccurred, FILTER);
-    networkAttached = true;
-  } else if (!consent.network && networkAttached) {
-    chrome.webRequest.onBeforeRequest.removeListener(onBeforeRequest);
-    chrome.webRequest.onCompleted.removeListener(onCompleted);
-    chrome.webRequest.onErrorOccurred.removeListener(onErrorOccurred);
-    started.clear();
-    networkAttached = false;
-  }
-}
+  void (async () => {
+    await ready;
+    if (!consent.network || isTransientError(d.error)) return;
+    const host = hostOf(d.url);
+    if (isSelfHost(host)) return;
+    const shape = { host, error: true };
+    if (!shaper.admit(shape, Date.now())) return;
+    void send(matterEvent(SESSION, "sensor", "network.request", "warning", { ...shape, why: "failure" }));
+  })();
+}, FILTER);
 
 // ── L0 relay: content scripts report interaction shape ──
 chrome.runtime.onMessage.addListener((msg: { kind?: string; payload?: Record<string, unknown> }) => {
