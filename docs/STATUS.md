@@ -12,7 +12,7 @@ that keeps a continuous intent, prepares the screen before and without anything 
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
 Everything is event-sourced and replays deterministically. Verified by 130+ unit/integration tests,
-14 Playwright E2E tests across 13 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
+15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
   (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior
@@ -165,6 +165,11 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   event); Playwright workers serialized — options.spec and extension.spec share the live
   runtime's `ext` session, and parallel workers raced each other's consent toggles (the
   intermittent extension failure). 14 specs green, serial.
+- **Connected behavioral parity** (2026-08-31): sim clicks now carry their behavior key to the
+  SERVER too (`RuntimeClient.emit`), so a server session reads repeats as "stuck", learns from
+  dismissals (undo attribution over REST) and notifies the withheld morph — `connected-learn.spec`
+  proves the full loop against a fresh server session per run. The presence popover lesson is
+  E2E-verified as well (learn.spec).
 - **Reconcile ticks out of the novelty window** (2026-08-31): `runtime.reconcile` no longer enters
   `recentEvents`, so repeated REAL events keep their anti-thrash repetitive-event decay; reduce is
   pure either way (replay determinism proven by the existing suite). world-model 10 tests.
