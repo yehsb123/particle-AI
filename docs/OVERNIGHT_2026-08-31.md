@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously during the night. Every commit is green
-(typecheck 0 · 168 unit/integration tests · 14 Playwright E2E tests across 13 specs · CI).
+(typecheck 0 · 170+ unit/integration tests · 14 Playwright E2E tests across 13 specs · CI).
 
 ## Commits (oldest first)
 
@@ -41,14 +41,23 @@ Everything below was built, tested and pushed autonomously during the night. Eve
 - `bd5c982` docs: fourth review (docs vs implementation) — everything matched except the spec count; unify to 14 E2E tests / 13 specs, dedup .env.example NEXT_PUBLIC_DM_TOKEN
 - `ae1315c` agent: one startup /health probe — a single stderr warning when the runtime is down (sensing stays best-effort); pure helper + tests (11)
 - `72dbd19` fix: agent health-probe warning wrote a raw newline inside the string literal (typecheck break in ae1315c); verified live with the runtime down
+- `f7a58a3` docs: overnight run report (commit list + summary)
+- `0bae900` held banner shows when the body will catch up (~Ns, from retryAfterMs) — and held.spec now proves it DOES, in the browser
+- `9dea913` docs: STATUS — held countdown/browser reconcile proof, icons, retries, health probe, fourth review
+- `779b8a0` store screenshots (1280x800, options+side panel, light/dark, ko) via SHOTS=1 generator spec; CONCEPT_V2 P3 mentions git-branch sensing; agent README health probe
+- `74e9ca1` extension: only http/https navigations are sensable — never its own chrome-extension pages or browser internals (found via a store screenshot showing site:<extension-id> as an entity); isSensableUrl + tests (10)
+- `a38a85d` presence popover shows what the AI learned from you (dismissed:* preferences, top 3) outside developer mode; en/ko
+- `b683755` e2e: test.step instrumentation in extension.spec — the next cumulative-slowness timeout will name the slow phase
+- `e6a5028` docs: embed the dark side-panel screenshot in both READMEs; pitch footer links (GitHub / QUICKSTART / live demo)
+- `0d6dae3` world-model: reconcile ticks stay out of the novelty window (recentEvents) — system bookkeeping must not dilute repetitive-event decay; pure reduce, replay determinism unchanged (world-model 10, runtime-core 29, runtime 17 green)
+- `3c621d5` e2e: learn.spec proves the lesson is inspectable without developer mode — presence popover names the withheld kind (won't auto-offer: augment:stuck ×2)
 
 ## The short version
 
-- **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, real-Chromium E2E
-- **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions — live-verified against the runtime
-- **P4** learning from dismissals + persistence across reloads/restarts
-- Honest sensing indicator (sensors report; the body only shows what was reported)
-- switching intent, network_failure layout, reconcile ticks (holds can never strand the body), ordered sensor sends
+- **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, store icons/screenshots, real-Chromium E2E (Korean options page included)
+- **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions, startup health probe — live-verified against the runtime
+- **P4** learning from dismissals + persistence across reloads/restarts, inspectable in the presence popover
+- Honest sensing indicator; switching intent; network_failure layout; reconcile ticks with a visible countdown (browser-proven); ordered sensor sends
 - Access control: origin allow-list, loopback bind, optional token wired end to end
-- 4 adversarial review passes: 35+ defects found and fixed, then a docs-vs-implementation audit (all claims verified)
-- QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, extension icons, store checklist
+- 4 adversarial review passes (35+ defects fixed) + a docs-vs-implementation audit (all claims verified)
+- QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
