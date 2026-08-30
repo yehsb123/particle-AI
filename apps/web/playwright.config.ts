@@ -8,6 +8,9 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
   fullyParallel: false,
+  // every spec talks to the SAME live web+runtime (shared sessions like `ext`) — parallel workers
+  // race each other's consent toggles and event logs, so E2E is strictly serial
+  workers: 1,
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:3000",

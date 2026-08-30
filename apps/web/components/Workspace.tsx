@@ -452,6 +452,20 @@ export function Workspace() {
             }
             const last = results.at(-1);
             if (last) applyResult(last);
+            // a log can END on a timing hold (held morph, then silence). applyResult only saw the
+            // last result — walk the whole replay: if a hold was never followed by an applied
+            // morph, arm one reconcile tick now so the restored body catches up on its own.
+            let pendingRetry: number | undefined;
+            for (const r of results) {
+              if (r.morph.applied) pendingRetry = undefined;
+              else if (r.retryAfterMs !== undefined) pendingRetry = r.retryAfterMs;
+            }
+            if (pendingRetry !== undefined && !reconcileTimer.current) {
+              reconcileTimer.current = setTimeout(() => {
+                reconcileTimer.current = null;
+                void ingestRef.current({ id: `reconcile${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "system", type: "runtime.reconcile", severity: "debug", payload: { reason: "restored_with_pending_hold" } });
+              }, Math.min(pendingRetry, 60_000));
+            }
             // the history strip must match the undo stack that replay just rebuilt
             setMorphs(
               results
