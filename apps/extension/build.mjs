@@ -27,7 +27,7 @@ buildSync({
   logLevel: "info",
 });
 
-for (const f of ["manifest.json", "sidepanel.html", "options.html", "background.js", "content.js", "options.js", "sidepanel.js"]) {
+for (const f of ["manifest.json", "sidepanel.html", "options.html", "background.js", "content.js", "options.js", "sidepanel.js", "icons/icon128.png", "icons/icon16.png"]) {
   if (!existsSync(`dist/${f}`)) {
     console.error(`missing dist/${f}`);
     process.exit(1);
