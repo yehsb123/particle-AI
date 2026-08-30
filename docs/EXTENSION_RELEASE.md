@@ -7,7 +7,7 @@ list to walk when we decide to).
 - [ ] `version` bumped in `public/manifest.json` (semver; store rejects reuse)
 - [ ] Icons: 16/32/48/128 px (`icons` field is currently ABSENT — required for the store)
 - [ ] `name` / `description` ≤ 132 chars, no superlatives (store policy)
-- [ ] Screenshots 1280×800 (side panel + options page, light & dark)
+- [x] Screenshots 1280×800 generated → `docs/store/` (`SHOTS=1 pnpm --filter @particle/web exec playwright test store-shots`)
 
 ## Permission justifications (store review form)
 - `webNavigation` — hostname-only navigation shape (never full URLs)

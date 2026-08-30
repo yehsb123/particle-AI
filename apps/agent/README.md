@@ -32,6 +32,8 @@ With nothing configured and no pipe, the agent prints how to opt in and exits.
 
 ## Notes
 
+- On startup the agent probes the runtime once and prints a single warning if it is unreachable
+  (sensing stays best-effort — nothing crashes, events are dropped until it is up).
 - Events are sent **in observed order** (one in-flight request; parallel fetches can reorder a
   recovery ahead of the failure it recovers from).
 - If a re-escalation lands inside the runtime's morph cooldown (e.g. tests fail again 1 s after

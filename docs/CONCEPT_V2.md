@@ -79,7 +79,8 @@ Status (2026-08-31): P1 ✅ · P2 ✅ (extension + `network_failure` layout) · 
   errors involved** inside the current web body (cheapest proof of the thesis).
 - **P2 Browser extension (MV3)** — tabs/visibility/navigation (L3) + network shape (L2) +
   DOM interaction (L0) → local runtime over WebSocket; side-panel body on any page.
-- **P3 Desktop agent (opt-in)** — file watcher, git, terminal/test output (L4) → runtime.
+- **P3 Desktop agent (opt-in)** — file saves, git branch switches (`.git/HEAD`, name only),
+  piped terminal/test output transitions (L4) → runtime.
 - **P4 Learning** — preference from undo/ignore, pattern→template suggestions across sites.
 
 ## Acceptance for the new thesis
