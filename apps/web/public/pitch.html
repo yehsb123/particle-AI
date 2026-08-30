@@ -216,7 +216,7 @@
     <div>
       <span class="eyebrow">Adaptive Computing Runtime</span>
       <h1>화면을 <span class="grad">당신이</span> 바꾸는 게 아니라,<br><span class="grad">AI가</span> 알아서 바꿉니다.</h1>
-      <p class="lead">보통 앱은 사람이 메뉴를 눌러 화면을 찾아다닙니다. Particle AI는 상황을 스스로 감지해 그 순간 필요한 화면을 직접 조립합니다.</p>
+      <p class="lead">보통 앱은 사람이 메뉴를 눌러 화면을 찾아다닙니다. Particle AI는 컴퓨터 위에 씌우는 AI 레이어입니다 — 당신의 행동과 통신의 <em>형태</em>를 읽어 지금 하려는 일을 추론하고, 무언가 깨지기 전에 필요한 화면을 먼저 조립합니다.</p>
       <div class="herocta">
         <span class="pill">observe → decide → morph</span>
         <span class="pill">API 키 불필요 · 되돌리기 가능</span>
@@ -278,8 +278,8 @@
       <p>기존 생성형 AI가 '프롬프트 → 응답'이라면, Particle AI는 사건을 관찰하고 스스로 결정해 인터페이스를 계속 재구성합니다.</p>
     </div>
     <div class="loop">
-      <div class="step"><div class="n">01</div><h3>관찰</h3><p>빌드 실패, HTTP 500 같은 사건을 이벤트로 계속 감지합니다.</p></div>
-      <div class="step"><div class="n">02</div><h3>판단</h3><p>지금 상황과 관련된 중요한 변화인지 값싸게 먼저 가려냅니다.</p></div>
+      <div class="step"><div class="n">01</div><h3>관찰</h3><p>클릭·체류·탭 전환·유휴·되돌리기 같은 행동과, 통신의 형태(호스트·상태·지연 — 내용은 절대 아님)를 계속 감지합니다. 빌드 실패나 HTTP 500은 그중 한 케이스일 뿐입니다.</p></div>
+      <div class="step"><div class="n">02</div><h3>판단</h3><p>행동에서 의도(탐색·집중·막힘·전환·복귀)를 항상 추론하고, 지금 상황에 의미 있는 변화인지 값싸게 먼저 가려냅니다.</p></div>
       <div class="step"><div class="n">03</div><h3>결정</h3><p>무엇을 보여주고 어떤 능력을 실행할지 구조화된 결정을 내립니다.</p></div>
       <div class="step"><div class="n">04</div><h3>재구성</h3><p>승인된 부품만 조합해 화면을 변형합니다 — 언제든 되돌릴 수 있게.</p></div>
     </div>
@@ -296,14 +296,14 @@
       <div class="diff">
         <div class="k">Autonomous</div>
         <h3>자율적</h3>
-        <p>사용자 요청 없이 상황에 반응해 스스로 화면을 재구성합니다.</p>
-        <ul><li>사건 감지 → 자동 변형</li><li>무관한 이벤트는 무시</li></ul>
+        <p>요청도, 에러도 필요 없습니다. 자리를 비웠다 돌아오면 요약이, 같은 행동을 반복하면 관련 컨텍스트가, 두 곳을 오가면 고정 카드가 먼저 기다립니다.</p>
+        <ul><li>행동·통신 형태 → 의도 → 자동 변형</li><li>무관한 이벤트는 무시</li><li>같은 변경을 두 번 닫으면 다시 제안하지 않음</li></ul>
       </div>
       <div class="diff">
         <div class="k">Safe</div>
         <h3>안전함</h3>
         <p>모델이 코드를 만들지 않고, 검증된 UI 데이터만 생성합니다.</p>
-        <ul><li>모든 변형 되돌리기 가능</li><li>위험 작업은 사람 승인 필수</li><li>모든 결정 감사 가능</li></ul>
+        <ul><li>모든 변형 되돌리기 가능</li><li>위험 작업은 사람 승인 필수</li><li>모든 결정 감사 가능</li><li>형태만 감지 — 내용은 절대 수집하지 않음</li></ul>
       </div>
       <div class="diff">
         <div class="k">Independent</div>
@@ -320,7 +320,7 @@
     <div class="pitch">
       <span class="eyebrow">How to explain it</span>
       <p class="big" style="margin-top:14px">"AI를 쓰는 게 아니라,<br>AI가 소프트웨어가 됩니다."</p>
-      <p class="sub">인터페이스는 AI의 몸입니다. 상황이 바뀌면, 몸이 바뀝니다.</p>
+      <p class="sub">인터페이스는 AI의 몸, 당신의 행동은 AI의 감각입니다. 당신이 바뀌면, 몸이 바뀝니다.</p>
       <div class="say">
         <div><div class="who">개발자에게</div><div class="q">"인시던트·빌드 실패마다 필요한 화면이 자동으로 준비됩니다."</div></div>
         <div><div class="who">경영진에게</div><div class="q">"직원이 도구를 찾는 게 아니라, 도구가 상황에 맞춰 스스로 준비됩니다."</div></div>
