@@ -153,8 +153,7 @@ void fetch(`${RUNTIME}/health`, { signal: AbortSignal.timeout(2_000) })
   .then((r) => { if (!r.ok) throw new Error(String(r.status)); })
   .catch(() => {
     const w = healthWarning(RUNTIME, false);
-    if (w) process.stderr.write(w + "
-");
+    if (w) process.stderr.write(w + "\n");
   });
 
 if (WATCH.length > 0) watchPaths(WATCH);
