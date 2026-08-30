@@ -53,6 +53,7 @@ export function Workspace() {
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
+  const [held, setHeld] = useState<{ codes: string[]; at: number } | null>(null);
   const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
@@ -151,6 +152,8 @@ export function Workspace() {
       if (!res.deliberated) pushLog(`no morph — ${event.type} not significant`, "note");
       else if (res.morph.applied) pushLog(`UI morphed → ${res.morph.patch?.patchId ?? "patch"} (${res.capabilityRuns.length} capabilities ran)`, "morph");
       else pushLog(`morph blocked — ${res.morph.guardReasonCodes.join(", ") || "no change"}`, "blocked");
+      if (res.deliberated && !res.morph.applied && res.morph.guardReasonCodes.length) setHeld({ codes: res.morph.guardReasonCodes, at: Date.now() });
+      if (res.morph.applied) setHeld(null);
       if (res.presence === "acting") setTimeout(() => setPresence("observing"), 600);
     },
     [attention, applyResult, pushLog],
@@ -440,6 +443,13 @@ export function Workspace() {
                 </button>
               ))
             )}
+          </div>
+        ) : null}
+        {held ? (
+          <div className="held" role="status">
+            <span className="badge warn"><span className="dot" />{t("heldTitle", lang)}</span>
+            <span>{held.codes.map((c) => t(`held_${c}`, lang)).filter((x) => !x.startsWith("held_")).join(" · ") || held.codes.join(", ")}</span>
+            <button className="btn muted" style={{ padding: "2px 10px" }} onClick={() => setHeld(null)}>✕</button>
           </div>
         ) : null}
         <div style={{ paddingTop: 16 }}>

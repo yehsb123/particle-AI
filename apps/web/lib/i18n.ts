@@ -89,6 +89,14 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   historyTitle: { en: "Morph history", ko: "변형 기록" },
   historyHint: { en: "click a step to undo back to before it", ko: "단계를 클릭하면 그 이전으로 되돌립니다" },
   historyEmpty: { en: "no morphs yet", ko: "아직 변형 없음" },
+  // morph held (guard) explanations
+  heldTitle: { en: "Morph held", ko: "변형 보류" },
+  held_cooldown_active: { en: "the interface just changed — waiting a moment so it doesn't jump around", ko: "방금 화면이 바뀌어서 — 튀지 않도록 잠시 기다리는 중" },
+  held_major_dwell_active: { en: "a major change happened recently — letting it settle first", ko: "최근 큰 변경이 있어 — 먼저 안정될 때까지 대기" },
+  held_protects_focus: { en: "you are typing — not restructuring around your cursor", ko: "입력 중이라 — 커서 주변을 재구성하지 않음" },
+  held_protects_unsaved_state: { en: "unsaved work here — never discarded", ko: "미저장 작업이 있어 — 절대 버리지 않음" },
+  held_confidence_below_min: { en: "not confident enough to change the layout", ko: "레이아웃을 바꿀 만큼 확신이 없음" },
+  held_structural_confidence_below_min: { en: "not confident enough for a structural change", ko: "구조 변경을 할 만큼 확신이 없음" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },
