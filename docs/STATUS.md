@@ -2,6 +2,17 @@
 
 Updated at the end of each phase.
 
+## Concept v2 — behavior layer (2026-08-31 ~) — see `CONCEPT_V2.md`
+- **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
+  (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior
+  significance, intent-driven `augment` morphs (returning → live re-entry summary; stuck →
+  related context), web sensors (tab visibility, idle, clicks-as-actions), intent visible in
+  the rail/presence. Proven with zero errors in unit + browser E2E (`behavior.spec.ts`).
+- **Next**: P2 browser extension (MV3: tabs/visibility/navigation + network *shape* + DOM
+  interaction → local runtime; side-panel body), then P3 opt-in desktop agent.
+- HTTP 500 / build / test / security incidents remain as **one case** (intent `debugging`
+  with error signals), not the product story.
+
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
   state, what it observes, autonomy level, why the UI last changed, capabilities awaiting
