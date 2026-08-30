@@ -4,6 +4,11 @@
  * file is a review of what can possibly leave the page.
  */
 
+/** Only the web is sensed: extension pages, chrome:// internals, files etc. are never observed. */
+export function isSensableUrl(url: string): boolean {
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
 /** Hostname only — never path, query, hash, credentials, or port. */
 export function hostOf(url: string): string {
   try {

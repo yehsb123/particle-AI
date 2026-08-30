@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hostOf, networkSeverity, matterEvent, isSelfHost, DEFAULT_CONSENT, NetworkShaper, isTransientError, consentLayers } from "./shape";
+import { hostOf, networkSeverity, matterEvent, isSelfHost, isSensableUrl, DEFAULT_CONSENT, NetworkShaper, isTransientError, consentLayers } from "./shape";
 
 describe("extension shaping (privacy)", () => {
   it("keeps only the hostname — never path, query, hash, credentials or port", () => {
@@ -16,6 +16,14 @@ describe("extension shaping (privacy)", () => {
     expect(e.sessionId).toBe("ext");
     expect(e.timestamp).toBe("2026-08-31T00:00:00.000Z");
     expect(e.type).toBe("network.request");
+  });
+  it("only the web is sensable — the extension never observes its own pages or browser internals", () => {
+    expect(isSensableUrl("https://example.com/a")).toBe(true);
+    expect(isSensableUrl("http://example.test/")).toBe(true);
+    expect(isSensableUrl("chrome-extension://abcdef/sidepanel.html")).toBe(false);
+    expect(isSensableUrl("chrome://extensions")).toBe(false);
+    expect(isSensableUrl("file:///C:/x.html")).toBe(false);
+    expect(isSensableUrl("about:blank")).toBe(false);
   });
   it("never observes the runtime/body itself; network sensing is opt-in by default", () => {
     expect(isSelfHost("localhost")).toBe(true);

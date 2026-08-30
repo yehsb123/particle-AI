@@ -13,6 +13,7 @@ import {
   networkSeverity,
   matterEvent,
   isSelfHost,
+  isSensableUrl,
   isTransientError,
   NetworkShaper,
   consentLayers,
@@ -100,7 +101,7 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 chrome.webNavigation.onCommitted.addListener((d) => {
   void (async () => {
     await ready;
-    if (!consent.tabs || d.frameId !== 0) return;
+    if (!consent.tabs || d.frameId !== 0 || !isSensableUrl(d.url)) return; // never our own pages / chrome://
     const host = hostOf(d.url);
     if (isSelfHost(host)) return;
     void send(matterEvent(SESSION, "user", "user.opened_file", "debug", { path: `site:${host}` }));
