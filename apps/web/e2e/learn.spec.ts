@@ -31,6 +31,12 @@ test("two dismissals of the same context card make the AI stop offering it (and 
   await page.getByTestId("learned-banner").getByRole("button", { name: "Got it" }).click();
   await expect(page.getByTestId("learned-banner")).toHaveCount(0);
 
+  // the lesson is inspectable without developer mode: the AI presence popover names it
+  await page.getByRole("button", { name: /AI ·/ }).click();
+  await expect(page.getByText(/won't auto-offer: augment:stuck ×2/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByText(/won't auto-offer/)).toHaveCount(0);
+
   // P4 persistence: what was learned outlives the tab — after a reload the card stays withheld
   // without a single new dismissal (preferences persist; the replayed log is judged with them)
   await page.reload();
