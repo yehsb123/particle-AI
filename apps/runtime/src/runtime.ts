@@ -108,6 +108,7 @@ export class SessionRuntime {
       try {
         await this.snapshotStore.save({ sessionId: event.sessionId, kind: "world", at, data: result.worldState });
         await this.snapshotStore.save({ sessionId: event.sessionId, kind: "ui", at, data: result.blueprint });
+        await this.snapshotStore.save({ sessionId: event.sessionId, kind: "memory", at, data: this.core.exportMemory(event.sessionId) });
       } catch (err) {
         this.log.warn("snapshot_save_failed", { sessionId: event.sessionId, error: (err as Error).message });
       }
@@ -136,7 +137,13 @@ export class SessionRuntime {
 
   undo(sessionId: string): UIBlueprint | null {
     const bp = this.core.undo(sessionId);
-    if (bp) this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
+    if (bp) {
+      this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
+      // undo is feedback — what was just learned must survive a restart (best-effort)
+      void this.snapshotStore
+        ?.save({ sessionId, kind: "memory", at: this.now(), data: this.core.exportMemory(sessionId) })
+        .catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
+    }
     return bp;
   }
 
@@ -147,6 +154,8 @@ export class SessionRuntime {
     const reversed = [...snaps].reverse();
     const ui = reversed.find((s) => s.kind === "ui");
     const world = reversed.find((s) => s.kind === "world");
+    const memory = reversed.find((s) => s.kind === "memory");
+    if (memory) this.core.importMemory(sessionId, memory.data as { preferences?: { key: string; weight: number }[] });
     if (!ui && !world) return null;
     this.core.hydrate(sessionId, {
       blueprint: ui?.data as UIBlueprint | undefined,

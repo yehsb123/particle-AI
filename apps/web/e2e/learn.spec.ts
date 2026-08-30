@@ -31,4 +31,13 @@ test("two dismissals of the same context card make the AI stop offering it (and 
   await expect(page.getByText("You seem stuck on this")).toHaveCount(0); // withheld
   await page.getByTestId("learned-banner").getByRole("button", { name: "Got it" }).click();
   await expect(page.getByTestId("learned-banner")).toHaveCount(0);
+
+  // P4 persistence: what was learned outlives the tab — after a reload the card stays withheld
+  // without a single new dismissal (preferences persist; the replayed log is judged with them)
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(800);
+  await cpu.click();
+  await expect(page.getByTestId("learned-banner")).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByText("You seem stuck on this")).toHaveCount(0);
 });

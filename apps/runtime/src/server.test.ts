@@ -89,7 +89,7 @@ describe("runtime REST", () => {
     await app.inject({ method: "POST", url: `/api/sim/${sess}/http-500` });
     const snaps = await app.inject({ method: "GET", url: `/api/sessions/${sess}/snapshots` });
     const kinds = (snaps.json().snapshots as { kind: string }[]).map((s) => s.kind).sort();
-    expect(kinds).toEqual(["ui", "world"]);
+    expect(kinds).toEqual(["memory", "ui", "world"]);
   });
 
   it("serves a seed development UI blueprint per session", async () => {

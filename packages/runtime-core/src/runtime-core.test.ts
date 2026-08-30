@@ -365,3 +365,29 @@ describe("RuntimeCore — undo attribution & hydrate", () => {
     expect(core.undo("s")).toBeNull();
   });
 });
+
+describe("RuntimeCore — learned preferences outlive the session (P4 persistence)", () => {
+  it("export → import restores dismissals, so a restarted body keeps what it learned", async () => {
+    const a = createRuntimeCore(makeClock());
+    const act = (n: number) => ({
+      id: `a${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key: "rerun-tests" },
+    });
+    for (let i = 1; i <= 3; i++) await a.ingest(act(i));
+    a.undo("s", { componentId: "context" });
+    await a.ingest(act(4));
+    a.undo("s", { componentId: "context" });
+    const saved = a.exportMemory("s");
+    expect(saved.preferences).toEqual(expect.arrayContaining([{ key: "dismissed:augment:stuck", weight: 2 }]));
+
+    const b = createRuntimeCore(makeClock());
+    b.importMemory("s", JSON.parse(JSON.stringify(saved)));
+    for (let i = 1; i <= 3; i++) await b.ingest(act(i));
+    const r = await b.ingest(act(4));
+    expect(r.learned?.suppressed).toBe("augment:stuck"); // withheld without a single new dismissal
+    expect(findById(b.getBlueprint("s").root, "context")).toBeUndefined();
+    // garbage is ignored, never trusted
+    b.importMemory("s", { preferences: [{ key: 1 as unknown as string, weight: NaN }] });
+    expect(b.exportMemory("s").preferences.every((p) => typeof p.key === "string")).toBe(true);
+  });
+});

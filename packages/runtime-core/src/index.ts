@@ -33,7 +33,7 @@ import {
   type MorphPolicy,
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
-import { MemorySystem, type PatternCandidate } from "@particle/memory";
+import { MemorySystem, type PatternCandidate, type Preference } from "@particle/memory";
 import { inferIntent, intentChanged } from "@particle/intent-engine";
 import type { ApprovalRequest } from "@particle/contracts";
 
@@ -204,6 +204,16 @@ export class RuntimeCore {
   }
   canUndo(sessionId: string): boolean {
     return this.session(sessionId).history.canUndo;
+  }
+
+  /** What the runtime has learned about this person that should outlive the session (P4). */
+  exportMemory(sessionId: string): { preferences: Preference[] } {
+    return { preferences: this.session(sessionId).memory.preferences.entries() };
+  }
+  /** Bring learned preferences back (e.g. from localStorage or a durable snapshot). */
+  importMemory(sessionId: string, memory: { preferences?: Preference[] } | null | undefined): void {
+    if (!memory?.preferences?.length) return;
+    this.session(sessionId).memory.preferences.load(memory.preferences);
   }
 
   /** Public entry: serialize ingests per session so concurrent events cannot interleave. */

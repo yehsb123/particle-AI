@@ -227,6 +227,8 @@ export function Workspace() {
     }
     const bp = core.current.undo(SESSION, { componentId });
     if (!bp) return;
+    // what was just learned outlives this tab (P4): preferences only — never events or content
+    try { localStorage.setItem("dm_prefs", JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
     setMorphs((m) => m.slice(0, -1));
@@ -359,6 +361,11 @@ export function Workspace() {
 
       // Event sourcing in the browser: replay the saved event log so the workspace survives a
       // refresh. Only validated events are replayed; undo/approvals are not events (by design).
+      // learned preferences first, so the replayed log is judged the way the person taught us
+      try {
+        const prefs = localStorage.getItem("dm_prefs");
+        if (prefs) core.current.importMemory(SESSION, JSON.parse(prefs) as { preferences?: { key: string; weight: number }[] });
+      } catch {}
       const raw = localStorage.getItem("dm_events");
       if (raw) {
         const parsed = (JSON.parse(raw) as unknown[]).map((x) => MatterEventSchema.safeParse(x)).filter((r) => r.success).map((r) => r.data);
@@ -593,7 +600,7 @@ export function Workspace() {
           <h3>{t("controls", lang)}</h3>
           <div className="simrow">
             <button className="btn" onClick={() => undo()} disabled={!canUndo}>{t("undo", lang)}</button>
-            <button className="btn muted" onClick={() => { try { localStorage.removeItem("dm_events"); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
+            <button className="btn muted" onClick={() => { try { localStorage.removeItem("dm_events"); localStorage.removeItem("dm_prefs"); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
             <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>

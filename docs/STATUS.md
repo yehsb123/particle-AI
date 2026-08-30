@@ -83,6 +83,13 @@ Updated at the end of each phase.
     table of the real facts (`workspace.get_state:stuckRows`: repeated key ×N, open problems,
     recent places). Korean coverage: augment card strings, autonomy level labels, runtime
     server/local, typing, fallback.
+- **P4 persistence** (2026-08-31): learned preferences outlive the session. `RuntimeCore.exportMemory /
+  importMemory` (preferences only — never events or content; `PreferenceMemory.load` takes the max,
+  ignores garbage). Web: `dm_prefs` saved on every undo and imported BEFORE the event log is
+  replayed, so the restored session is judged the way the person taught it; Reset clears it.
+  Server: a `memory` snapshot is saved with every morph snapshot and on undo; `resume` imports it.
+  E2E `learn.spec` now reloads and proves the card stays withheld with zero new dismissals.
+  runtime-core 26, runtime 13, memory 6.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
