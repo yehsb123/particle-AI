@@ -22,5 +22,9 @@ test("a guard-held morph explains itself in the body", async ({ page }) => {
 
   await expect(page.getByText("Morph held")).toBeVisible();
   await expect(page.getByText(/waiting a moment so it doesn't jump around/)).toBeVisible();
+  await expect(page.getByText(/catches up on its own in ~\d+s/)).toBeVisible();
   await expect(page.getByText("Build failure", { exact: true })).toHaveCount(0);
+
+  // and it DOES catch up on its own: the reconcile tick re-surfaces the still-open problem
+  await expect(page.getByText("Build failure", { exact: true }).first()).toBeVisible({ timeout: 12_000 });
 });

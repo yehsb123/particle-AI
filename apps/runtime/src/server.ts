@@ -77,7 +77,7 @@ export async function buildServer(): Promise<BuildResult> {
   app.post("/api/events", async (req, reply) => {
     try {
       const { event, result } = await runtime.ingest(req.body);
-      return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned };
+      return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
     } catch (err) {
       reply.code(400);
       return { error: (err as Error).message };
@@ -114,7 +114,7 @@ export async function buildServer(): Promise<BuildResult> {
       severity: spec.severity,
       payload: spec.payload ?? {},
     });
-    return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned };
+    return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
   });
 
   app.post<{ Params: { id: string }; Body: { componentId?: unknown; learn?: unknown } | null }>("/api/morph/:id/undo", async (req) => {

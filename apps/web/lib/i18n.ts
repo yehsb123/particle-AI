@@ -103,6 +103,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   held_protects_focus: { en: "you are typing — not restructuring around your cursor", ko: "입력 중이라 — 커서 주변을 재구성하지 않음" },
   held_protects_unsaved_state: { en: "unsaved work here — never discarded", ko: "미저장 작업이 있어 — 절대 버리지 않음" },
   held_confidence_below_min: { en: "not confident enough to change the layout", ko: "레이아웃을 바꿀 만큼 확신이 없음" },
+  heldRetry: { en: "catches up on its own in ~{s}s", ko: "약 {s}초 후 스스로 따라잡습니다" },
   held_structural_confidence_below_min: { en: "not confident enough for a structural change", ko: "구조 변경을 할 만큼 확신이 없음" },
   // intent (Concept v2)
   intentTitle: { en: "intent", ko: "의도" },

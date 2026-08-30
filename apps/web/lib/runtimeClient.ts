@@ -6,6 +6,7 @@ export type SimResponse = {
   pendingApprovals?: ApprovalRequest[];
   patternSuggestions?: { key: string; count: number }[];
   learned?: { suppressed: string; dismissals: number };
+  retryAfterMs?: number;
 };
 
 export type ServerMessage =

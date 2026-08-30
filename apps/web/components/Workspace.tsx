@@ -78,7 +78,7 @@ export function Workspace() {
   }, [debug.worldState, lang]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
-  const [held, setHeld] = useState<{ codes: string[]; at: number } | null>(null);
+  const [held, setHeld] = useState<{ codes: string[]; at: number; retryMs?: number } | null>(null);
   const heldRef = useRef<typeof held>(null);
   heldRef.current = held; // read by clearFocus without re-creating the renderer context
   const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
@@ -182,7 +182,7 @@ export function Workspace() {
       if (!res.deliberated) { if (!quiet) pushLog(`no morph — ${event.type} not significant`, "note"); }
       else if (res.morph.applied) pushLog(`UI morphed → ${res.morph.patch?.patchId ?? "patch"} (${res.capabilityRuns.length} capabilities ran)`, "morph");
       else pushLog(`morph blocked — ${res.morph.guardReasonCodes.join(", ") || "no change"}`, "blocked");
-      if (res.deliberated && !res.morph.applied && res.morph.guardReasonCodes.length) setHeld({ codes: res.morph.guardReasonCodes, at: Date.now() });
+      if (res.deliberated && !res.morph.applied && res.morph.guardReasonCodes.length) setHeld({ codes: res.morph.guardReasonCodes, at: Date.now(), retryMs: res.retryAfterMs });
       if (res.morph.applied) setHeld(null);
       // a timing hold is temporary: schedule one reconcile tick so the body catches up (an event,
       // so replay sees it). The pending tick SURVIVES unrelated events — cleared only when the
@@ -215,7 +215,7 @@ export function Workspace() {
       void client.current.emitSim(spec.key).then((resp) => {
         if (resp?.pendingApprovals) addApprovals(resp.pendingApprovals);
         if (resp?.deliberated && resp.morph && !resp.morph.applied && resp.morph.guardReasonCodes.length) {
-          setHeld({ codes: resp.morph.guardReasonCodes, at: Date.now() });
+          setHeld({ codes: resp.morph.guardReasonCodes, at: Date.now(), retryMs: resp.retryAfterMs });
         }
         if (resp?.morph?.applied) setHeld(null);
         if (resp?.patternSuggestions?.length) {
@@ -656,7 +656,10 @@ export function Workspace() {
         {held ? (
           <div className="held" role="status">
             <span className="badge warn"><span className="dot" />{t("heldTitle", lang)}</span>
-            <span>{held.codes.map((c) => t(`held_${c}`, lang)).filter((x) => !x.startsWith("held_")).join(" · ") || held.codes.join(", ")}</span>
+            <span>
+              {held.codes.map((c) => t(`held_${c}`, lang)).filter((x) => !x.startsWith("held_")).join(" · ") || held.codes.join(", ")}
+              {held.retryMs !== undefined ? <b> · {fillTemplate(t("heldRetry", lang), { s: Math.ceil(held.retryMs / 1000) })}</b> : null}
+            </span>
             <button className="btn muted" style={{ padding: "2px 10px" }} onClick={() => setHeld(null)}>✕</button>
           </div>
         ) : null}
