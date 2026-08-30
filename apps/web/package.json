@@ -14,15 +14,16 @@
   },
   "dependencies": {
     "@particle/contracts": "workspace:*",
-    "@particle/ui-protocol": "workspace:*",
     "@particle/morph-engine": "workspace:*",
-    "@particle/ui-registry": "workspace:*",
     "@particle/runtime-core": "workspace:*",
+    "@particle/ui-protocol": "workspace:*",
+    "@particle/ui-registry": "workspace:*",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",

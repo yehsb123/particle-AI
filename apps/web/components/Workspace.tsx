@@ -504,6 +504,7 @@ export function Workspace() {
             <span className="k">{t("autonomy", lang)}</span>
             <span>
               <select
+              aria-label={t("presenceAutonomy", lang)}
                 className="select"
                 style={{ width: "auto", padding: "4px 8px" }}
                 value={autonomy}

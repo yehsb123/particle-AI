@@ -63,7 +63,7 @@ export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; 
       </div>
 
       {tab === "trace" ? (
-        <div className="devbody">
+        <div className="devbody" tabIndex={0}>
           {debug.traces.length === 0 ? <span className="muted">No events yet.</span> : null}
           <table className="table">
             <thead>
@@ -87,8 +87,8 @@ export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; 
       ) : null}
 
       {tab === "world" ? (
-        <div className="devbody">
-          <pre className="code">{debug.worldState ? pretty({
+        <div className="devbody" tabIndex={0}>
+          <pre className="code" tabIndex={0}>{debug.worldState ? pretty({
             activeContext: debug.worldState.activeContext,
             activeProblems: debug.worldState.activeProblems,
             environment: debug.worldState.environment,
@@ -99,8 +99,8 @@ export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; 
       ) : null}
 
       {tab === "decision" ? (
-        <div className="devbody">
-          <pre className="code">{debug.last?.decision ? pretty({
+        <div className="devbody" tabIndex={0}>
+          <pre className="code" tabIndex={0}>{debug.last?.decision ? pretty({
             id: debug.last.decision.id,
             route: debug.last.route,
             usedFallback: debug.last.usedFallback,
@@ -113,7 +113,7 @@ export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; 
       ) : null}
 
       {tab === "memory" ? (
-        <div className="devbody">
+        <div className="devbody" tabIndex={0}>
           {!debug.memory || (!debug.memory.episodes.length && !debug.memory.preferences.length && !debug.memory.patterns.length) ? (
             <span className="muted">{t("memNone", lang)}</span>
           ) : (
@@ -152,7 +152,7 @@ export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; 
       ) : null}
 
       {tab === "audit" ? (
-        <div className="devbody">
+        <div className="devbody" tabIndex={0}>
           {debug.audit.length === 0 ? <span className="muted">No audit records yet.</span> : null}
           <div className="stack" style={{ gap: 4 }}>
             {debug.audit.map((a) => (

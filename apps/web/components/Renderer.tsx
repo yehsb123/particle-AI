@@ -154,6 +154,7 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <input
           className="input"
+          aria-label={L("label", "") || L("placeholder", "") || node.id}
           defaultValue={prop(node, "value", "")}
           placeholder={prop(node, "placeholder", "")}
           onFocus={() => ctx.setFocus(node.id)}
@@ -162,7 +163,7 @@ export function Render({ node }: { node: UIComponent }) {
       );
     case "Select":
       return wrap(
-        <select className="select">
+        <select className="select" aria-label={L("label", "") || L("title", "") || node.id}>
           {arr<string>(node, "options").map((o) => <option key={o}>{o}</option>)}
         </select>,
       );
@@ -184,6 +185,7 @@ export function Render({ node }: { node: UIComponent }) {
           </div>
           <textarea
             className="code"
+            aria-label={L("title", "editor")}
             style={{ width: "100%", minHeight: 140, resize: "vertical" }}
             defaultValue={prop(node, "value", "")}
             onFocus={() => ctx.setFocus(node.id)}
@@ -192,12 +194,12 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
     case "TerminalViewer":
-      return wrap(<pre className="term">{L("text", "")}</pre>);
+      return wrap(<pre className="term" tabIndex={0}>{L("text", "")}</pre>);
     case "LogViewer":
       return wrap(
         <div>
           <div className="panel-title"><span>{L("title", "Logs")}</span></div>
-          <pre className="logview">{arr<string>(node, "lines").join("\n")}</pre>
+          <pre className="logview" tabIndex={0}>{arr<string>(node, "lines").join("\n")}</pre>
         </div>,
       );
     case "DiffViewer": {
@@ -205,7 +207,7 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div>
           <div className="panel-title"><span>{L("title", "Diff")}</span></div>
-          <pre className="diff">
+          <pre className="diff" tabIndex={0}>
             {diff.split("\n").map((line, i) => (
               <div key={i} className={line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : ""}>{line}</div>
             ))}
@@ -214,7 +216,7 @@ export function Render({ node }: { node: UIComponent }) {
       );
     }
     case "JSONViewer":
-      return wrap(<pre className="code">{JSON.stringify(prop(node, "data", {}), null, 2)}</pre>);
+      return wrap(<pre className="code" tabIndex={0}>{JSON.stringify(prop(node, "data", {}), null, 2)}</pre>);
     case "Table": {
       const columns = arr<string>(node, "columns");
       const rows = arr<string[]>(node, "rows");
