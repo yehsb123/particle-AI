@@ -8,7 +8,7 @@ import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
 import { RuntimeClient, type ServerMessage } from "../lib/runtimeClient";
-import { t, tr, type Lang } from "../lib/i18n";
+import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
 
 type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
 type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
@@ -311,6 +311,7 @@ export function Workspace() {
       setFocus: (id: string) => setAttention({ typing: true, focusedComponentId: id, lastInteractionAt: nowIso() }),
       clearFocus: () => setAttention({ typing: false }),
       tr: (s: string) => tr(s, lang),
+      tpl: (id: string, params: Record<string, unknown>) => fillTemplate(t(id, lang), params),
     }),
     [undo, pushLog, lang],
   );

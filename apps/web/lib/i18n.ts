@@ -129,6 +129,18 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_output: { en: "test/build output", ko: "테스트/빌드 출력" },
   layer_git: { en: "git branch", ko: "git 브랜치" },
   sensingNone: { en: "nothing reported yet", ko: "아직 보고된 센서 없음" },
+  // templates for generated sentences (params are identifiers/numbers only)
+  tpl_problems_open: { en: "{n} open problem(s): {list}.", ko: "열린 문제 {n}건: {list}." },
+  tpl_calm_files: { en: "Nothing broke while you were away. Recent files: {files}.", ko: "자리를 비운 동안 깨진 것은 없습니다. 최근 파일: {files}." },
+  tpl_calm: { en: "Nothing broke while you were away. Workspace is calm.", ko: "자리를 비운 동안 깨진 것은 없습니다. 워크스페이스는 조용합니다." },
+  tpl_juggling: {
+    en: "Moving between: {places}. Pinned here so you don't have to hold them in your head.",
+    ko: "{places} 사이를 오가고 있어요. 머릿속에 붙들고 있지 않도록 여기 고정해 두었습니다.",
+  },
+  tpl_juggling_none: {
+    en: "You keep moving between a few places. They are pinned here so you don't have to hold them in your head.",
+    ko: "몇 곳을 계속 오가고 있어요. 머릿속에 붙들고 있지 않도록 여기 고정해 두었습니다.",
+  },
   runtimeServer: { en: "server", ko: "서버" },
   runtimeLocal: { en: "local", ko: "로컬" },
   typing: { en: "typing", ko: "입력 중" },
@@ -148,6 +160,15 @@ const CHROME: Record<string, { en: string; ko: string }> = {
 
 export function t(key: string, lang: Lang): string {
   return CHROME[key]?.[lang] ?? key;
+}
+
+/**
+ * Generated sentences are never translated as strings. Capabilities emit a template id plus
+ * identifier-only params; the renderer fills the localized template here. Unknown `{slots}` stay
+ * visible so a missing param is noticed, not hidden.
+ */
+export function fillTemplate(tpl: string, params: Record<string, unknown> = {}): string {
+  return tpl.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m));
 }
 
 /** Content strings that live inside blueprints (titles, badges, status). English → Korean. */

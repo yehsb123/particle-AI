@@ -93,6 +93,10 @@ Updated at the end of each phase.
 - **Agent git sensing without polling** (2026-08-31): `.git/HEAD` is watched (worktree `gitdir:`
   pointers followed); `branchFromHead` parses the ref (detached → `detached@<sha7>`), no `git`
   process is spawned. Linux inotify limits documented. agent 10 tests.
+- **Localized generated sentences** (2026-08-31): capabilities emit a template id + identifier-only
+  params (`summaryTpl`, `jugglingTpl`) next to the English text; blueprints bind `tpl` as well as
+  `text`; the renderer fills `t(tpl.id)` in the viewer's language (`fillTemplate`, unknown slots
+  stay visible). No generated sentence is ever translated as a string. web 5 tests.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

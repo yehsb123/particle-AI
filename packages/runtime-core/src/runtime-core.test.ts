@@ -113,6 +113,8 @@ describe("RuntimeCore — full loop", () => {
     expect(card?.props?.title).toBe("Welcome back");
     // the summary is LIVE from workspace.get_state (binding), not the placeholder
     expect(String(findById(core.getBlueprint("s").root, "context-text")?.props?.text)).toMatch(/Nothing broke/);
+    // localizable form travels with it: template id + identifier params, never a translated sentence
+    expect(findById(core.getBlueprint("s").root, "context-text")?.props?.tpl).toMatchObject({ id: expect.stringMatching(/^tpl_calm/) });
     expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined(); // no incident at all
   });
 

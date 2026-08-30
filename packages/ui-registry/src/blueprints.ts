@@ -508,7 +508,10 @@ export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind 
           props: { title: AUGMENT_TITLES.switching },
           children: [
             { id: "context-text", type: "Markdown", props: { text: "You keep moving between a few places. They are pinned here so you don't have to hold them in your head." },
-              bindings: [{ prop: "text", source: "capability:workspace.get_state:juggling" }] },
+              bindings: [
+                { prop: "text", source: "capability:workspace.get_state:juggling" },
+                { prop: "tpl", source: "capability:workspace.get_state:jugglingTpl" },
+              ] },
             { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo", payload: { targetId: "context" } }] },
           ],
         }
@@ -519,7 +522,10 @@ export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind 
           props: { title: "Welcome back" },
           children: [
             { id: "context-text", type: "Markdown", props: { text: "You were away. Nothing broke while you were gone — here is where you left off." },
-              bindings: [{ prop: "text", source: "capability:workspace.get_state:summary" }] },
+              bindings: [
+                { prop: "text", source: "capability:workspace.get_state:summary" },
+                { prop: "tpl", source: "capability:workspace.get_state:summaryTpl" },
+              ] },
             { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo", payload: { targetId: "context" } }] },
           ],
         }

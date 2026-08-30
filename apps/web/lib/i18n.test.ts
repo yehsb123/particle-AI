@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { t, tr } from "./i18n";
+import { t, tr, fillTemplate } from "./i18n";
 import { developmentBlueprint, incidentPatch, type IncidentKind } from "@particle/ui-registry";
 import type { UIComponent } from "@particle/contracts";
 
@@ -66,5 +66,18 @@ describe("i18n consistency", () => {
       (s) => !VERBATIM.test(s) && /[A-Za-z]/.test(s) && tr(s, "ko") === s,
     );
     expect(untranslated).toEqual([]);
+  });
+});
+
+describe("templates for generated sentences", () => {
+  it("fills identifier params into both languages and leaves unknown slots visible", () => {
+    expect(fillTemplate(t("tpl_problems_open", "en"), { n: 2, list: "network_failure; test_failure" })).toBe("2 open problem(s): network_failure; test_failure.");
+    expect(fillTemplate(t("tpl_problems_open", "ko"), { n: 2, list: "a; b" })).toBe("열린 문제 2건: a; b.");
+    expect(fillTemplate(t("tpl_juggling", "ko"), { places: "`a` · `b`" })).toContain("`a` · `b` 사이를");
+    expect(fillTemplate("{missing} x", {})).toBe("{missing} x");
+    for (const k of ["tpl_problems_open", "tpl_calm_files", "tpl_calm", "tpl_juggling", "tpl_juggling_none"]) {
+      expect(t(k, "ko")).not.toBe(k);
+      expect(t(k, "en")).not.toBe(k);
+    }
   });
 });

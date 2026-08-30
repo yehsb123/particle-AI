@@ -12,6 +12,8 @@ export type RendererCtx = {
   clearFocus: () => void;
   /** translate a content label (identity in English) */
   tr: (s: string) => string;
+  /** fill a localized template for generated sentences (id + identifier params) */
+  tpl?: (id: string, params: Record<string, unknown>) => string;
 };
 
 const Ctx = createContext<RendererCtx>({
@@ -121,8 +123,16 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(<div className="heading" style={{ fontSize: 20 - (num(node, "level", 2) - 1) * 2 }}>{L("text", "")}</div>);
     case "Text":
       return wrap(<div>{L("text", "")}</div>);
-    case "Markdown":
-      return wrap(<div className="muted" style={{ whiteSpace: "pre-wrap" }}>{L("text", "")}</div>);
+    case "Markdown": {
+      // generated sentences arrive as a template id + params (bound from a capability) and are
+      // assembled in the viewer's language; plain `text` is the fallback
+      const tpl = node.props?.tpl as { id?: unknown; params?: unknown } | undefined;
+      const text =
+        ctx.tpl && tpl && typeof tpl.id === "string"
+          ? ctx.tpl(tpl.id, (tpl.params as Record<string, unknown> | undefined) ?? {})
+          : L("text", "");
+      return wrap(<div className="muted" style={{ whiteSpace: "pre-wrap" }}>{text}</div>);
+    }
     case "Badge": {
       const tone = prop<string>(node, "tone", "muted");
       const cls = tone === "ok" ? "ok" : tone === "warn" ? "warn" : tone === "crit" ? "crit" : "";
