@@ -618,6 +618,19 @@ export function Workspace() {
                   <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }} data-testid="sensing-line">
                     {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)})
                   </p>
+                  {(debug.memory?.preferences ?? []).some((p) => p.key.startsWith("dismissed:")) ? (
+                    <>
+                      <div className="divider" style={{ margin: "10px 0" }} />
+                      <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLearned", lang)}</div>
+                      <p style={{ fontSize: 12.5, margin: "6px 0 0", fontFamily: "var(--mono)" }}>
+                        {(debug.memory?.preferences ?? [])
+                          .filter((p) => p.key.startsWith("dismissed:"))
+                          .slice(0, 3)
+                          .map((p) => `${t("prefDismissed", lang)}: ${p.key.replace("dismissed:", "")} ×${p.weight}`)
+                          .join(" · ")}
+                      </p>
+                    </>
+                  ) : null}
                   <div className="divider" style={{ margin: "10px 0" }} />
                   <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLastReason", lang)}</div>
                   <p style={{ fontSize: 13, margin: "6px 0 0" }}>
