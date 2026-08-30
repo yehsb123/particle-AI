@@ -3,6 +3,17 @@
 Updated at the end of each phase.
 
 ## Concept v2 — behavior layer (2026-08-31 ~) — see `CONCEPT_V2.md`
+
+**Where it stands (end of the 2026-08-31 overnight run):** the thesis is implemented end to end.
+Behavior (clicks, dwell, idle, returns, repeats, alternation) and traffic *shape* (host · status ·
+latency, opt-in) flow from three sensors — the page, an MV3 browser extension, an opt-in desktop
+agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) — into one runtime
+that keeps a continuous intent, prepares the screen before and without anything breaking, learns
+from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
+the body when a timing hold would leave it out of step, and answers only to its own origins/token.
+Everything is event-sourced and replays deterministically. Verified by 130+ unit/integration tests,
+13 Playwright specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
+and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
   (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior
   significance, intent-driven `augment` morphs (returning → live re-entry summary; stuck →

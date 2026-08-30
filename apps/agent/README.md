@@ -32,6 +32,12 @@ With nothing configured and no pipe, the agent prints how to opt in and exits.
 
 ## Notes
 
+- Events are sent **in observed order** (one in-flight request; parallel fetches can reorder a
+  recovery ahead of the failure it recovers from).
+- If a re-escalation lands inside the runtime's morph cooldown (e.g. tests fail again 1 s after
+  going green), the runtime schedules one `runtime.reconcile` tick and the layout catches up a few
+  seconds later — no extra output needed.
+
 - Git is sensed by watching `.git/HEAD` (worktrees' `gitdir:` pointers are followed) — no `git`
   process is spawned and nothing but the branch name is read.
 - Linux: `fs.watch({ recursive: true })` registers an inotify watch per directory. Large trees can

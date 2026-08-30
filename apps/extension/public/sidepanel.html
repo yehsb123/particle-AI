@@ -5,12 +5,20 @@
 <title>Particle AI</title>
 <style>
   /* matches the body's page background so there is no flash before the iframe paints */
-  html, body { margin: 0; height: 100%; background: #F5EFF7; }
-  @media (prefers-color-scheme: dark) { html, body { background: #131316; } }
+  html, body { margin: 0; height: 100%; background: #F5EFF7; color: #1C1B1F; }
+  @media (prefers-color-scheme: dark) { html, body { background: #131316; color: #E6E1E5; } }
   iframe { border: 0; width: 100%; height: 100%; display: block; }
+  #offline {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 24px; text-align: center; white-space: pre-line;
+    font: 13px/1.7 ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  #offline[hidden] { display: none; }
 </style>
 </head>
 <body>
-<iframe src="http://localhost:3000/?connect=1&session=ext" title="Particle AI body"></iframe>
+<div id="offline" hidden></div>
+<iframe data-src="http://localhost:3000/?connect=1&session=ext" src="about:blank" title="Particle AI body"></iframe>
+<script src="sidepanel.js"></script>
 </body>
 </html>

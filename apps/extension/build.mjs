@@ -18,7 +18,7 @@ mkdirSync("dist", { recursive: true });
 copyDir("public", "dist");
 
 buildSync({
-  entryPoints: { background: "src/background.ts", content: "src/content.ts", options: "src/options.ts" },
+  entryPoints: { background: "src/background.ts", content: "src/content.ts", options: "src/options.ts", sidepanel: "src/sidepanel.ts" },
   bundle: true,
   format: "esm",
   target: "chrome120",
@@ -27,7 +27,7 @@ buildSync({
   logLevel: "info",
 });
 
-for (const f of ["manifest.json", "sidepanel.html", "options.html", "background.js", "content.js", "options.js"]) {
+for (const f of ["manifest.json", "sidepanel.html", "options.html", "background.js", "content.js", "options.js", "sidepanel.js"]) {
   if (!existsSync(`dist/${f}`)) {
     console.error(`missing dist/${f}`);
     process.exit(1);
