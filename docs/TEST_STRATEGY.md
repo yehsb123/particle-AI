@@ -14,8 +14,14 @@ makes it cheap to test exhaustively without an LLM.
     `runtime-core` full loop (incident → capabilities → morph → recovery → undo), and
     `replay` determinism (replaying the log reproduces the exact UI/world).
 - **Service** — `apps/runtime` via `fastify.inject` (REST + sim + decisions + undo).
-- **E2E** — Playwright drives the real browser: emit HTTP 500 → incident appears (editor
-  preserved) → recover → undo → an unrelated event does not morph.
+- **E2E** — Playwright drives the real browser (7 specs): incident→recover→undo (+ presence
+  popover, approval), security scenario (+ replay determinism), pattern banner, recurring
+  badge, held-morph explanation, morph-history multi-undo, session persistence across
+  reload, connected mode (skips when the runtime server is down), and an **axe-core
+  accessibility audit** (WCAG 2.x A/AA; fails on serious/critical) across initial, incident
+  and developer-mode states.
+- **i18n audit** (`apps/web/lib/i18n.test.ts`) — every `t()` key exists in both languages and
+  every human-facing blueprint string has a Korean translation (code/logs stay verbatim).
 
 ## Determinism
 

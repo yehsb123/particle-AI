@@ -68,4 +68,4 @@ jobs:
         run: |
           pnpm --filter @particle/web start &
           npx --yes wait-on http://localhost:3000
-          pnpm --filter @particle/web exec playwright test incident.spec.ts
+          pnpm --filter @particle/web exec playwright test
