@@ -46,8 +46,12 @@ API 키가 필요 없습니다 — 기본은 결정론적 mock 프로바이더�
 2. 우측 **Simulation Lab**에서 `HTTP 500` 클릭 → 아무 요청도 안 했는데 런타임이 인시던트 워크스페이스로 스스로 변형(에디터의 미저장 작업은 보존).
 3. `Service recovered` → 개발 화면으로 원복. `Undo last morph` → 되돌리기.
 4. `High CPU` / `Critical alert` → 현재 맥락과 무관하므로 **모프 없음**.
-5. **Developer mode** 토글 → 이벤트 트레이스·월드 상태·구조화된 결정·감사 트레일 확인.
+5. **Developer mode** 토글 → 이벤트 트레이스·월드 상태·결정·**메모리**·감사 + **Replay & verify**(결정론 확인).
 6. **Runtime: local ↔ server** 토글 → `pnpm runtime` 실행 시 UI가 백엔드 WebSocket `ui_patch`로 변형.
+7. 상단 **AI 상태 칩** 클릭 → AI가 무엇을 관찰·계획 중인지, 왜 바꿨는지 팝오버로 확인.
+8. **변형 기록 스트립**의 단계 클릭 → 그 이전으로 다단계 되돌리기. **새로고침해도** 세션이 복원됩니다(이벤트 로그 재생).
+9. `Vulnerability found` → 보안 경보 레이아웃(CVE 테이블) + `의존성 업데이트` 승인 흐름.
+10. 우측 상단 **🌐 한국어/English**로 전체 UI 언어 전환.
 
 ## 데이터 영속화 (선택)
 

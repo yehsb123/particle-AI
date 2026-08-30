@@ -23,6 +23,12 @@ Updated at the end of each phase.
   morphed body — incident logs and the CVE table are live, not hardcoded.
 - **Replay & verify (spec §21)**: Developer mode button replays the session's event log
   through a fresh core and reports whether the UI is reproduced exactly.
+- **Browser event sourcing**: the event log is persisted (localStorage) and replayed on load,
+  so the morphed workspace survives a refresh; `Reset session` clears it.
+- **Morph history strip**: every applied morph is a clickable step; clicking undoes back to
+  before it (multi-step undo) — reversibility made visible.
+- **Held-morph explanations**: when the guard holds a change (cooldown, dwell, focus/unsaved
+  protection, low confidence) the body says why in plain language (EN/KO).
 
 ## Completion sprint (all committed)
 - **@particle/memory** (§20): working/episodic/preference stores + `PatternDetector` that
