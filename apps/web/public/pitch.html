@@ -97,7 +97,7 @@
   .screen-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); display: block; }
   .presence { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 7px; }
   .presence b { width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-    animation: presence 9s infinite; }
+    animation: presence 16s infinite; }
   .screen-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 300px; }
   .row { display: flex; gap: 12px; }
   .card { background: color-mix(in srgb, var(--ink) 3%, var(--surface)); border: 1px solid var(--line);
@@ -115,14 +115,29 @@
     position: absolute; top: 14px; right: 16px; z-index: 5;
     font-family: var(--mono); font-size: 11.5px; font-weight: 600; color: #fff; background: var(--crit);
     padding: 4px 10px; border-radius: 999px; opacity: 0; transform: scale(.8);
-    animation: eventFlash 9s infinite; box-shadow: 0 4px 16px rgba(179,38,30,.4); }
+    animation: eventFlash 16s infinite; box-shadow: 0 4px 16px rgba(179,38,30,.4); }
   .screen { position: relative; }
+  /* act 1 — behavior flash (no error): away → returning */
+  .bevent {
+    position: absolute; top: 14px; right: 16px; z-index: 5;
+    font-family: var(--mono); font-size: 11.5px; font-weight: 600; color: var(--accent-ink);
+    background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 4px 10px; border-radius: 999px; opacity: 0; transform: scale(.8);
+    animation: beventFlash 16s infinite; }
+  /* act 1 — the welcome-back card that morphs in from behavior alone */
+  .welcome {
+    border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft);
+    border-radius: 12px; overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-10px);
+    animation: welcome 16s infinite; }
+  .welcome .inner { padding: 12px; }
+  .welcome .lbl { color: var(--accent); }
+  .welcome p { margin: 6px 0 0; font-size: 13px; color: var(--ink); }
 
   /* the incident panel that morphs IN and OUT on a loop */
   .incident {
     border: 1.5px solid var(--crit); background: var(--crit-soft); border-radius: 12px;
     overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-10px);
-    animation: incident 9s infinite; }
+    animation: incident 16s infinite; }
   .incident .inner { padding: 12px; }
   .incident .lbl { color: var(--crit); }
   .mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 42px; margin-top: 6px; }
@@ -131,22 +146,39 @@
   .caption b { color: var(--accent); }
 
   @keyframes presence {
-    0%, 16% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
-    22%, 50% { background: var(--crit); box-shadow: 0 0 0 4px color-mix(in srgb, var(--crit) 20%, transparent); }
-    56%, 100% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
+    0%, 3% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
+    6%, 34% { background: var(--accent-bright); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+    38%, 45% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
+    50%, 86% { background: var(--crit); box-shadow: 0 0 0 4px color-mix(in srgb, var(--crit) 20%, transparent); }
+    92%, 100% { background: var(--accent); box-shadow: 0 0 0 0 transparent; }
   }
+  /* act 1 (behavior, no error): away → returning → welcome card */
+  @keyframes beventFlash {
+    0%, 3% { opacity: 0; transform: scale(.8); }
+    6% { opacity: 1; transform: scale(1.08); }
+    12% { opacity: 1; transform: scale(1); }
+    22% { opacity: 0; transform: scale(1); }
+    100% { opacity: 0; }
+  }
+  @keyframes welcome {
+    0%, 7% { max-height: 0; opacity: 0; transform: translateY(-10px); }
+    12% { opacity: 1; }
+    16%, 32% { max-height: 140px; opacity: 1; transform: none; }
+    38%, 100% { max-height: 0; opacity: 0; transform: translateY(-10px); }
+  }
+  /* act 2 (the incident is just ONE case of the same loop) */
   @keyframes eventFlash {
-    0%, 15% { opacity: 0; transform: scale(.8); }
-    18% { opacity: 1; transform: scale(1.08); }
-    26% { opacity: 1; transform: scale(1); }
-    40% { opacity: 0; transform: scale(1); }
+    0%, 44% { opacity: 0; transform: scale(.8); }
+    47% { opacity: 1; transform: scale(1.08); }
+    54% { opacity: 1; transform: scale(1); }
+    66% { opacity: 0; transform: scale(1); }
     100% { opacity: 0; }
   }
   @keyframes incident {
-    0%, 17% { max-height: 0; opacity: 0; transform: translateY(-10px); }
-    24% { opacity: 1; }
-    40%, 78% { max-height: 260px; opacity: 1; transform: none; }
-    90%, 100% { max-height: 0; opacity: 0; transform: translateY(-10px); }
+    0%, 46% { max-height: 0; opacity: 0; transform: translateY(-10px); }
+    52% { opacity: 1; }
+    62%, 84% { max-height: 260px; opacity: 1; transform: none; }
+    92%, 100% { max-height: 0; opacity: 0; transform: translateY(-10px); }
   }
 
   /* ── sections ── */
@@ -224,12 +256,13 @@
     </div>
 
     <div>
-      <div class="screen" role="img" aria-label="개발 화면이 서버 에러를 감지하면 인시던트 화면으로 스스로 재구성되는 데모">
+      <div class="screen" role="img" aria-label="자리를 비웠다 돌아오면 복귀 요약 카드가, 서버 에러가 나면 인시던트 화면이 스스로 나타나는 데모">
         <div class="screen-bar">
           <div class="dots"><i></i><i></i><i></i></div>
           <div class="presence"><b></b> AI · 실시간 관찰</div>
         </div>
         <div class="screen-body">
+          <div class="bevent">◐ 행동: 34초 자리 비움 → 복귀</div>
           <div class="event">● HTTP 500</div>
           <div class="row">
             <div class="card" style="flex:.4">
@@ -239,6 +272,13 @@
             <div class="card">
               <div class="lbl">src/routes.ts</div>
               <div class="bar a md"></div><div class="bar sm"></div><div class="bar md"></div>
+            </div>
+          </div>
+
+          <div class="welcome">
+            <div class="inner">
+              <div class="lbl">● 다시 오셨네요 — 행동만으로</div>
+              <p>자리를 비운 동안 깨진 것은 없습니다. 마지막 작업: <b>src/routes.ts</b> · 빌드 통과</p>
             </div>
           </div>
 
@@ -265,7 +305,7 @@
           </div>
         </div>
       </div>
-      <p class="caption">사용자는 아무것도 요청하지 않았습니다. <b>AI가 스스로 화면을 재구성합니다.</b></p>
+      <p class="caption">1막: 에러 없이 <b>행동만으로</b> 복귀 요약이 먼저. 2막: 에러는 같은 루프의 <b>한 케이스</b>. 사용자는 아무것도 요청하지 않았습니다.</p>
     </div>
   </div>
 </header>
