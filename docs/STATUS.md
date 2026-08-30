@@ -12,7 +12,7 @@ that keeps a continuous intent, prepares the screen before and without anything 
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
 Everything is event-sourced and replays deterministically. Verified by 130+ unit/integration tests,
-13 Playwright specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
+14 Playwright E2E tests across 13 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
   (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior

@@ -137,4 +137,4 @@ docker compose up -d postgres   # 로컬 Postgres
 
 ## 상태
 
-Phase 0–8(런타임·UI 매터·능력·메모리·영속화·신뢰성) 완료 + **Concept v2(행동 레이어) 엔드투엔드 구현**: 의도 엔진(P1), 브라우저 확장 + 통신 형태 인시던트(P2), 데스크톱 에이전트(P3), 되돌리기 학습(P4), 정직한 감지 표시. 유닛/통합 테스트, Playwright E2E 12종(실제 확장 프로그램을 라이브 런타임에 붙이는 테스트 포함), CI 모두 그린. 자세히: [`docs/STATUS.md`](docs/STATUS.md), [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
+Phase 0–8(런타임·UI 매터·능력·메모리·영속화·신뢰성) 완료 + **Concept v2(행동 레이어) 엔드투엔드 구현**: 의도 엔진(P1), 브라우저 확장 + 통신 형태 인시던트(P2), 데스크톱 에이전트(P3), 되돌리기 학습(P4), 정직한 감지 표시. 유닛/통합 테스트, Playwright E2E 14케이스·13스펙(실제 확장 프로그램을 라이브 런타임에 붙이는 테스트, 한국어 옵션 페이지 포함), CI 모두 그린. 자세히: [`docs/STATUS.md`](docs/STATUS.md), [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).

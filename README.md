@@ -136,8 +136,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
 Phases 0–8 (runtime, UI matter, capabilities, memory, persistence, reliability) are done, and
 Concept v2 — the behavior layer — is implemented end to end: intent engine (P1), browser
 extension + traffic-shape incidents (P2), desktop agent (P3), learning from dismissals (P4),
-honest sensing indicator. Unit/integration suite, 12 Playwright E2E specs (including a real
-extension test against the live runtime) and CI are green. Details: [`docs/STATUS.md`](docs/STATUS.md),
+honest sensing indicator. Unit/integration suite, 14 Playwright E2E tests across 13 specs (including a real
+extension test against the live runtime and a Korean options page) and CI are green. Details: [`docs/STATUS.md`](docs/STATUS.md),
 [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
 
 ## License
