@@ -9,6 +9,7 @@
   label { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid #E6E1E5; border-radius: 12px; margin: 10px 0; }
   small { color: #605D64; }
   code { background: #F5EFF7; padding: 1px 6px; border-radius: 6px; }
+  input[type=text] { font: inherit; padding: 6px 8px; border: 1px solid #CAC4D0; border-radius: 8px; width: 100%; }
 </style>
 </head>
 <body>
@@ -17,6 +18,7 @@
 <label><input type="checkbox" id="interactions"> <span><b>Interactions (L0)</b><br><small>that you clicked / scrolled / typed and when — never <em>what</em></small></span></label>
 <label><input type="checkbox" id="tabs"> <span><b>Tabs &amp; focus (L3)</b><br><small>site hostnames you navigate to and time away — never full URLs or page text</small></span></label>
 <label><input type="checkbox" id="network"> <span><b>Communication shape (L2) — opt-in</b><br><small>hostname, status code and latency of requests — never paths, queries or bodies</small></span></label>
+<label><span style="flex:1"><b>Runtime token (optional)</b><br><small>must match <code>DM_INGEST_TOKEN</code> on the runtime; leave empty if the runtime has none</small><br><input type="text" id="token" autocomplete="off" spellcheck="false"></span></label>
 <p><small>Runtime: <code>http://localhost:8787</code> · Body: side panel</small></p>
 <script src="options.js"></script>
 </body>

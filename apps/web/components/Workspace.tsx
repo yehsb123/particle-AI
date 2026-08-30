@@ -31,12 +31,16 @@ type Inspector = {
 const SESSION =
   typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("session") ?? "session-local" : "session-local";
 const AUTO_CONNECT = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("connect") === "1";
-const nowIso = () => new Date().toISOString();
+// While restoring a saved log, "now" is the replayed event's own timestamp — otherwise the morph
+// guard would see minutes of history collapse into microseconds and block morphs it allowed live.
+const replayAt: { current: string | null } = { current: null };
+const nowIso = () => replayAt.current ?? new Date().toISOString();
+const nowMs = () => (replayAt.current ? Date.parse(replayAt.current) : Date.now());
 
 export function Workspace() {
   // Lazy, once-only construction — useRef's initializer must not re-run the factory each render.
   const core = useRef<RuntimeCore>(undefined as unknown as RuntimeCore);
-  if (!core.current) core.current = createRuntimeCore({ iso: nowIso, ms: () => Date.now() });
+  if (!core.current) core.current = createRuntimeCore({ iso: nowIso, ms: nowMs });
   const [blueprint, setBlueprint] = useState<UIBlueprint>(() => core.current.getBlueprint(SESSION));
   const [attention, setAttention] = useState<AttentionState>({ typing: false });
   const [presence, setPresence] = useState<Presence>("observing");
@@ -158,7 +162,7 @@ export function Workspace() {
       setPresence("evaluating");
       setEvents((e) => {
         const next = [...e, event];
-        try { localStorage.setItem("dm_events", JSON.stringify(next)); } catch {}
+        try { localStorage.setItem("dm_events", JSON.stringify(next.slice(-500))); } catch {} // bounded log
         return next;
       });
       const res = await core.current.ingest(event, attention);
@@ -217,13 +221,13 @@ export function Workspace() {
     [mode, pushLog],
   );
 
-  const undo = useCallback(() => {
+  const undo = useCallback((componentId?: string) => {
     if (mode === "connected" && client.current) {
       void client.current.undo();
       pushLog("undo → server", "undo");
       return;
     }
-    const bp = core.current.undo(SESSION);
+    const bp = core.current.undo(SESSION, { componentId });
     if (!bp) return;
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
@@ -237,7 +241,7 @@ export function Workspace() {
     let bp: UIBlueprint | null = null;
     let steps = 0;
     for (let k = morphs.length - 1; k >= i; k--) {
-      const next = core.current.undo(SESSION);
+      const next = core.current.undo(SESSION, { learn: false }); // a "go back" gesture is not a dismissal
       if (!next) break;
       bp = next; steps++;
     }
@@ -301,7 +305,7 @@ export function Workspace() {
   const rendererCtx = useMemo(
     () => ({
       emitAction: (action: UIAction) => {
-        if (action.event === "user.requested_undo") return undo();
+        if (action.event === "user.requested_undo") return undo(typeof action.payload?.targetId === "string" ? action.payload.targetId : undefined);
         pushLog(`action — ${action.capabilityId ?? action.event}`, "note");
       },
       setFocus: (id: string) => setAttention({ typing: true, focusedComponentId: id, lastInteractionAt: nowIso() }),
@@ -314,7 +318,7 @@ export function Workspace() {
   // Spec §21: replay the session's event log through a fresh core and check determinism.
   const replayVerify = useCallback(async () => {
     if (events.length === 0) return setReplayResult("none");
-    const { core: fresh } = await replay(events, { iso: nowIso, ms: () => Date.now() });
+    const { core: fresh } = await replay(events); // event-sourced clock
     const same = JSON.stringify(fresh.getBlueprint(SESSION).root) === JSON.stringify(core.current.getBlueprint(SESSION).root);
     setReplayResult(same ? "identical" : "differs");
     pushLog(same ? "replay ✓ deterministic" : "replay differs (undo/approval not events)", same ? "morph" : "note");
@@ -362,9 +366,20 @@ export function Workspace() {
         const parsed = (JSON.parse(raw) as unknown[]).map((x) => MatterEventSchema.safeParse(x)).filter((r) => r.success).map((r) => r.data);
         if (parsed.length) {
           void (async () => {
-            let last: IngestResult | undefined;
-            for (const ev of parsed) last = await core.current.ingest(ev);
+            const results: IngestResult[] = [];
+            for (const ev of parsed) {
+              replayAt.current = ev.timestamp;
+              results.push(await core.current.ingest(ev));
+            }
+            replayAt.current = null;
+            const last = results.at(-1);
             if (last) applyResult(last);
+            // the history strip must match the undo stack that replay just rebuilt
+            setMorphs(
+              results
+                .filter((r) => r.morph.applied)
+                .map((r, i) => ({ id: r.morph.patch?.patchId ?? `m${i + 1}`, intent: r.decision?.uiPlan?.intent ?? "morph", at: new Date(r.worldState.updatedAt).toLocaleTimeString() })),
+            );
             setEvents(parsed);
             counter.current = parsed.length;
             pushLog(t("restoredNote", lang), "note");
@@ -565,7 +580,7 @@ export function Workspace() {
         <section>
           <h3>{t("controls", lang)}</h3>
           <div className="simrow">
-            <button className="btn" onClick={undo} disabled={!canUndo}>{t("undo", lang)}</button>
+            <button className="btn" onClick={() => undo()} disabled={!canUndo}>{t("undo", lang)}</button>
             <button className="btn muted" onClick={() => { try { localStorage.removeItem("dm_events"); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>

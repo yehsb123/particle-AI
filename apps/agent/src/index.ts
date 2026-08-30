@@ -22,14 +22,13 @@ const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
 const WATCH = (process.env.DM_WATCH_PATHS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const DEBOUNCE_MS = Number(process.env.DM_AGENT_DEBOUNCE_MS ?? 400);
+const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
 
 async function send(event: ReturnType<typeof matterEvent>): Promise<void> {
   try {
-    const res = await fetch(`${RUNTIME}/api/events`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(event),
-    });
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (TOKEN) headers["x-particle-token"] = TOKEN;
+    const res = await fetch(`${RUNTIME}/api/events`, { method: "POST", headers, body: JSON.stringify(event) });
     if (!res.ok) process.stderr.write(`[particle-agent] runtime rejected ${event.type}: ${res.status}\n`);
   } catch {
     /* runtime offline — sensing is best-effort and local */
@@ -44,7 +43,7 @@ function watchPaths(paths: string[]): void {
       process.stderr.write(`[particle-agent] not a directory, skipped: ${p}\n`);
       continue;
     }
-    watch(root, { recursive: true }, (_kind, filename) => {
+    const watcher = watch(root, { recursive: true }, (_kind, filename) => {
       if (!filename) return;
       const rel = relPath(root, resolve(root, filename.toString()));
       if (isIgnored(rel)) return;
@@ -58,6 +57,8 @@ function watchPaths(paths: string[]): void {
         }, DEBOUNCE_MS),
       );
     });
+    // never crash the daemon on watcher errors (inotify limits, deleted roots) — degrade to git/output only
+    watcher.on("error", (e) => process.stderr.write(`[particle-agent] watcher error for ${root}: ${(e as Error).message}\n`));
     process.stderr.write(`[particle-agent] sensing file saves under ${root} (relative paths only)\n`);
   }
 }

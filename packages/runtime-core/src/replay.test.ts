@@ -40,3 +40,19 @@ describe("replay", () => {
     expect(steps.some((s) => s.audit.some((a) => a.kind === "ui_morph"))).toBe(true);
   });
 });
+
+describe("replay clock", () => {
+  it("uses an event-sourced clock by default, so morphs minutes apart replay exactly (no cooldown collapse)", async () => {
+    const at = (s: number) => new Date(Date.UTC(2026, 7, 31, 0, 0, s)).toISOString();
+    const events = [
+      { id: "b1", sessionId: "s", timestamp: at(0), source: "development" as const, type: "development.build_failed", severity: "warning" as const, payload: {} },
+      { id: "b2", sessionId: "s", timestamp: at(20), source: "development" as const, type: "development.build_succeeded", severity: "info" as const, payload: {} },
+      { id: "b3", sessionId: "s", timestamp: at(40), source: "development" as const, type: "development.build_failed", severity: "warning" as const, payload: {} },
+    ];
+    const { steps } = await replay(events);
+    expect(steps.map((s) => s.morph.applied)).toEqual([true, true, true]);
+    // a frozen wall clock would have blocked the third morph on cooldown
+    const frozen = await replay(events, { iso: () => at(0), ms: () => 0 });
+    expect(frozen.steps[2]!.morph.applied).toBe(false);
+  });
+});

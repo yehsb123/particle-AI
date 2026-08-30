@@ -328,3 +328,37 @@ describe("RuntimeCore — resolution beats augmentation", () => {
     expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
   });
 });
+
+describe("RuntimeCore — undo attribution & hydrate", () => {
+  it("counts a dismissal only for the card that was actually dismissed; multi-step undo never learns", async () => {
+    const core = createRuntimeCore(makeClock());
+    const act = (n: number) => ({
+      id: `a${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key: "rerun-tests" },
+    });
+    for (let i = 1; i <= 3; i++) await core.ingest(act(i)); // stuck → context card
+    await core.ingest(ev("development.server_error", "critical", "e1")); // incident on top
+    // "Dismiss" on the context card while the incident is on top: undo happens (top of stack), but
+    // it is NOT a dismissal of the context card → no preference learned for either kind
+    core.undo("s", { componentId: "context" });
+    const prefs = core.memoryFor("s").preferences;
+    expect(prefs.weightOf("dismissed:surface_incident:runtime_error")).toBe(0);
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
+    // now the context card IS on top → dismissing it counts
+    core.undo("s", { componentId: "context" });
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    // multi-step "go back" gestures do not teach anything
+    await core.ingest(act(4));
+    core.undo("s", { learn: false });
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+  });
+
+  it("hydrate resets the undo stack (inverses described the old blueprint) and undo never pops before applying", async () => {
+    const core = createRuntimeCore(makeClock());
+    await core.ingest(ev("development.server_error", "critical", "e1"));
+    expect(core.canUndo("s")).toBe(true);
+    core.hydrate("s", { blueprint: core.getBlueprint("s") });
+    expect(core.canUndo("s")).toBe(false);
+    expect(core.undo("s")).toBeNull();
+  });
+});

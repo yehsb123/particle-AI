@@ -11,6 +11,11 @@ export class MorphHistory {
     if (this.stack.length > this.limit) this.stack.shift();
   }
 
+  /** Look at the most recent inverse without removing it. */
+  peek(): UIPatch | undefined {
+    return this.stack[this.stack.length - 1];
+  }
+
   /** Pop the most recent inverse patch (to be applied to undo). */
   pop(): UIPatch | undefined {
     return this.stack.pop();

@@ -89,7 +89,7 @@ const ACTIONS: UIComponent = {
       id: "action-undo-morph",
       type: "Button",
       props: { text: "Undo this change", tone: "muted" },
-      actions: [{ event: "user.requested_undo" }],
+      actions: [{ event: "user.requested_undo", payload: { targetId: "incident" } }],
     },
   ],
 };
@@ -279,7 +279,7 @@ function incidentPanel(kind: IncidentKind): UIComponent {
               id: "action-undo-morph",
               type: "Button",
               props: { text: "Undo this change", tone: "muted" },
-              actions: [{ event: "user.requested_undo" }],
+              actions: [{ event: "user.requested_undo", payload: { targetId: "incident" } }],
             },
           ],
         },
@@ -347,7 +347,7 @@ function incidentPanel(kind: IncidentKind): UIComponent {
               id: "action-undo-morph",
               type: "Button",
               props: { text: "Undo this change", tone: "muted" },
-              actions: [{ event: "user.requested_undo" }],
+              actions: [{ event: "user.requested_undo", payload: { targetId: "incident" } }],
             },
           ],
         },
@@ -509,7 +509,7 @@ export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind 
           children: [
             { id: "context-text", type: "Markdown", props: { text: "You keep moving between a few places. They are pinned here so you don't have to hold them in your head." },
               bindings: [{ prop: "text", source: "capability:workspace.get_state:juggling" }] },
-            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo" }] },
+            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo", payload: { targetId: "context" } }] },
           ],
         }
       : kind === "returning"
@@ -520,7 +520,7 @@ export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind 
           children: [
             { id: "context-text", type: "Markdown", props: { text: "You were away. Nothing broke while you were gone — here is where you left off." },
               bindings: [{ prop: "text", source: "capability:workspace.get_state:summary" }] },
-            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo" }] },
+            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo", payload: { targetId: "context" } }] },
           ],
         }
       : {
@@ -530,7 +530,7 @@ export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind 
           children: [
             { id: "context-text", type: "Markdown", props: { text: "The same action has repeated several times. Related context is now beside your work." } },
             { id: "context-diff", type: "DiffViewer", props: { title: "Recent changes", diff: "- return db.users.findById(id);\n+ return db.user.findById(id);" } },
-            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo" }] },
+            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo", payload: { targetId: "context" } }] },
           ],
         };
   return {

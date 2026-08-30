@@ -120,3 +120,27 @@ describe("runtime REST", () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe("runtime access control", () => {
+  const valid = {
+    id: "c1", sessionId: "cors", timestamp: "2026-08-31T00:00:00Z",
+    source: "sensor", type: "network.request", severity: "info", payload: { host: "h", status: 200 },
+  };
+  it("grants CORS only to allow-listed origins and refuses writes from any other page", async () => {
+    const bad = await app.inject({ method: "POST", url: "/api/events", headers: { origin: "https://evil.example" }, payload: valid });
+    expect(bad.statusCode).toBe(403);
+    const pre = await app.inject({ method: "OPTIONS", url: "/api/events", headers: { origin: "https://evil.example" } });
+    expect(pre.headers["access-control-allow-origin"]).toBeUndefined();
+    const ok = await app.inject({ method: "POST", url: "/api/events", headers: { origin: "http://localhost:3000" }, payload: valid });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers["access-control-allow-origin"]).toBe("http://localhost:3000");
+    const ext = await app.inject({ method: "POST", url: "/api/events", headers: { origin: "chrome-extension://abcdefgh" }, payload: { ...valid, id: "c2" } });
+    expect(ext.statusCode).toBe(200);
+    const noOrigin = await app.inject({ method: "POST", url: "/api/events", payload: { ...valid, id: "c3" } });
+    expect(noOrigin.statusCode).toBe(200); // agent / curl: no Origin header, no token configured
+  });
+  it("scopes the approvals listing to the session in the URL", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/sessions/other/approvals" });
+    expect(res.json().approvals).toEqual([]);
+  });
+});

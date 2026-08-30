@@ -86,7 +86,7 @@ type SessionState = {
   blueprint: UIBlueprint;
   history: MorphHistory;
   /** what each entry in `history` undid (parallel stack) — lets undo teach a preference */
-  morphMeta: { intent: string; variant?: string }[];
+  morphMeta: { intent: string; variant?: string; componentIds: string[] }[];
   lastMorphAt?: number;
   lastMajorMorphAt?: number;
   presence: PresenceState;
@@ -138,9 +138,23 @@ export class RuntimeCore {
     this.autonomyLevel = deps.autonomyLevel ?? 2;
   }
 
+  /** Sessions are bounded (LRU): anything can name a new session id, nothing may exhaust memory. */
+  static readonly MAX_SESSIONS = 500;
+
   private session(sessionId: string): SessionState {
     let s = this.sessions.get(sessionId);
+    if (s) {
+      // refresh recency (Map preserves insertion order → oldest first)
+      this.sessions.delete(sessionId);
+      this.sessions.set(sessionId, s);
+      return s;
+    }
     if (!s) {
+      while (this.sessions.size >= RuntimeCore.MAX_SESSIONS) {
+        const oldest = this.sessions.keys().next().value;
+        if (oldest === undefined) break;
+        this.sessions.delete(oldest);
+      }
       s = {
         world: emptyWorldState(sessionId, this.deps.clock.iso()),
         blueprint: developmentBlueprint(this.deps.clock.iso()),
@@ -179,7 +193,14 @@ export class RuntimeCore {
   hydrate(sessionId: string, state: { world?: WorldState; blueprint?: UIBlueprint }): void {
     const s = this.session(sessionId);
     if (state.world) s.world = state.world;
-    if (state.blueprint) s.blueprint = state.blueprint;
+    if (state.blueprint) {
+      s.blueprint = state.blueprint;
+      // the undo stack described the OLD blueprint — inverses would target ids that may not exist
+      s.history = new MorphHistory();
+      s.morphMeta = [];
+      s.lastMorphAt = undefined;
+      s.lastMajorMorphAt = undefined;
+    }
   }
   canUndo(sessionId: string): boolean {
     return this.session(sessionId).history.canUndo;
@@ -326,7 +347,12 @@ export class RuntimeCore {
       if (guard.allowed) {
         const { next, inverse } = applyPatch(s.blueprint, guard.patch, this.deps.clock.iso());
         s.history.push(inverse);
-        s.morphMeta.push({ intent, variant: decision.uiPlan?.variant });
+        s.morphMeta.push({
+          intent,
+          variant: decision.uiPlan?.variant,
+          componentIds: guard.patch.operations.flatMap((op) => (op.op === "add" || op.op === "replace" ? [op.component.id] : [])),
+        });
+        if (s.morphMeta.length > 50) s.morphMeta.shift(); // stays paired with the bounded MorphHistory
         s.blueprint = next;
         const t = this.deps.clock.ms();
         s.lastMorphAt = t;
@@ -403,14 +429,23 @@ export class RuntimeCore {
     return req;
   }
 
-  undo(sessionId: string): UIBlueprint | null {
+  /**
+   * Revert the most recent morph.
+   * - `learn` (default true): count this as a dismissal of that morph's kind (see DISMISS_THRESHOLD).
+   *   Multi-step "go back" gestures should pass `learn: false`.
+   * - `componentId`: the card the person actually dismissed. If the top morph did not introduce
+   *   that component, the undo still happens but is NOT counted as a dismissal of it.
+   */
+  undo(sessionId: string, opts: { learn?: boolean; componentId?: string } = {}): UIBlueprint | null {
     const s = this.session(sessionId);
-    const inverse = s.history.pop();
+    const inverse = s.history.peek();
     if (!inverse) return null;
-    const meta = s.morphMeta.pop();
-    // Undo is feedback: remember that this kind of change was not wanted (see DISMISS_THRESHOLD).
-    if (meta) s.memory.preferences.reinforce(`dismissed:${meta.intent}:${meta.variant ?? ""}`);
+    // apply FIRST — if the inverse cannot apply, nothing is popped and nothing is learned
     const { next } = applyPatch(s.blueprint, inverse, this.deps.clock.iso());
+    s.history.pop();
+    const meta = s.morphMeta.pop();
+    const learn = (opts.learn ?? true) && (!opts.componentId || !!meta?.componentIds.includes(opts.componentId));
+    if (meta && learn) s.memory.preferences.reinforce(`dismissed:${meta.intent}:${meta.variant ?? ""}`);
     s.blueprint = next;
     // Undo is a deliberate user action — clear morph timing so a re-morph isn't rate-limited.
     s.lastMorphAt = undefined;

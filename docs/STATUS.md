@@ -59,6 +59,24 @@ Updated at the end of each phase.
   and no `network.request` (opt-in off); the side panel page embeds the body already connected.
   CI e2e job now builds the extension and starts the runtime, so `connected` and `extension`
   specs run for real instead of skipping. 12 specs.
+- **Review fixes** (2026-08-31, from a full read of the Concept v2 code paths):
+  - runtime: CORS is an allow-list (`DM_ALLOWED_ORIGINS`, default the body's origins + any
+    `chrome-extension://`); writes from other origins get 403; optional shared secret
+    `DM_INGEST_TOKEN` (`x-particle-token`, sent by extension options / agent env); sessions are a
+    bounded LRU (500); `/api/sessions/:id/approvals` is scoped to the session.
+  - extension: consent defaults to OFF until read from storage on every service-worker start
+    (previously the defaults were sent before the read); hidden-since survives SW restarts via
+    `chrome.storage.session`; webRequest listeners exist only while network consent is on;
+    dropped unused `tabs`/`alarms` permissions; options form writes atomically.
+  - determinism: `replay()` uses an event-sourced clock by default (each event's timestamp is
+    "now"), and the web restore path does the same — replaying morphs minutes apart no longer
+    collapses into cooldown rejections; the history strip is rebuilt from the replayed steps.
+  - undo attribution: Dismiss/undo buttons carry `payload.targetId`; `undo(session, { componentId,
+    learn })` counts a dismissal only when the top morph introduced that component; multi-step
+    "go back" never learns; apply-before-pop so a failing inverse loses nothing; `hydrate` resets
+    the undo stack; `morphMeta` bounded with the history.
+  - agent: watcher errors no longer crash the daemon; token header. web: `dm_events` bounded (500).
+  - runtime-core 25 tests, runtime 13; 12/12 E2E.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

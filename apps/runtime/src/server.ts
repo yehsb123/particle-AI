@@ -19,12 +19,28 @@ export async function buildServer(): Promise<BuildResult> {
     await persistence.close();
   });
 
+  // Browser access is allow-listed: the body (web) and the extension. Any other page's fetch gets
+  // no CORS grant AND an explicit 403 on writes, so a random site cannot inject events into your
+  // runtime. Non-browser clients (agent, curl) carry no Origin and are governed by the token.
+  const allowedOrigins = new Set(
+    (process.env.DM_ALLOWED_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000").split(",").map((s) => s.trim()).filter(Boolean),
+  );
+  const originAllowed = (o: string | undefined): boolean => !!o && (allowedOrigins.has(o) || o.startsWith("chrome-extension://"));
+  const token = process.env.DM_INGEST_TOKEN;
   app.addHook("onRequest", async (req, reply) => {
-    reply.header("access-control-allow-origin", "*");
-    reply.header("access-control-allow-headers", "content-type");
+    const origin = req.headers.origin;
+    if (originAllowed(origin)) {
+      reply.header("access-control-allow-origin", origin!);
+      reply.header("vary", "origin");
+    }
+    reply.header("access-control-allow-headers", "content-type, x-particle-token");
     reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
     // MUST return the reply to short-circuit the OPTIONS lifecycle (else double-send error).
     if (req.method === "OPTIONS") return reply.code(204).send();
+    if (req.method === "POST") {
+      if (origin && !originAllowed(origin)) return reply.code(403).send({ error: "origin not allowed" });
+      if (token && req.headers["x-particle-token"] !== token) return reply.code(401).send({ error: "token required" });
+    }
   });
 
   // Never leak internal/DB error messages; map validation to 400, everything else to 500.
@@ -67,7 +83,10 @@ export async function buildServer(): Promise<BuildResult> {
   app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.getUI(req.params.id));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/decisions", async (req) => ({ audit: runtime.audit.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/traces", async (req) => ({ traces: runtime.traces.list(req.params.id) }));
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/approvals", async () => ({ approvals: runtime.approvals.list() }));
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/approvals", async (req) => ({
+    // approval ids are `appr-<sessionId>-<decisionId>-<capabilityId>` — never show another session's
+    approvals: runtime.approvals.list().filter((a) => a.id.startsWith(`appr-${req.params.id}-`)),
+  }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/snapshots", async (req) => ({ snapshots: await persistence.snapshots.list(req.params.id) }));
 
   app.get("/api/sim", async () => ({
