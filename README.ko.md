@@ -6,7 +6,7 @@ AI에게 소프트웨어를 *사용하게* 하는 대신, **AI가 소프트웨�
 
 > ⚠️ 실험적 연구 소프트웨어입니다. 프로덕션용이 아닙니다.
 
-[English README →](README.md)
+[English README →](README.md) · **[퀵스타트 — 5분 체험 →](QUICKSTART.md)**
 
 ## 핵심 아이디어
 

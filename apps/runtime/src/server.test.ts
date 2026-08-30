@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildServer } from "./server";
-import type { SessionRuntime, RuntimeMessage } from "./runtime";
+import { SessionRuntime, type RuntimeMessage } from "./runtime";
 
 let app: FastifyInstance;
 let runtime: SessionRuntime;
@@ -184,22 +184,25 @@ describe("runtime access control — reads are protected too", () => {
 
 describe("runtime reconcile timer", () => {
   it("a pending reconcile survives unrelated events and surfaces the open problem (fake timers)", async () => {
+    // isolated runtime WITHOUT persistence: fake timers must never touch the Postgres driver's
+    // internal timers (that hangs every await on CI, where DATABASE_URL is set)
+    const rt = new SessionRuntime(() => new Date().toISOString());
     vi.useFakeTimers();
     try {
       const mk = (id: string, type: string, sev: string, source = "development", payload: Record<string, unknown> = {}) => ({
         id, sessionId: "rt1", timestamp: new Date().toISOString(), source, type, severity: sev, payload,
       });
-      await runtime.ingest(mk("b1", "development.build_failed", "warning"));
-      await runtime.ingest(mk("b2", "development.build_succeeded", "info"));
-      const held = await runtime.ingest(mk("b3", "development.build_failed", "warning"));
+      await rt.ingest(mk("b1", "development.build_failed", "warning"));
+      await rt.ingest(mk("b2", "development.build_succeeded", "info"));
+      const held = await rt.ingest(mk("b3", "development.build_failed", "warning"));
       expect(held.result.morph.applied).toBe(false);
       expect(held.result.retryAfterMs).toBeGreaterThan(0);
       // an unrelated, insignificant event must NOT cancel the pending tick
-      await runtime.ingest(mk("i1", "user.interaction", "debug", "user", { count: 3 }));
+      await rt.ingest(mk("i1", "user.interaction", "debug", "user", { count: 3 }));
       await vi.advanceTimersByTimeAsync((held.result.retryAfterMs ?? 5_000) + 250);
-      const types = runtime.store.listBySession("rt1").map((e) => e.type);
+      const types = rt.store.listBySession("rt1").map((e) => e.type);
       expect(types).toContain("runtime.reconcile");
-      expect(JSON.stringify(runtime.getUI("rt1"))).toContain("Build failure");
+      expect(JSON.stringify(rt.getUI("rt1"))).toContain("Build failure");
     } finally {
       vi.useRealTimers();
     }
