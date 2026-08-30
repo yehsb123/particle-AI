@@ -165,6 +165,9 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   event); Playwright workers serialized — options.spec and extension.spec share the live
   runtime's `ext` session, and parallel workers raced each other's consent toggles (the
   intermittent extension failure). 14 specs green, serial.
+- **Reconcile ticks out of the novelty window** (2026-08-31): `runtime.reconcile` no longer enters
+  `recentEvents`, so repeated REAL events keep their anti-thrash repetitive-event decay; reduce is
+  pure either way (replay determinism proven by the existing suite). world-model 10 tests.
 - **Held banner countdown + browser proof** (2026-08-31): the "morph held" banner now says when
   the body will catch up (`retryAfterMs` exposed on REST responses, en/ko), and `held.spec`
   asserts the whole story in a real browser: hold explained → countdown shown → the reconcile

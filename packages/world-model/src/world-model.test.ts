@@ -107,3 +107,17 @@ describe("world-model recent keys (switching input)", () => {
     expect(s.behavior.recentKeys[0]).toBe("p2");
   });
 });
+
+describe("world-model novelty window", () => {
+  it("reconcile ticks stay out of recentEvents; real events stay in", () => {
+    let s = emptyWorldState("s", "2026-08-31T00:00:00Z");
+    const ev = (type: string, source: "system" | "user", id: string) => ({
+      id, sessionId: "s", timestamp: "2026-08-31T00:00:00Z", source, type, severity: "debug" as const, payload: {},
+    });
+    s = reduce(s, ev("user.interaction", "user", "e1"));
+    s = reduce(s, ev("runtime.reconcile", "system", "r1"));
+    s = reduce(s, ev("user.interaction", "user", "e2"));
+    expect(s.recentEvents.map((e) => e.type)).toEqual(["user.interaction", "user.interaction"]);
+    expect(s.updatedAt).toBe("2026-08-31T00:00:00Z");
+  });
+});

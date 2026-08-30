@@ -36,7 +36,13 @@ function setProcess(
  * in the runtime.
  */
 export function reduce(prev: WorldState, event: MatterEvent): WorldState {
-  const recentEvents = [...prev.recentEvents, event].slice(-RECENT_EVENTS_LIMIT);
+  // System ticks (reconcile) are bookkeeping, not the person's activity: they stay out of the
+  // novelty window so repeated real events are still recognised as repetitive. Pure either way —
+  // replay determinism is untouched.
+  const recentEvents =
+    event.type === "runtime.reconcile"
+      ? prev.recentEvents
+      : [...prev.recentEvents, event].slice(-RECENT_EVENTS_LIMIT);
   const next: WorldState = {
     ...prev,
     updatedAt: event.timestamp,
