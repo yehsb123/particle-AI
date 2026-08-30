@@ -158,6 +158,13 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   release; sensor send queues have a 5 s timeout and a 500-event cap (drop newest — order beats
   completeness); evicted sessions get no tick; fake-timer server test proves the tick survives
   unrelated events. runtime-core 29, runtime 17.
+- **Closing touches** (2026-08-31): `QUICKSTART.md` (bilingual 5-minute walkthrough) linked from
+  both READMEs; CI fix — the fake-timer reconcile test now runs on an isolated in-memory
+  SessionRuntime (faking timers hung the Postgres driver's awaits on the CI runner); a restored
+  log that ENDS on a timing hold arms one reconcile tick (the body catches up without a live
+  event); Playwright workers serialized — options.spec and extension.spec share the live
+  runtime's `ext` session, and parallel workers raced each other's consent toggles (the
+  intermittent extension failure). 14 specs green, serial.
 - **Ordered sends** (2026-08-31): the same smoke exposed that agent/extension sends were parallel
   fetches — a recovery could overtake the failure it recovered from (observed: failed, failed,
   succeeded). Both sensors now serialize sends (one in-flight request); verified 3/3 back-to-back
