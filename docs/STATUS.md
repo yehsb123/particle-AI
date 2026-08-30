@@ -123,6 +123,9 @@ Updated at the end of each phase.
   Replay & verify cannot report a false "differs"; `.app[data-restored]` marks restore completion.
   E2E: no Reset-click/reload races (fresh context per test), learn.spec waits for `data-restored`,
   extension.spec judges only this run's events. 13/13.
+- **Extension options/side panel** (2026-08-31): options page localized (Korean when the browser is
+  Korean, via `data-i18n` + a static dictionary — never page content), dark-mode tokens for options
+  and the side panel shell (no flash before the body paints), focus ring on inputs.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
