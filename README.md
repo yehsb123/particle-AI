@@ -3,9 +3,10 @@
 [![CI](https://github.com/yehsb123/particle-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/yehsb123/particle-AI/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An experimental adaptive computing runtime in which AI continuously interprets context
-and restructures its interface, capabilities and intelligence around the user's current
-situation.
+An AI **layer over your computer**: it watches how you work — clicks, dwell, tab switches,
+undo, idle time, and the *shape* of your traffic (host · status · latency, never content) —
+keeps a continuous guess about what you are trying to do, and reshapes its own interface
+around you **before and without anything breaking**.
 
 Instead of asking AI to use software, the AI **becomes** the software.
 
@@ -24,9 +25,23 @@ observe → understand → evaluate significance → infer intent → decide
 → observe the result → repeat
 ```
 
-The interface is the AI's body. When something meaningful happens — a build fails, a
-service returns HTTP 500 — the runtime notices on its own and reshapes the workspace
-around the incident. The user never typed "show me the error dashboard."
+The interface is the AI's body; behavior is its senses. Come back after being away and a
+re-entry summary is waiting. Repeat the same action three times and related context appears
+beside your work. Keep alternating between two files and they get pinned. A dependency
+starts failing — read from the shape of the traffic, not its content — and a connection view
+opens, then closes itself on recovery. Errors (a failing build, an HTTP 500) are just **one
+case** of this: the user never typed "show me the error dashboard." And undo is feedback —
+dismiss the same kind of change twice and it stops being offered.
+
+Where the senses come from (each layer opt-in, shape only):
+
+| Layer | Sensor | What it observes |
+|---|---|---|
+| this page | `apps/web` | clicks, dwell, idle, tab visibility |
+| the browser | `apps/extension` (MV3) | tab focus, site hostnames, interaction counts; traffic shape (opt-in) |
+| the desktop | `apps/agent` (Node, opt-in) | file saves (relative paths), git branch switches, test/build pass↔fail |
+
+The body always shows *what is currently being sensed*, from what the sensors themselves report.
 
 Reliability guardrails make this safe:
 
@@ -84,8 +99,12 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
 
 ## Status
 
-Built in phases (see `docs/STATUS.md`). Phase 1 (UI Matter) renders and morphs a
-structured interface from validated blueprints and patches, with undo and a morph guard.
+Phases 0–8 (runtime, UI matter, capabilities, memory, persistence, reliability) are done, and
+Concept v2 — the behavior layer — is implemented end to end: intent engine (P1), browser
+extension + traffic-shape incidents (P2), desktop agent (P3), learning from dismissals (P4),
+honest sensing indicator. Unit/integration suite, 12 Playwright E2E specs (including a real
+extension test against the live runtime) and CI are green. Details: [`docs/STATUS.md`](docs/STATUS.md),
+[`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
 
 ## License
 
