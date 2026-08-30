@@ -87,4 +87,6 @@ Status (2026-08-31): P1 ✅ · P2 ✅ (extension + `network_failure` layout) · 
 - A person using the screen normally — no simulated error — sees the body adapt to what
   they are doing (e.g. "stuck" surfaces relevant context; "returning" shows a summary).
 - Every morph is still explainable ("why") and reversible.
-- The sensing indicator always tells the truth about what is observed.
+- The sensing indicator always tells the truth about what is observed. ✅ implemented: sensors
+  report their consented layers (`sensor.layers_changed` → `WorldState.sensing`); the body only
+  displays what was reported.

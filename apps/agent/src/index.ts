@@ -87,3 +87,6 @@ if (WATCH.length === 0 && !piped) {
 }
 if (WATCH.length > 0) watchPaths(WATCH);
 if (piped) pipeOutput();
+// tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
+const layers = [...(WATCH.length ? ["files"] : []), ...(piped ? ["output"] : [])];
+void send(matterEvent(SESSION, "sensor", "sensor.layers_changed", "debug", { sensor: "agent", layers }));

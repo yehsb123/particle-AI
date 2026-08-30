@@ -132,6 +132,15 @@ export class NetworkShaper {
   }
 }
 
+/** The layer names a consent state actually enables — what the body will show as "sensing". */
+export function consentLayers(c: Consent): string[] {
+  const out: string[] = [];
+  if (c.interactions) out.push("interactions", "idle", "visibility");
+  if (c.tabs) out.push("tabs");
+  if (c.network) out.push("network");
+  return out;
+}
+
 /** Whether a hostname belongs to the local runtime/body itself (we never observe ourselves). */
 export function isSelfHost(host: string): boolean {
   return host === "localhost" || host === "127.0.0.1";

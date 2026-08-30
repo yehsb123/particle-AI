@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hostOf, networkSeverity, matterEvent, isSelfHost, DEFAULT_CONSENT, NetworkShaper, isTransientError } from "./shape";
+import { hostOf, networkSeverity, matterEvent, isSelfHost, DEFAULT_CONSENT, NetworkShaper, isTransientError, consentLayers } from "./shape";
 
 describe("extension shaping (privacy)", () => {
   it("keeps only the hostname — never path, query, hash, credentials or port", () => {
@@ -21,6 +21,11 @@ describe("extension shaping (privacy)", () => {
     expect(isSelfHost("localhost")).toBe(true);
     expect(isSelfHost("api.example.com")).toBe(false);
     expect(DEFAULT_CONSENT.network).toBe(false);
+  });
+  it("announces exactly the layers consent enables (the indicator can only be honest)", () => {
+    expect(consentLayers(DEFAULT_CONSENT)).toEqual(["interactions", "idle", "visibility", "tabs"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: true })).toEqual(["network"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: false })).toEqual([]);
   });
 });
 

@@ -75,3 +75,22 @@ describe("world-model network shape (Concept v2, L2)", () => {
     expect(s.behavior.network.failingHosts).toEqual([]);
   });
 });
+
+describe("world-model sensing indicator (Concept v2 privacy rule #3)", () => {
+  const layers = (sensor: string, ls: unknown, id: string) => ({
+    id, sessionId: "s", timestamp: "2026-08-31T00:00:00Z", source: "sensor" as const,
+    type: "sensor.layers_changed", severity: "debug" as const, payload: { sensor, layers: ls },
+  });
+  it("records what each sensor says it observes, and forgets a sensor that reports nothing", () => {
+    let s = reduce(emptyWorldState("s", "2026-08-31T00:00:00Z"), layers("extension", ["interactions", "tabs"], "l1"));
+    s = reduce(s, layers("agent", ["files"], "l2"));
+    expect(s.sensing).toEqual({ extension: ["interactions", "tabs"], agent: ["files"] });
+    s = reduce(s, layers("extension", ["interactions", "tabs", "network"], "l3"));
+    expect(s.sensing.extension).toEqual(["interactions", "tabs", "network"]);
+    s = reduce(s, layers("agent", [], "l4"));
+    expect(s.sensing).toEqual({ extension: ["interactions", "tabs", "network"] });
+    // garbage is ignored, never trusted
+    s = reduce(s, layers("x", [1, null, "ok"], "l5"));
+    expect(s.sensing.x).toEqual(["ok"]);
+  });
+});

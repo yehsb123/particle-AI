@@ -23,7 +23,7 @@ export function isIgnored(rel: string): boolean {
 }
 
 export type Severity = "debug" | "info" | "warning" | "critical";
-export type Source = "user" | "development";
+export type Source = "user" | "development" | "sensor";
 
 /** MatterEvent-shaped object without importing the monorepo (the agent is standalone). */
 export function matterEvent(

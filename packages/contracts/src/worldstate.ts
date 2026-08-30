@@ -110,6 +110,12 @@ export const WorldState = z.object({
   recentEvents: z.array(MatterEvent),
   inferredIntent: IntentHypothesis.optional(),
   behavior: BehaviorState.default(EMPTY_BEHAVIOR),
+  /**
+   * What each connected sensor (web / extension / agent) currently observes, by layer name —
+   * reported by the sensors themselves via `sensor.layers_changed`. The body shows this verbatim
+   * so the "currently sensing: …" indicator is always true (Concept v2 privacy rule #3).
+   */
+  sensing: z.record(z.string(), z.array(z.string())).default({}),
   attention: AttentionState,
   autonomy: AutonomyState,
 });
@@ -126,6 +132,7 @@ export function emptyWorldState(sessionId: string, now: string): WorldState {
     activeProblems: [],
     recentEvents: [],
     behavior: { ...EMPTY_BEHAVIOR },
+    sensing: {},
     attention: { typing: false },
     autonomy: { level: 2 }, // MVP default: adaptive UI
   };

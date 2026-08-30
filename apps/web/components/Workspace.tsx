@@ -54,6 +54,15 @@ export function Workspace() {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
+  // Honest indicator: this page's own in-app sensors + whatever other sensors REPORTED to this
+  // session (extension / agent announce their consented layers via sensor.layers_changed).
+  const sensingLine = useMemo(() => {
+    const own: [string, string[]] = ["web", ["interactions", "dwell", "idle", "visibility"]];
+    const others = Object.entries(debug.worldState?.sensing ?? {}).filter(([k]) => k !== "web") as [string, string[]][];
+    return [own, ...others]
+      .map(([s, ls]) => `${t(`sensor_${s}`, lang)}: ${ls.map((l) => t(`layer_${l}`, lang)).join(", ")}`)
+      .join(" · ");
+  }, [debug.worldState, lang]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
   const [held, setHeld] = useState<{ codes: string[]; at: number } | null>(null);
@@ -476,7 +485,9 @@ export function Workspace() {
                     <span className="k">{t("intentTitle", lang)}</span>
                     <span>{debug.worldState?.inferredIntent ? t(`intent_${debug.worldState.inferredIntent.label}`, lang) : "—"}</span>
                   </div>
-                  <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>{t("sensingNote", lang)}</p>
+                  <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }} data-testid="sensing-line">
+                    {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)})
+                  </p>
                   <div className="divider" style={{ margin: "10px 0" }} />
                   <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLastReason", lang)}</div>
                   <p style={{ fontSize: 13, margin: "6px 0 0" }}>

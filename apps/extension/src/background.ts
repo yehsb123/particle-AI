@@ -3,17 +3,25 @@
  * Sensors (L2/L3) → shaped MatterEvents → local runtime (POST /api/events).
  * Shape only: hostnames, status codes, latency, tab focus. No URLs, no page content.
  */
-import { hostOf, networkSeverity, matterEvent, isSelfHost, isTransientError, NetworkShaper, DEFAULT_CONSENT, type Consent } from "./shape";
+import { hostOf, networkSeverity, matterEvent, isSelfHost, isTransientError, NetworkShaper, consentLayers, DEFAULT_CONSENT, type Consent } from "./shape";
 
 const RUNTIME = "http://localhost:8787";
 const SESSION = "ext";
 
 let consent: Consent = { ...DEFAULT_CONSENT };
+/** Tell the runtime what this sensor observes right now, so the body's indicator stays true. */
+function announce(): void {
+  void send(matterEvent(SESSION, "sensor", "sensor.layers_changed", "debug", { sensor: "extension", layers: consentLayers(consent) }));
+}
 void chrome.storage.sync.get("consent").then((v) => {
   if (v.consent) consent = { ...DEFAULT_CONSENT, ...(v.consent as Consent) };
+  announce();
 });
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.consent?.newValue) consent = { ...DEFAULT_CONSENT, ...(changes.consent.newValue as Consent) };
+  if (changes.consent?.newValue) {
+    consent = { ...DEFAULT_CONSENT, ...(changes.consent.newValue as Consent) };
+    announce();
+  }
 });
 
 async function send(event: ReturnType<typeof matterEvent>): Promise<void> {

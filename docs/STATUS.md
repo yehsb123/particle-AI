@@ -40,6 +40,12 @@ Updated at the end of each phase.
   same augmentation variant the runtime withholds it for the session (`morph_suppressed` audit,
   `learned_preference` guard code, `IngestResult.learned`). Incidents are never suppressed —
   a real problem always surfaces. runtime-core: 20 tests.
+- **Honest sensing indicator** (2026-08-31): `WorldState.sensing` (sensor → layers) fed by
+  `sensor.layers_changed`, which the extension announces from its consent state (on start and on
+  every change) and the agent announces from what it was asked to do (files / output). The body's
+  presence popover renders "currently sensing — this page: …  · browser extension: …  · desktop
+  agent: …" from that state, so the indicator can only say what the sensors actually reported
+  (Concept v2 privacy rule #3). world-model 8 tests, extension 9.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

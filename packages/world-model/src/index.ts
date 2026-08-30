@@ -173,6 +173,18 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
       }
       break;
     }
+    case "sensor.layers_changed": {
+      // a sensor declares (or revokes) what it observes; empty layers remove the sensor entirely
+      const sensor = str(event.payload.sensor) ?? "unknown";
+      const layers = Array.isArray(event.payload.layers)
+        ? (event.payload.layers as unknown[]).filter((l): l is string => typeof l === "string").slice(0, 16)
+        : [];
+      const sensing = { ...(next.sensing ?? {}) };
+      if (layers.length) sensing[sensor] = layers;
+      else delete sensing[sensor];
+      next.sensing = sensing;
+      break;
+    }
     case "user.changed_goal": {
       const label = str(event.payload.goal);
       if (label) next.currentGoal = { id: `goal-${event.id}`, label, createdAt: event.timestamp };
