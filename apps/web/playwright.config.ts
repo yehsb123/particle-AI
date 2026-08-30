@@ -11,6 +11,9 @@ export default defineConfig({
   // every spec talks to the SAME live web+runtime (shared sessions like `ext`) — parallel workers
   // race each other's consent toggles and event logs, so E2E is strictly serial
   workers: 1,
+  // one retry absorbs environment flakes in the live-extension specs (a REAL regression still
+  // fails twice and reports); investigated failures always passed in isolation
+  retries: 1,
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:3000",
