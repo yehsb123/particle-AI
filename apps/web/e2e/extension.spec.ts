@@ -27,8 +27,11 @@ test("extension: navigation → shape events in the runtime; side panel body aut
     args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
   });
   try {
-    let [sw] = context.serviceWorkers();
-    if (!sw) sw = await context.waitForEvent("serviceworker", { timeout: 15_000 });
+    const sw = await test.step("service worker up", async () => {
+      let [w] = context.serviceWorkers();
+      if (!w) w = await context.waitForEvent("serviceworker", { timeout: 15_000 });
+      return w;
+    });
     const extId = new URL(sw.url()).host;
 
     // only THIS run's events are judged — the shared `ext` session may hold earlier local activity
@@ -39,9 +42,9 @@ test("extension: navigation → shape events in the runtime; side panel body aut
       route.fulfill({ contentType: "text/html", body: "<!doctype html><title>x</title><h1>hello</h1>" }),
     );
     const page = await context.newPage();
-    await page.goto("http://example.test/some/secret/path?token=abc");
+    await test.step("navigate synthetic site", () => page.goto("http://example.test/some/secret/path?token=abc"));
 
-    await expect
+    await test.step("shape events reach the runtime", () => expect
       .poll(
         async () => {
           const s = (await fetch(`${RUNTIME}/api/sessions/ext/state`).then((r) => r.json())) as {
@@ -52,7 +55,7 @@ test("extension: navigation → shape events in the runtime; side panel body aut
         },
         { timeout: 15_000 },
       )
-      .toMatchObject({ ents: expect.arrayContaining(["site:example.test"]), layers: expect.arrayContaining(["tabs", "interactions"]) });
+      .toMatchObject({ ents: expect.arrayContaining(["site:example.test"]), layers: expect.arrayContaining(["tabs", "interactions"]) }));
 
     // shape only: nothing about the path or query ever reached the runtime
     const events = (await fetch(`${RUNTIME}/api/sessions/ext/events`).then((r) => r.json())) as { events: unknown[] };
@@ -63,10 +66,12 @@ test("extension: navigation → shape events in the runtime; side panel body aut
     expect(dump).not.toContain('"network.request"');
 
     // 2) the side panel page embeds the body, already connected to the runtime
-    const panel = await context.newPage();
-    await panel.goto(`chrome-extension://${extId}/sidepanel.html`);
-    const body = panel.frameLocator("iframe");
-    await expect(body.getByRole("button", { name: /server ●/ })).toBeVisible({ timeout: 20_000 });
+    await test.step("side panel body auto-connects", async () => {
+      const panel = await context.newPage();
+      await panel.goto(`chrome-extension://${extId}/sidepanel.html`);
+      const body = panel.frameLocator("iframe");
+      await expect(body.getByRole("button", { name: /server ●/ })).toBeVisible({ timeout: 20_000 });
+    });
   } finally {
     await context.close();
   }
