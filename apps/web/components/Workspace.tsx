@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
+import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
@@ -136,7 +137,11 @@ export function Workspace() {
     async (event: MatterEvent) => {
       pushLog(`${event.type} · ${event.severity}`, "event");
       setPresence("evaluating");
-      setEvents((e) => [...e, event]);
+      setEvents((e) => {
+        const next = [...e, event];
+        try { localStorage.setItem("dm_events", JSON.stringify(next)); } catch {}
+        return next;
+      });
       const res = await core.current.ingest(event, attention);
       applyResult(res);
       if (!res.deliberated) pushLog(`no morph — ${event.type} not significant`, "note");
@@ -287,6 +292,23 @@ export function Workspace() {
         else el.setAttribute("data-theme", st);
       }
       setShowCoach(localStorage.getItem("dm_coach") !== "dismissed");
+
+      // Event sourcing in the browser: replay the saved event log so the workspace survives a
+      // refresh. Only validated events are replayed; undo/approvals are not events (by design).
+      const raw = localStorage.getItem("dm_events");
+      if (raw) {
+        const parsed = (JSON.parse(raw) as unknown[]).map((x) => MatterEventSchema.safeParse(x)).filter((r) => r.success).map((r) => r.data);
+        if (parsed.length) {
+          void (async () => {
+            let last: IngestResult | undefined;
+            for (const ev of parsed) last = await core.current.ingest(ev);
+            if (last) applyResult(last);
+            setEvents(parsed);
+            counter.current = parsed.length;
+            pushLog(t("restoredNote", lang), "note");
+          })();
+        }
+      }
     } catch {
       setShowCoach(true);
     }
@@ -421,6 +443,7 @@ export function Workspace() {
           <h3>{t("controls", lang)}</h3>
           <div className="simrow">
             <button className="btn" onClick={undo} disabled={!canUndo}>{t("undo", lang)}</button>
+            <button className="btn muted" onClick={() => { try { localStorage.removeItem("dm_events"); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
             <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>
