@@ -79,8 +79,17 @@ export function evaluateSignificance(
   );
 
   // Deliberate when the score clears threshold, or for critical events / problem transitions.
+  // Behavior signals (Concept v2): returning after being away, getting stuck, or going idle
+  // matter even when nothing is broken. `world` is the PRE-event world, so read the payload.
+  const behaviorSignal =
+    (event.type === "user.visibility" && event.payload.visible === true && Number(event.payload.awaySeconds ?? 0) >= 30) ||
+    (event.type === "user.action" && world.behavior.lastActionKey === event.payload.key && world.behavior.repeatCount + 1 >= 3) ||
+    (event.type === "user.idle" && Number(event.payload.seconds ?? 0) >= 60);
+  if (behaviorSignal) reasonCodes.push("behavior_signal");
+
   const shouldDeliberate =
     score >= config.threshold ||
+    behaviorSignal ||
     event.severity === "critical" ||
     PROBLEM_OPENERS.has(event.type) ||
     (PROBLEM_CLOSERS.has(event.type) && world.activeProblems.length > 0);

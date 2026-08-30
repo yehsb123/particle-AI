@@ -97,6 +97,16 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   held_protects_unsaved_state: { en: "unsaved work here — never discarded", ko: "미저장 작업이 있어 — 절대 버리지 않음" },
   held_confidence_below_min: { en: "not confident enough to change the layout", ko: "레이아웃을 바꿀 만큼 확신이 없음" },
   held_structural_confidence_below_min: { en: "not confident enough for a structural change", ko: "구조 변경을 할 만큼 확신이 없음" },
+  // intent (Concept v2)
+  intentTitle: { en: "intent", ko: "의도" },
+  intent_exploring: { en: "exploring", ko: "탐색 중" },
+  intent_focused: { en: "focused", ko: "집중 중" },
+  intent_stuck: { en: "stuck", ko: "막힘" },
+  intent_switching: { en: "switching", ko: "전환 중" },
+  intent_idle: { en: "idle", ko: "유휴" },
+  intent_returning: { en: "returning", ko: "복귀" },
+  intent_debugging: { en: "debugging", ko: "디버깅 중" },
+  sensingNote: { en: "sensing: clicks, dwell, idle, tab visibility (shape only — never content)", ko: "감지 중: 클릭·체류·유휴·탭 가시성 (형태만 — 내용은 절대 수집 안 함)" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },

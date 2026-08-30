@@ -420,3 +420,45 @@ export function recoveryPatch(decisionId = "decision-recovery"): UIPatch {
     ],
   };
 }
+
+
+/**
+ * Concept v2 — an *augment* morph: no problem, no incident. The body adds one context card
+ * that serves the person's current intent (returning → re-entry summary; stuck → related
+ * context). Idempotent by id "context"; recovery/undo remove it like any other morph.
+ */
+export type AugmentKind = "returning" | "stuck";
+
+export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind = "returning"): UIPatch {
+  const card: UIComponent =
+    kind === "returning"
+      ? {
+          id: "context",
+          type: "Card",
+          props: { title: "Welcome back" },
+          children: [
+            { id: "context-text", type: "Markdown", props: { text: "You were away. Nothing broke while you were gone — here is where you left off." },
+              bindings: [{ prop: "text", source: "capability:workspace.get_state:summary" }] },
+            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo" }] },
+          ],
+        }
+      : {
+          id: "context",
+          type: "Card",
+          props: { title: "You seem stuck on this" },
+          children: [
+            { id: "context-text", type: "Markdown", props: { text: "The same action has repeated several times. Related context is now beside your work." } },
+            { id: "context-diff", type: "DiffViewer", props: { title: "Recent changes", diff: "- return db.users.findById(id);\n+ return db.user.findById(id);" } },
+            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo" }] },
+          ],
+        };
+  return {
+    patchId: `patch-augment-${kind}`,
+    fromWorkspaceId: "ws-dev",
+    decisionId,
+    operations: [
+      { op: "add", parentId: "workspace", index: 1, component: card },
+      { op: "highlight", targetId: "context" },
+    ],
+  };
+}

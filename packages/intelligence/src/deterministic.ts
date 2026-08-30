@@ -72,6 +72,32 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
       reasonSummary:
         "Problem detected in the current context; assembled read-only diagnostics and an incident view.",
     };
+  } else if (worldState.inferredIntent?.label === "returning" || worldState.inferredIntent?.label === "stuck") {
+    // Concept v2: respond to the PERSON, not to an error. No problem is open here.
+    const intent = worldState.inferredIntent.label;
+    decision = {
+      id,
+      significance: significance.score,
+      worldStateUpdates: [],
+      intent: { label: intent, confidence: worldState.inferredIntent.confidence },
+      recommendedMode: "development",
+      capabilityPlan: { capabilities: [{ capabilityId: "workspace.get_state" }] },
+      uiPlan: {
+        intent: "augment",
+        targetMode: "development",
+        confidence: 0.86,
+        variant: intent,
+        reasonSummary:
+          intent === "returning"
+            ? "You came back after being away; a short context summary helps re-entry."
+            : "The same action keeps repeating; surfacing related context beside your work.",
+      },
+      autonomyRequirement: { minLevel: 2, requiresApproval: false, risk: "read" },
+      reasonSummary:
+        intent === "returning"
+          ? "Detected a return after time away (no error involved); augmented the workspace with a re-entry summary."
+          : "Detected a stuck pattern from repeated actions (no error involved); augmented the workspace with related context.",
+    };
   } else if (PROBLEM_CLOSERS.has(event.type)) {
     decision = {
       id,

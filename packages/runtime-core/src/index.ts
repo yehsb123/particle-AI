@@ -34,6 +34,7 @@ import {
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
 import { MemorySystem, type PatternCandidate } from "@particle/memory";
+import { inferIntent } from "@particle/intent-engine";
 import type { ApprovalRequest } from "@particle/contracts";
 
 export type RuntimeClock = { iso: () => string; ms: () => number };
@@ -193,8 +194,9 @@ export class RuntimeCore {
     // what tells us the event matters (e.g. a recovery closes a problem that is still open here).
     const significance = evaluateSignificance(event, s.world, this.deps.significanceConfig);
 
-    // Perception → world
+    // Perception → world → continuous intent (Concept v2: always present, no error needed)
     s.world = reduce(s.world, event);
+    s.world = { ...s.world, inferredIntent: inferIntent(s.world) };
     s.presence = nextPresence(s.presence, significance);
 
     const base: IngestResult = {

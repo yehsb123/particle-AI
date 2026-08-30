@@ -196,6 +196,19 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/intent-engine:
+    dependencies:
+      '@particle/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/mcp-adapter:
     dependencies:
       '@particle/capability-core':
@@ -300,6 +313,9 @@ importers:
       '@particle/intelligence':
         specifier: workspace:*
         version: link:../intelligence
+      '@particle/intent-engine':
+        specifier: workspace:*
+        version: link:../intent-engine
       '@particle/memory':
         specifier: workspace:*
         version: link:../memory
@@ -322,6 +338,19 @@ importers:
       '@particle/ui-protocol':
         specifier: workspace:*
         version: link:../ui-protocol
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/sense-web:
+    dependencies:
+      '@particle/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

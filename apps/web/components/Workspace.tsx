@@ -140,7 +140,8 @@ export function Workspace() {
 
   const ingest = useCallback(
     async (event: MatterEvent) => {
-      pushLog(`${event.type} · ${event.severity}`, "event");
+      const quiet = event.severity === "debug"; // behavior sensing — shape only, no log spam
+      if (!quiet) pushLog(`${event.type} · ${event.severity}`, "event");
       setPresence("evaluating");
       setEvents((e) => {
         const next = [...e, event];
@@ -149,7 +150,7 @@ export function Workspace() {
       });
       const res = await core.current.ingest(event, attention);
       applyResult(res);
-      if (!res.deliberated) pushLog(`no morph — ${event.type} not significant`, "note");
+      if (!res.deliberated) { if (!quiet) pushLog(`no morph — ${event.type} not significant`, "note"); }
       else if (res.morph.applied) pushLog(`UI morphed → ${res.morph.patch?.patchId ?? "patch"} (${res.capabilityRuns.length} capabilities ran)`, "morph");
       else pushLog(`morph blocked — ${res.morph.guardReasonCodes.join(", ") || "no change"}`, "blocked");
       if (res.deliberated && !res.morph.applied && res.morph.guardReasonCodes.length) setHeld({ codes: res.morph.guardReasonCodes, at: Date.now() });
@@ -158,6 +159,11 @@ export function Workspace() {
     },
     [attention, applyResult, pushLog],
   );
+
+  const ingestRef = useRef(ingest);
+  ingestRef.current = ingest;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   const emitSim = (spec: SimSpec) => {
     if (mode === "connected" && client.current) {
@@ -175,7 +181,10 @@ export function Workspace() {
       });
       return;
     }
-    void ingest(buildEvent(spec, SESSION, `e${++counter.current}`, nowIso()));
+    // Concept v2: a click is behavior. Emit the semantic action first (repeats → "stuck"),
+    // then the simulated system event itself.
+    void ingest({ id: `u${++counter.current}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.action", severity: "debug", payload: { key: spec.key } })
+      .then(() => ingest(buildEvent(spec, SESSION, `e${++counter.current}`, nowIso())));
   };
 
   const decideApproval = useCallback(
@@ -348,6 +357,41 @@ export function Workspace() {
     try { localStorage.setItem("dm_lang", lang); } catch {}
   }, [lang]);
 
+  // Sensors (Concept v2, L0/L3): tab visibility → "returning"; no interaction → "idle".
+  // Shape only: we never read what was typed or clicked, just that interaction happened.
+  useEffect(() => {
+    let hiddenAt: number | null = null;
+    let lastInteraction = Date.now();
+    let idleReported = false;
+    const onVis = () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      const away = hiddenAt ? Math.round((Date.now() - hiddenAt) / 1000) : 0;
+      hiddenAt = null;
+      if (modeRef.current === "local" && away >= 5) {
+        void ingestRef.current({ id: `vis${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.visibility", severity: "info", payload: { visible: true, awaySeconds: away } });
+      }
+    };
+    const onInteract = () => { lastInteraction = Date.now(); idleReported = false; };
+    const idleTimer = setInterval(() => {
+      const idle = Math.round((Date.now() - lastInteraction) / 1000);
+      if (idle >= 60 && !idleReported && modeRef.current === "local") {
+        idleReported = true;
+        void ingestRef.current({ id: `idle${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.idle", severity: "debug", payload: { seconds: idle } });
+      }
+    }, 15_000);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pointerdown", onInteract);
+    window.addEventListener("keydown", onInteract);
+    window.addEventListener("scroll", onInteract, true);
+    return () => {
+      clearInterval(idleTimer);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pointerdown", onInteract);
+      window.removeEventListener("keydown", onInteract);
+      window.removeEventListener("scroll", onInteract, true);
+    };
+  }, []);
+
   // Escape closes transient surfaces (presence popover first, then the coach).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -416,7 +460,10 @@ export function Workspace() {
                     <span className="k">{t("presenceState", lang)}</span><span>{t(presence, lang)}</span>
                     <span className="k">{t("presenceWatching", lang)}</span><span>{t("presenceWatchingValue", lang)}</span>
                     <span className="k">{t("presenceAutonomy", lang)}</span><span>L{autonomy}</span>
+                    <span className="k">{t("intentTitle", lang)}</span>
+                    <span>{debug.worldState?.inferredIntent ? t(`intent_${debug.worldState.inferredIntent.label}`, lang) : "—"}</span>
                   </div>
+                  <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>{t("sensingNote", lang)}</p>
                   <div className="divider" style={{ margin: "10px 0" }} />
                   <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLastReason", lang)}</div>
                   <p style={{ fontSize: 13, margin: "6px 0 0" }}>
@@ -508,6 +555,8 @@ export function Workspace() {
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">{t("mode", lang)}</span><span>{tr(blueprint.mode, lang)}</span>
             <span className="k">{t("focus", lang)}</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? " (typing)" : ""}</span>
+            <span className="k">{t("intentTitle", lang)}</span>
+            <span>{debug.worldState?.inferredIntent ? `${t(`intent_${debug.worldState.inferredIntent.label}`, lang)} · ${Math.round(debug.worldState.inferredIntent.confidence * 100)}%` : "—"}</span>
             <span className="k">{t("autonomy", lang)}</span>
             <span>
               <select

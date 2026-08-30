@@ -82,6 +82,53 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
     }
   }
 
+  // ── Behavior (Concept v2): L0–L3 sensing events fold into world.behavior ──
+  const b = { ...prev.behavior, recentEntities: [...prev.behavior.recentEntities] };
+  switch (event.type) {
+    case "user.interaction": {
+      // { kind: click|scroll|hover|key, target? } — shape only, never content
+      b.interactions += 1;
+      b.lastInteractionAt = event.timestamp;
+      b.idleSeconds = 0;
+      b.awaySeconds = 0;
+      break;
+    }
+    case "user.idle": {
+      b.idleSeconds = Number(event.payload.seconds ?? 0) || 0;
+      break;
+    }
+    case "user.visibility": {
+      // { visible: boolean, awaySeconds?: number } — returning after being away
+      if (event.payload.visible === true) b.awaySeconds = Number(event.payload.awaySeconds ?? 0) || 0;
+      else b.awaySeconds = 0;
+      break;
+    }
+    case "user.action": {
+      // { key: string } — a semantic action (re-run, retry, open X…); repeats signal stuckness
+      const key = str(event.payload.key);
+      if (key) {
+        b.repeatCount = key === b.lastActionKey ? b.repeatCount + 1 : 1;
+        b.lastActionKey = key;
+        b.awaySeconds = 0;
+      }
+      break;
+    }
+    case "user.requested_undo": {
+      b.undoCount += 1;
+      break;
+    }
+    case "user.opened_file": {
+      const path = str(event.payload.path);
+      if (path) {
+        b.recentEntities = [...b.recentEntities.filter((e) => e !== path), path].slice(-8);
+        b.repeatCount = path === b.lastActionKey ? b.repeatCount + 1 : 1;
+        b.lastActionKey = path;
+      }
+      break;
+    }
+  }
+  next.behavior = b;
+
   // Specific event handling
   switch (event.type) {
     case "user.opened_file": {

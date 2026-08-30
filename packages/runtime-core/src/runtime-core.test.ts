@@ -99,6 +99,37 @@ describe("RuntimeCore — full loop", () => {
     expect(inc.permission?.denied.length).toBeGreaterThan(0);
   });
 
+  it("Concept v2: reshapes the body from BEHAVIOR alone — returning after being away (no error)", async () => {
+    const core = createRuntimeCore(makeClock());
+    const res = await core.ingest({
+      id: "v1", sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user", type: "user.visibility", severity: "info", payload: { visible: true, awaySeconds: 120 },
+    });
+    expect(res.worldState.inferredIntent?.label).toBe("returning");
+    expect(res.deliberated).toBe(true);
+    expect(res.decision?.uiPlan?.intent).toBe("augment");
+    expect(res.morph.applied).toBe(true);
+    const card = findById(core.getBlueprint("s").root, "context");
+    expect(card?.props?.title).toBe("Welcome back");
+    // the summary is LIVE from workspace.get_state (binding), not the placeholder
+    expect(String(findById(core.getBlueprint("s").root, "context-text")?.props?.text)).toMatch(/Nothing broke/);
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined(); // no incident at all
+  });
+
+  it("Concept v2: repeated actions read as 'stuck' and surface related context (no error)", async () => {
+    const core = createRuntimeCore(makeClock());
+    const act = (n: number) => ({
+      id: `a${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key: "rerun-tests" },
+    });
+    await core.ingest(act(1));
+    await core.ingest(act(2));
+    const third = await core.ingest(act(3));
+    expect(third.worldState.inferredIntent?.label).toBe("stuck");
+    expect(third.morph.applied).toBe(true);
+    expect(findById(core.getBlueprint("s").root, "context")?.props?.title).toBe("You seem stuck on this");
+  });
+
   it("resolves data bindings: capability outputs feed the morphed body (spec 5)", async () => {
     const core = createRuntimeCore(makeClock());
     // runtime incident: LogViewer lines come from development.read_logs, not the placeholder

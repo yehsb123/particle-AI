@@ -49,6 +49,6 @@ test.describe("Particle AI — autonomous incident morph", () => {
     // 5. An unrelated event does not morph the UI.
     await page.getByRole("button", { name: "High CPU" }).click();
     await expect(page.getByText("Runtime incident")).toHaveCount(0);
-    await expect(page.getByText(/no morph/)).toBeVisible();
+    await expect(page.getByText(/no morph — system\.resource_warning/)).toBeVisible();
   });
 });

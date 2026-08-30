@@ -41,11 +41,15 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
     ),
     cap(
       manifest({ id: "workspace.get_state", name: "Get workspace state", risk: "read", tags: ["workspace"] }),
-      (_i, ctx) => ({
-        activeContext: ctx.worldState?.activeContext ?? {},
-        activeProblems: ctx.worldState?.activeProblems ?? [],
-        goal: ctx.worldState?.currentGoal ?? null,
-      }),
+      (_i, ctx) => {
+        const w = ctx.worldState;
+        const problems = w?.activeProblems ?? [];
+        const files = w?.environment.files ?? [];
+        const summary = problems.length
+          ? `${problems.length} open problem(s): ${problems.map((p) => p.summary).join("; ")}.`
+          : `Nothing broke while you were away. ${files.length ? `Recent files: ${files.slice(-3).join(", ")}.` : "Workspace is calm."}`;
+        return { activeContext: w?.activeContext ?? {}, activeProblems: problems, goal: w?.currentGoal ?? null, summary };
+      },
     ),
     cap(
       manifest({ id: "development.read_logs", name: "Read runtime logs", risk: "read", tags: ["development"] }),
