@@ -264,4 +264,28 @@ describe("RuntimeCore — full loop", () => {
     expect(third.morph.applied).toBe(true);
     expect(findById(core.getBlueprint("desktop").root, "context")?.props?.title).toBe("You seem stuck on this");
   });
+  it("Concept v2 (P4): learns from dismissals — after two undos of the same augmentation it stops offering it", async () => {
+    const core = createRuntimeCore(makeClock());
+    const act = (n: number) => ({
+      id: `a${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key: "rerun-tests" },
+    });
+    await core.ingest(act(1));
+    await core.ingest(act(2));
+    expect((await core.ingest(act(3))).morph.applied).toBe(true); // stuck → context card
+    core.undo("s"); // dismissal 1
+    expect(findById(core.getBlueprint("s").root, "context")).toBeUndefined();
+    expect((await core.ingest(act(4))).morph.applied).toBe(true); // offered again
+    core.undo("s"); // dismissal 2
+    const fifth = await core.ingest(act(5));
+    expect(fifth.morph.applied).toBe(false);
+    expect(fifth.morph.guardReasonCodes).toContain("learned_preference");
+    expect(fifth.learned).toEqual({ suppressed: "augment:stuck", dismissals: 2 });
+    expect(fifth.audit.some((a) => a.kind === "morph_suppressed")).toBe(true);
+    expect(findById(core.getBlueprint("s").root, "context")).toBeUndefined();
+    // incidents are never suppressed by this — a real problem still surfaces
+    const inc = await core.ingest(ev("development.server_error", "critical", "e9"));
+    expect(inc.morph.applied).toBe(true);
+    expect(core.memoryFor("s").preferences.weightOf("dismissed:augment:stuck")).toBe(2);
+  });
 });

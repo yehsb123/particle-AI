@@ -74,12 +74,19 @@ export type IngestResult = {
   patternSuggestions: PatternCandidate[];
   /** approval requests created this step for risky capabilities awaiting a human decision */
   pendingApprovals: ApprovalRequest[];
+  /** set when a morph was withheld because the person kept dismissing that kind (Concept v2 P4) */
+  learned?: { suppressed: string; dismissals: number };
 };
+
+/** Undos of the same augmentation variant after which the runtime stops offering it (per session). */
+export const DISMISS_THRESHOLD = 2;
 
 type SessionState = {
   world: WorldState;
   blueprint: UIBlueprint;
   history: MorphHistory;
+  /** what each entry in `history` undid (parallel stack) — lets undo teach a preference */
+  morphMeta: { intent: string; variant?: string }[];
   lastMorphAt?: number;
   lastMajorMorphAt?: number;
   presence: PresenceState;
@@ -138,6 +145,7 @@ export class RuntimeCore {
         world: emptyWorldState(sessionId, this.deps.clock.iso()),
         blueprint: developmentBlueprint(this.deps.clock.iso()),
         history: new MorphHistory(),
+        morphMeta: [],
         presence: "observing",
         memory: new MemorySystem(),
         queue: Promise.resolve(),
@@ -263,14 +271,28 @@ export class RuntimeCore {
     const recurrence =
       intent === "surface_incident" ? s.memory.episodic.search(morphContext).length + 1 : 0;
 
-    let desired = planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant, recurrence);
+    const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
+    let learned: IngestResult["learned"];
+
+    // Learning (Concept v2 P4): a person who keeps dismissing a kind of augmentation has told
+    // us something. After DISMISS_THRESHOLD undos of the same variant, the runtime stops
+    // offering it in this session — the body adapts to the person, not only to the situation.
+    const prefKey = `dismissed:${intent}:${decision.uiPlan?.variant ?? ""}`;
+    const dismissals = s.memory.preferences.weightOf(prefKey);
+    const learnedSuppress = intent === "augment" && dismissals >= DISMISS_THRESHOLD;
+    if (learnedSuppress) {
+      learned = { suppressed: `${intent}:${decision.uiPlan?.variant ?? ""}`, dismissals };
+      morph.guardReasonCodes.push("learned_preference");
+      audit.push(this.record(event.sessionId, "morph_suppressed", { intent, variant: decision.uiPlan?.variant, dismissals, reason: "learned_preference" }));
+    }
+
+    let desired = learnedSuppress ? null : planMorph(s.blueprint, intent, decision.id, decision.uiPlan?.variant, recurrence);
     // Feedback into the body: capability outputs resolve declared data bindings (spec §5),
     // so the morphed workspace shows LIVE diagnostics, not placeholder content.
     if (desired) {
       const lookup = new Map(capabilityRuns.filter((r) => r.result.ok).map((r) => [r.capabilityId, r.result.output]));
       desired = resolvePatchBindings(desired, lookup);
     }
-    const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
     let patternSuggestions: PatternCandidate[] = [];
 
     if (desired) {
@@ -297,6 +319,7 @@ export class RuntimeCore {
       if (guard.allowed) {
         const { next, inverse } = applyPatch(s.blueprint, guard.patch, this.deps.clock.iso());
         s.history.push(inverse);
+        s.morphMeta.push({ intent, variant: decision.uiPlan?.variant });
         s.blueprint = next;
         const t = this.deps.clock.ms();
         s.lastMorphAt = t;
@@ -340,6 +363,7 @@ export class RuntimeCore {
       presence: s.presence,
       patternSuggestions,
       pendingApprovals,
+      learned,
     };
   }
 
@@ -376,6 +400,9 @@ export class RuntimeCore {
     const s = this.session(sessionId);
     const inverse = s.history.pop();
     if (!inverse) return null;
+    const meta = s.morphMeta.pop();
+    // Undo is feedback: remember that this kind of change was not wanted (see DISMISS_THRESHOLD).
+    if (meta) s.memory.preferences.reinforce(`dismissed:${meta.intent}:${meta.variant ?? ""}`);
     const { next } = applyPatch(s.blueprint, inverse, this.deps.clock.iso());
     s.blueprint = next;
     // Undo is a deliberate user action — clear morph timing so a re-morph isn't rate-limited.

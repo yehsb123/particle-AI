@@ -35,6 +35,11 @@ Updated at the end of each phase.
   against the real runtime: piped `Tests 2 failed` opened the Test failure layout, a green run
   closed it. Fixed an extension bug: navigation sent `user.action` AND `user.opened_file`,
   alternating the repeat key so "stuck" could never trigger — one event now.
+- **P4 learning from dismissals** (2026-08-31): undo is feedback. `RuntimeCore.undo` records
+  `dismissed:<intent>:<variant>` in preference memory; after `DISMISS_THRESHOLD` (2) undos of the
+  same augmentation variant the runtime withholds it for the session (`morph_suppressed` audit,
+  `learned_preference` guard code, `IngestResult.learned`). Incidents are never suppressed —
+  a real problem always surfaces. runtime-core: 20 tests.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
