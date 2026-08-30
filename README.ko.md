@@ -53,6 +53,21 @@ API 키가 필요 없습니다 — 기본은 결정론적 mock 프로바이더�
 9. `Vulnerability found` → 보안 경보 레이아웃(CVE 테이블) + `의존성 업데이트` 승인 흐름.
 10. 우측 상단 **🌐 한국어/English**로 전체 UI 언어 전환.
 
+## 브라우저 확장 (Concept v2)
+
+Particle AI는 한 페이지가 아니라 **브라우저 전체에 씌우는 레이어**입니다. `apps/extension`(MV3)이 탭 포커스, 이동한 사이트의 호스트명, 상호작용 횟수, 유휴 시간, 그리고 **옵트인**으로 통신의 *형태*(호스트·상태코드·지연시간 — 경로·쿼리·본문은 절대 아님)를 감지하고, 어떤 사이트에서든 사이드 패널에 바디를 띄웁니다.
+
+```bash
+pnpm --filter @particle/extension build   # -> apps/extension/dist
+pnpm runtime && pnpm web                  # 런타임 :8787, 바디 :3000
+```
+
+1. `chrome://extensions` → 개발자 모드 → **압축해제된 확장 프로그램 로드** → `apps/extension/dist`
+2. 확장 아이콘 클릭 → 사이드 패널이 `http://localhost:3000/?connect=1&session=ext`로 열리고 런타임에 자동 연결
+3. 아이콘 우클릭 → **옵션**에서 감지 레이어별 동의 토글
+
+자세한 내용: [`apps/extension/README.md`](apps/extension/README.md), [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md)
+
 ## 데이터 영속화 (선택)
 
 `DATABASE_URL`이 설정되면 이벤트가 Postgres(Drizzle + postgres-js)에 durable하게 저장됩니다. 없으면 인메모리 + 결정론적 리플레이로 동작합니다.

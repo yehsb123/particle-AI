@@ -13,6 +13,14 @@ Updated at the end of each phase.
 - HTTP 500 / build / test / security incidents remain as **one case** (intent `debugging`
   with error signals), not the product story.
 
+- **P2 in progress** (2026-08-31): `BehaviorState.network` + `network.request` shape reducer
+  (`network_failure` problem opens on 5xx/error, clears on success); `apps/extension` MV3
+  (background: focus/navigation/webRequest shape with per-layer consent; content: interaction
+  counts/idle/visibility; options; side panel iframing the body with `?connect=1&session=ext`).
+  Web reads `session`/`connect` URL params and auto-connects. 4 extension unit tests; full
+  suite + 9 E2E green. Build note: `fs.cpSync` recursive segfaults on Node 22.17/Windows →
+  file-by-file copy.
+
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
   state, what it observes, autonomy level, why the UI last changed, capabilities awaiting

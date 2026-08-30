@@ -47,6 +47,22 @@ pnpm web           # open http://localhost:3000
 No API key is required — the runtime uses a deterministic mock provider by default.
 To enable a real provider, copy `.env.example` to `.env` and fill in a key.
 
+## Browser extension (Concept v2)
+
+Particle AI is a **layer over the browser**, not just one page. `apps/extension` (MV3) senses
+tab focus, navigation hostnames, interaction counts, idle time and — opt-in — the *shape* of
+network traffic (host · status · latency, never paths or bodies), and shows the body in a
+side panel on any site.
+
+```bash
+pnpm --filter @particle/extension build   # -> apps/extension/dist
+pnpm runtime && pnpm web                  # runtime :8787, body :3000
+```
+
+`chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`.
+Consent per sensing layer lives in the extension's Options page. See
+[`apps/extension/README.md`](apps/extension/README.md) and [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
