@@ -3,7 +3,7 @@
  * Sensors (L2/L3) → shaped MatterEvents → local runtime (POST /api/events).
  * Shape only: hostnames, status codes, latency, tab focus. No URLs, no page content.
  */
-import { hostOf, networkSeverity, matterEvent, isSelfHost, DEFAULT_CONSENT, type Consent } from "./shape";
+import { hostOf, networkSeverity, matterEvent, isSelfHost, isTransientError, NetworkShaper, DEFAULT_CONSENT, type Consent } from "./shape";
 
 const RUNTIME = "http://localhost:8787";
 const SESSION = "ext";
@@ -51,6 +51,8 @@ chrome.webNavigation.onCommitted.addListener((d) => {
 });
 
 // ── L2: network shape (host/status/latency only) — OPT-IN ──
+// Only transitions (fail/recover), slowness and a sparse sample are sent — never every request.
+const shaper = new NetworkShaper();
 const started = new Map<string, number>();
 chrome.webRequest.onBeforeRequest.addListener(
   (d) => {
@@ -65,18 +67,23 @@ chrome.webRequest.onCompleted.addListener(
     if (!consent.network) return;
     const host = hostOf(d.url);
     if (isSelfHost(host) || d.type === "image" || d.type === "font" || d.type === "stylesheet") return;
-    const shape = { host, status: d.statusCode, ms: t0 ? Date.now() - t0 : undefined };
-    void send(matterEvent(SESSION, "sensor", "network.request", networkSeverity(shape), shape));
+    const now = Date.now();
+    const shape = { host, status: d.statusCode, ms: t0 ? now - t0 : undefined };
+    const why = shaper.admit(shape, now);
+    if (!why) return;
+    void send(matterEvent(SESSION, "sensor", "network.request", networkSeverity(shape), { ...shape, why }));
   },
   { urls: ["<all_urls>"] },
 );
 chrome.webRequest.onErrorOccurred.addListener(
   (d) => {
     started.delete(d.requestId);
-    if (!consent.network) return;
+    if (!consent.network || isTransientError(d.error)) return;
     const host = hostOf(d.url);
     if (isSelfHost(host)) return;
-    void send(matterEvent(SESSION, "sensor", "network.request", "warning", { host, error: true }));
+    const shape = { host, error: true };
+    if (!shaper.admit(shape, Date.now())) return;
+    void send(matterEvent(SESSION, "sensor", "network.request", "warning", { ...shape, why: "failure" }));
   },
   { urls: ["<all_urls>"] },
 );

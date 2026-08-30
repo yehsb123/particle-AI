@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hostOf, networkSeverity, matterEvent, isSelfHost, DEFAULT_CONSENT } from "./shape";
+import { hostOf, networkSeverity, matterEvent, isSelfHost, DEFAULT_CONSENT, NetworkShaper, isTransientError } from "./shape";
 
 describe("extension shaping (privacy)", () => {
   it("keeps only the hostname — never path, query, hash, credentials or port", () => {
@@ -21,5 +21,41 @@ describe("extension shaping (privacy)", () => {
     expect(isSelfHost("localhost")).toBe(true);
     expect(isSelfHost("api.example.com")).toBe(false);
     expect(DEFAULT_CONSENT.network).toBe(false);
+  });
+});
+
+describe("NetworkShaper (transitions, not a firehose)", () => {
+  const s = () => new NetworkShaper({ failureCooldownMs: 5_000, slowMs: 2_000, successSampleMs: 30_000, maxHosts: 3 });
+
+  it("reports a failure once per cooldown, then the recovery of that host", () => {
+    const sh = s();
+    expect(sh.admit({ host: "api", status: 503 }, 0)).toBe("failure");
+    expect(sh.admit({ host: "api", status: 503 }, 1_000)).toBeNull(); // same host, inside cooldown
+    expect(sh.admit({ host: "api", status: 500 }, 6_000)).toBe("failure"); // still failing after cooldown
+    expect(sh.admit({ host: "api", status: 200 }, 7_000)).toBe("recovery");
+    expect(sh.admit({ host: "api", status: 200 }, 7_100)).toBeNull(); // ordinary success is sampled, not streamed
+  });
+
+  it("samples ordinary successes once per host per window; slowness is flagged", () => {
+    const sh = s();
+    expect(sh.admit({ host: "cdn", status: 200, ms: 50 }, 0)).toBe("sample");
+    for (let t = 1; t < 30; t++) expect(sh.admit({ host: "cdn", status: 200, ms: 50 }, t * 1_000)).toBeNull();
+    expect(sh.admit({ host: "cdn", status: 200, ms: 50 }, 30_000)).toBe("sample");
+    expect(sh.admit({ host: "slow", status: 200, ms: 2_500 }, 0)).toBe("slow");
+  });
+
+  it("ignores redirects/4xx as neither failure nor success, and bounds remembered hosts", () => {
+    const sh = s();
+    expect(sh.admit({ host: "a", status: 302 }, 0)).toBeNull();
+    expect(sh.admit({ host: "a", status: 404 }, 0)).toBeNull();
+    for (const h of ["h1", "h2", "h3", "h4", "h5"]) sh.admit({ host: h, status: 200 }, 0);
+    expect(sh.admit({ host: "h1", status: 200 }, 1)).toBe("sample"); // h1 was pruned, so it samples again
+  });
+
+  it("treats cancelled navigations and blocked requests as normal browsing", () => {
+    expect(isTransientError("net::ERR_ABORTED")).toBe(true);
+    expect(isTransientError("net::ERR_BLOCKED_BY_CLIENT")).toBe(true);
+    expect(isTransientError("net::ERR_CONNECTION_REFUSED")).toBe(false);
+    expect(isTransientError(undefined)).toBe(false);
   });
 });
