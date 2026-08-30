@@ -10,6 +10,7 @@ export type IntentConfig = {
   idleAfterSeconds: number;      // no interaction this long → "idle"
   stuckRepeatCount: number;      // same action this many times in a row → "stuck"
   exploringEntities: number;     // this many distinct entities recently → "exploring"
+  switchingKeys: number;         // this many consecutive changes among ≤3 contexts → "switching"
 };
 
 export const DEFAULT_INTENT_CONFIG: IntentConfig = {
@@ -17,7 +18,19 @@ export const DEFAULT_INTENT_CONFIG: IntentConfig = {
   idleAfterSeconds: 60,
   stuckRepeatCount: 3,
   exploringEntities: 3,
+  switchingKeys: 6,
 };
+
+/**
+ * Ping-pong detection: the last `n` keys all differ from their predecessor, yet span only a few
+ * distinct contexts (A B A B A B). Breadth over many entities is "exploring"; this is juggling.
+ */
+export function isSwitching(keys: string[], n: number): boolean {
+  if (keys.length < n) return false;
+  const tail = keys.slice(-n);
+  for (let i = 1; i < tail.length; i++) if (tail[i] === tail[i - 1]) return false;
+  return new Set(tail).size <= 3;
+}
 
 export function inferIntent(world: WorldState, config: IntentConfig = DEFAULT_INTENT_CONFIG): IntentHypothesis {
   const b = world.behavior;
@@ -34,6 +47,8 @@ export function inferIntent(world: WorldState, config: IntentConfig = DEFAULT_IN
     if (world.activeProblems.length) codes.push("with_open_problem");
   } else if (world.activeProblems.length > 0) {
     label = "debugging"; confidence = 0.8; codes.push(`open_problems_${world.activeProblems.length}`);
+  } else if (isSwitching(b.recentKeys ?? [], config.switchingKeys)) {
+    label = "switching"; confidence = 0.75; codes.push(`alternating_${new Set((b.recentKeys ?? []).slice(-config.switchingKeys)).size}_contexts`);
   } else if (b.recentEntities.length >= config.exploringEntities) {
     label = "exploring"; confidence = 0.7; codes.push(`entities_${b.recentEntities.length}`);
   } else {

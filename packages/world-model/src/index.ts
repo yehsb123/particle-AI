@@ -83,7 +83,7 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
   }
 
   // ── Behavior (Concept v2): L0–L3 sensing events fold into world.behavior ──
-  const b = { ...prev.behavior, recentEntities: [...prev.behavior.recentEntities] };
+  const b = { ...prev.behavior, recentEntities: [...prev.behavior.recentEntities], recentKeys: [...(prev.behavior.recentKeys ?? [])] };
   switch (event.type) {
     case "user.interaction": {
       // { kind: click|scroll|hover|key, target? } — shape only, never content
@@ -109,6 +109,7 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
       if (key) {
         b.repeatCount = key === b.lastActionKey ? b.repeatCount + 1 : 1;
         b.lastActionKey = key;
+        b.recentKeys = [...b.recentKeys, key].slice(-8);
         b.awaySeconds = 0;
       }
       break;
@@ -123,6 +124,7 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
         b.recentEntities = [...b.recentEntities.filter((e) => e !== path), path].slice(-8);
         b.repeatCount = path === b.lastActionKey ? b.repeatCount + 1 : 1;
         b.lastActionKey = path;
+        b.recentKeys = [...b.recentKeys, path].slice(-8);
       }
       break;
     }

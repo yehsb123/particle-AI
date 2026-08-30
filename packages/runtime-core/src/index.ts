@@ -34,7 +34,7 @@ import {
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
 import { MemorySystem, type PatternCandidate } from "@particle/memory";
-import { inferIntent } from "@particle/intent-engine";
+import { inferIntent, intentChanged } from "@particle/intent-engine";
 import type { ApprovalRequest } from "@particle/contracts";
 
 export type RuntimeClock = { iso: () => string; ms: () => number };
@@ -200,11 +200,18 @@ export class RuntimeCore {
 
     // Reflex significance is judged against the world BEFORE the event is folded in — that is
     // what tells us the event matters (e.g. a recovery closes a problem that is still open here).
-    const significance = evaluateSignificance(event, s.world, this.deps.significanceConfig);
+    let significance = evaluateSignificance(event, s.world, this.deps.significanceConfig);
 
     // Perception → world → continuous intent (Concept v2: always present, no error needed)
+    const prevIntent = s.world.inferredIntent;
     s.world = reduce(s.world, event);
-    s.world = { ...s.world, inferredIntent: inferIntent(s.world) };
+    const nextIntent = inferIntent(s.world);
+    s.world = { ...s.world, inferredIntent: nextIntent };
+    // Some intents can only be seen AFTER the event is folded in (e.g. the 6th alternation that
+    // makes "switching"). An intent transition is itself significant — deliberate on it.
+    if (!significance.shouldDeliberate && intentChanged(prevIntent, nextIntent) && nextIntent.label === "switching") {
+      significance = { ...significance, shouldDeliberate: true, reasonCodes: [...significance.reasonCodes.filter((c) => c !== "reflex_only"), "intent_transition", "deliberate"] };
+    }
     s.presence = nextPresence(s.presence, significance);
 
     const base: IngestResult = {

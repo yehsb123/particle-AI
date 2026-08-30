@@ -46,6 +46,13 @@ Updated at the end of each phase.
   presence popover renders "currently sensing — this page: …  · browser extension: …  · desktop
   agent: …" from that state, so the indicator can only say what the sensors actually reported
   (Concept v2 privacy rule #3). world-model 8 tests, extension 9.
+- **"switching" intent** (2026-08-31): `BehaviorState.recentKeys` (last 8 action/entity keys);
+  `isSwitching` = the last 6 keys all change yet span ≤3 contexts (A B A B A B) — juggling, as
+  opposed to breadth ("exploring"). Intent transitions seen only *after* the reduce now trigger
+  deliberation (`intent_transition` reason code) — deterministic, replay-safe. Brain augments with
+  the "Juggling several things" card whose text is bound to `workspace.get_state:juggling` (the
+  actual places being alternated). Agent senses git branch switches (`user.action branch:<name>`,
+  name only) and announces the `git` layer. intent-engine 9, world-model 9, runtime-core 21.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

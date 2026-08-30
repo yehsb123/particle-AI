@@ -1,5 +1,5 @@
 import type { UIBlueprint, UIComponent, UIMorphIntent, UIPatch } from "@particle/contracts";
-import { incidentPatch, recoveryPatch, augmentPatch, type IncidentKind, type AugmentKind } from "./blueprints";
+import { incidentPatch, recoveryPatch, augmentPatch, type IncidentKind, type AugmentKind, AUGMENT_TITLES } from "./blueprints";
 
 const INCIDENT_KINDS: IncidentKind[] = ["runtime_error", "build_failure", "test_failure", "security_alert", "network_failure"];
 function asIncidentKind(v: string | undefined): IncidentKind {
@@ -36,11 +36,11 @@ export function planMorph(
       return incidentPresent ? recoveryPatch(decisionId) : null;
     case "augment": {
       // one context card at a time; a different augment replaces the current one
-      const kind: AugmentKind = variant === "stuck" ? "stuck" : "returning";
+      const kind: AugmentKind = variant === "stuck" || variant === "switching" ? variant : "returning";
       const existing = findById(current.root, "context");
       const patch = augmentPatch(decisionId, kind);
       if (existing) {
-        if (existing.props?.title === (kind === "stuck" ? "You seem stuck on this" : "Welcome back")) return null;
+        if (existing.props?.title === AUGMENT_TITLES[kind]) return null;
         const add = patch.operations[0];
         if (add && add.op === "add") return { ...patch, operations: [{ op: "replace", targetId: "context", component: add.component }] };
       }

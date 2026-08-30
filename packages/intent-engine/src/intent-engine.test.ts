@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inferIntent, intentChanged } from "./index";
+import { inferIntent, intentChanged, isSwitching } from "./index";
 import { emptyWorldState, type WorldState } from "@particle/contracts";
 
 const T = "2026-08-31T00:00:00Z";
@@ -41,5 +41,16 @@ describe("inferIntent (behavior → intent, no error needed)", () => {
     expect(intentChanged(undefined, a)).toBe(true);
     expect(intentChanged(a, a)).toBe(false);
     expect(intentChanged(a, b)).toBe(true);
+  });
+});
+
+describe("switching (juggling a few contexts)", () => {
+  it("A B A B A B reads as switching; many distinct entities read as exploring; A A A is stuck", () => {
+    const base = emptyWorldState("s", "2026-08-31T00:00:00Z");
+    const w = (keys: string[], entities: string[] = []) => ({ ...base, behavior: { ...base.behavior, recentKeys: keys, recentEntities: entities } });
+    expect(inferIntent(w(["a", "b", "a", "b", "a", "b"], ["a", "b"])).label).toBe("switching");
+    expect(isSwitching(["a", "b", "a", "b", "a"], 6)).toBe(false); // not enough evidence yet
+    expect(isSwitching(["a", "b", "b", "a", "b", "a"], 6)).toBe(false); // a repeat breaks the alternation
+    expect(inferIntent(w(["a", "b", "c", "d", "e", "f"], ["a", "b", "c", "d", "e", "f"])).label).toBe("exploring");
   });
 });

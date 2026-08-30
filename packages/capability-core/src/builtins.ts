@@ -48,7 +48,17 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
         const summary = problems.length
           ? `${problems.length} open problem(s): ${problems.map((p) => p.summary).join("; ")}.`
           : `Nothing broke while you were away. ${files.length ? `Recent files: ${files.slice(-3).join(", ")}.` : "Workspace is calm."}`;
-        return { activeContext: w?.activeContext ?? {}, activeProblems: problems, goal: w?.currentGoal ?? null, summary };
+        const juggling = [...new Set((w?.behavior.recentKeys ?? []).slice(-6))];
+        return {
+          activeContext: w?.activeContext ?? {},
+          activeProblems: problems,
+          goal: w?.currentGoal ?? null,
+          summary,
+          // for the "switching" context card: the few places the person keeps moving between
+          juggling: juggling.length
+            ? `Moving between: ${juggling.map((k) => `\`${k}\``).join(" · ")}. Pinned here so you don't have to hold them in your head.`
+            : "You keep moving between a few places. They are pinned here so you don't have to hold them in your head.",
+        };
       },
     ),
     cap(

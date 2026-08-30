@@ -13,7 +13,8 @@
  * Nothing runs unless you opt in with DM_WATCH_PATHS or a pipe. Events go to the LOCAL runtime.
  */
 import { watch, existsSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFile } from "node:child_process";
+import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
 import { relPath, isIgnored, matterEvent, OutputTracker, type Signal } from "./shape";
 
@@ -61,6 +62,23 @@ function watchPaths(paths: string[]): void {
   }
 }
 
+/** Branch switches are a strong context-switch signal: `git rev-parse --abbrev-ref HEAD` polled, name only. */
+function watchGitBranch(root: string, everyMs = 3000): void {
+  let last: string | undefined;
+  const tick = () =>
+    execFile("git", ["-C", root, "rev-parse", "--abbrev-ref", "HEAD"], { timeout: 2000 }, (err, out) => {
+      if (err) return;
+      const branch = out.trim();
+      if (!branch || branch === last) return;
+      const first = last === undefined;
+      last = branch;
+      if (!first) void send(matterEvent(SESSION, "user", "user.action", "debug", { key: `branch:${branch}` }));
+    });
+  tick();
+  setInterval(tick, everyMs);
+  process.stderr.write(`[particle-agent] sensing git branch switches in ${root} (branch name only)\n`);
+}
+
 function pipeOutput(): void {
   const tracker = new OutputTracker();
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -86,7 +104,9 @@ if (WATCH.length === 0 && !piped) {
   process.exit(0);
 }
 if (WATCH.length > 0) watchPaths(WATCH);
+const gitRoots = WATCH.map((p) => resolve(p)).filter((r) => existsSync(join(r, ".git")));
+for (const r of gitRoots) watchGitBranch(r);
 if (piped) pipeOutput();
 // tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
-const layers = [...(WATCH.length ? ["files"] : []), ...(piped ? ["output"] : [])];
+const layers = [...(WATCH.length ? ["files"] : []), ...(gitRoots.length ? ["git"] : []), ...(piped ? ["output"] : [])];
 void send(matterEvent(SESSION, "sensor", "sensor.layers_changed", "debug", { sensor: "agent", layers }));

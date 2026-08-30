@@ -492,11 +492,27 @@ export function recoveryPatch(decisionId = "decision-recovery"): UIPatch {
  * that serves the person's current intent (returning → re-entry summary; stuck → related
  * context). Idempotent by id "context"; recovery/undo remove it like any other morph.
  */
-export type AugmentKind = "returning" | "stuck";
+export type AugmentKind = "returning" | "stuck" | "switching";
+export const AUGMENT_TITLES: Record<AugmentKind, string> = {
+  returning: "Welcome back",
+  stuck: "You seem stuck on this",
+  switching: "Juggling several things",
+};
 
 export function augmentPatch(decisionId = "decision-augment", kind: AugmentKind = "returning"): UIPatch {
   const card: UIComponent =
-    kind === "returning"
+    kind === "switching"
+      ? {
+          id: "context",
+          type: "Card",
+          props: { title: AUGMENT_TITLES.switching },
+          children: [
+            { id: "context-text", type: "Markdown", props: { text: "You keep moving between a few places. They are pinned here so you don't have to hold them in your head." },
+              bindings: [{ prop: "text", source: "capability:workspace.get_state:juggling" }] },
+            { id: "context-dismiss", type: "Button", props: { text: "Dismiss", tone: "muted" }, actions: [{ event: "user.requested_undo" }] },
+          ],
+        }
+      : kind === "returning"
       ? {
           id: "context",
           type: "Card",

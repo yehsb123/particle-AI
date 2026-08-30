@@ -76,7 +76,30 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
       reasonSummary:
         "Problem detected in the current context; assembled read-only diagnostics and an incident view.",
     };
-  } else if (worldState.inferredIntent?.label === "returning" || worldState.inferredIntent?.label === "stuck") {
+  } else if (PROBLEM_CLOSERS.has(event.type) || significance.reasonCodes.includes("network_shape")) {
+    // A resolution always de-escalates first — before any behavior-driven augmentation is considered.
+    // (no problem is open here, so a "network_shape" signal can only be the last failing host recovering)
+    decision = {
+      id,
+      significance: significance.score,
+      worldStateUpdates: [],
+      intent: { label: "return_to_normal", confidence: 0.88 },
+      recommendedMode: "development",
+      capabilityPlan: { capabilities: [] },
+      uiPlan: {
+        intent: "restore_normal",
+        targetMode: "development",
+        confidence: 0.88,
+        reasonSummary: "The problem is resolved and stable; return to normal development mode.",
+      },
+      autonomyRequirement: { minLevel: 2, requiresApproval: false, risk: "read" },
+      reasonSummary: "Stability observed; de-escalated the workspace back to development.",
+    };
+  } else if (
+    worldState.inferredIntent?.label === "returning" ||
+    worldState.inferredIntent?.label === "stuck" ||
+    worldState.inferredIntent?.label === "switching"
+  ) {
     // Concept v2: respond to the PERSON, not to an error. No problem is open here.
     const intent = worldState.inferredIntent.label;
     decision = {
@@ -94,31 +117,17 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
         reasonSummary:
           intent === "returning"
             ? "You came back after being away; a short context summary helps re-entry."
-            : "The same action keeps repeating; surfacing related context beside your work.",
+            : intent === "switching"
+              ? "You keep moving between a few places; pinning them beside your work saves the re-finding."
+              : "The same action keeps repeating; surfacing related context beside your work.",
       },
       autonomyRequirement: { minLevel: 2, requiresApproval: false, risk: "read" },
       reasonSummary:
         intent === "returning"
           ? "Detected a return after time away (no error involved); augmented the workspace with a re-entry summary."
-          : "Detected a stuck pattern from repeated actions (no error involved); augmented the workspace with related context.",
-    };
-  } else if (PROBLEM_CLOSERS.has(event.type) || significance.reasonCodes.includes("network_shape")) {
-    // (no problem is open here, so a "network_shape" signal can only be the last failing host recovering)
-    decision = {
-      id,
-      significance: significance.score,
-      worldStateUpdates: [],
-      intent: { label: "return_to_normal", confidence: 0.88 },
-      recommendedMode: "development",
-      capabilityPlan: { capabilities: [] },
-      uiPlan: {
-        intent: "restore_normal",
-        targetMode: "development",
-        confidence: 0.88,
-        reasonSummary: "The problem is resolved and stable; return to normal development mode.",
-      },
-      autonomyRequirement: { minLevel: 2, requiresApproval: false, risk: "read" },
-      reasonSummary: "Stability observed; de-escalated the workspace back to development.",
+          : intent === "switching"
+            ? "Detected alternation between a few contexts (no error involved); pinned them beside the work."
+            : "Detected a stuck pattern from repeated actions (no error involved); augmented the workspace with related context.",
     };
   } else {
     decision = {

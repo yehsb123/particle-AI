@@ -6,6 +6,7 @@ day that happens in an editor and a terminal — still **shape only**.
 | Sense | Signal sent | Never sent |
 |---|---|---|
 | File saves under `DM_WATCH_PATHS` | `user.opened_file { path: "src/db.ts" }` (relative) | file contents, absolute paths, ignored dirs (`node_modules`, `.git`, `dist`, `.next`, …) |
+| Git branch switches (any watched root with `.git`) | `user.action { key: "branch:<name>" }` — alternating branches reads as **switching** | diffs, commits, remotes |
 | Piped tool output (`… \| pnpm agent`) | `development.test_failed { failing }`, `development.test_passed`, `development.build_failed { errors }`, `development.build_succeeded` — **transitions only** | the output lines themselves (they are passed through to your terminal untouched) |
 
 What the runtime does with it: repeated saves of the same file read as **stuck** (context card);

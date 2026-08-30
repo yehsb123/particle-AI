@@ -58,6 +58,8 @@ export const BehaviorState = z.object({
   repeatCount: z.number().int().nonnegative().default(0),
   /** distinct entities (files/views) touched recently — breadth of exploration */
   recentEntities: z.array(z.string()).default([]),
+  /** the last few action/entity keys in order — alternation between a few = "switching" */
+  recentKeys: z.array(z.string()).default([]),
   /** how many undo actions the user performed recently (a "don't do that" signal) */
   undoCount: z.number().int().nonnegative().default(0),
   /** L2 communication shape — per-host counters (host only; never URL path/query/body) */
@@ -75,7 +77,7 @@ export const BehaviorState = z.object({
 export type BehaviorState = z.infer<typeof BehaviorState>;
 
 export const EMPTY_BEHAVIOR: BehaviorState = {
-  interactions: 0, idleSeconds: 0, awaySeconds: 0, repeatCount: 0, recentEntities: [], undoCount: 0,
+  interactions: 0, idleSeconds: 0, awaySeconds: 0, repeatCount: 0, recentEntities: [], recentKeys: [], undoCount: 0,
   network: { requests: 0, failures: 0, slow: 0, failingHosts: [] },
 };
 

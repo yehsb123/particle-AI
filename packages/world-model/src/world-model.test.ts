@@ -94,3 +94,16 @@ describe("world-model sensing indicator (Concept v2 privacy rule #3)", () => {
     expect(s.sensing.x).toEqual(["ok"]);
   });
 });
+
+describe("world-model recent keys (switching input)", () => {
+  it("keeps the last 8 action/entity keys in order", () => {
+    let s = emptyWorldState("s", "2026-08-31T00:00:00Z");
+    const ev = (type: string, payload: Record<string, unknown>, id: string) => ({
+      id, sessionId: "s", timestamp: "2026-08-31T00:00:00Z", source: "user" as const, type, severity: "debug" as const, payload,
+    });
+    for (let i = 0; i < 10; i++) s = reduce(s, ev(i % 2 ? "user.action" : "user.opened_file", i % 2 ? { key: `k${i}` } : { path: `p${i}` }, `e${i}`));
+    expect(s.behavior.recentKeys).toHaveLength(8);
+    expect(s.behavior.recentKeys.at(-1)).toBe("k9");
+    expect(s.behavior.recentKeys[0]).toBe("p2");
+  });
+});

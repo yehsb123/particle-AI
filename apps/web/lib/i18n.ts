@@ -127,6 +127,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_network: { en: "communication shape", ko: "통신 형태" },
   layer_files: { en: "file saves", ko: "파일 저장" },
   layer_output: { en: "test/build output", ko: "테스트/빌드 출력" },
+  layer_git: { en: "git branch", ko: "git 브랜치" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },
@@ -234,6 +235,10 @@ const CONTENT: Record<string, string> = {
   "Watching for recovery": "복구 감시 중",
   "API 503": "API 503",
   "API recovered": "API 복구",
+  // switching (augment)
+  "Juggling several things": "여러 가지를 오가는 중",
+  "You keep moving between a few places. They are pinned here so you don't have to hold them in your head.":
+    "몇 곳을 계속 오가고 있어요. 머릿속에 붙들고 있지 않도록 여기 고정해 두었습니다.",
 };
 
 /** Translate a blueprint content string when in Korean; unknown strings (code, logs) pass through. */

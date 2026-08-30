@@ -289,3 +289,42 @@ describe("RuntimeCore — full loop", () => {
     expect(core.memoryFor("s").preferences.weightOf("dismissed:augment:stuck")).toBe(2);
   });
 });
+
+describe("RuntimeCore — switching (Concept v2)", () => {
+  it("alternating between two files reads as 'switching' and pins them beside the work (no error)", async () => {
+    const core = createRuntimeCore(makeClock());
+    const open = (n: number, path: string) => ({
+      id: `o${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.opened_file", severity: "debug" as const, payload: { path },
+    });
+    let last;
+    for (let i = 0; i < 6; i++) last = await core.ingest(open(i, i % 2 ? "src/db.ts" : "src/routes.ts"));
+    expect(last!.worldState.inferredIntent?.label).toBe("switching");
+    expect(last!.significance.reasonCodes).toContain("intent_transition");
+    expect(last!.morph.applied).toBe(true);
+    const card = findById(core.getBlueprint("s").root, "context");
+    expect(card?.props?.title).toBe("Juggling several things");
+    const text = String(findById(core.getBlueprint("s").root, "context-text")?.props?.text);
+    expect(text).toContain("src/db.ts");
+    expect(text).toContain("src/routes.ts");
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
+  });
+});
+
+describe("RuntimeCore — resolution beats augmentation", () => {
+  it("recovery wins over switching: a closer event restores the body even while the person is juggling", async () => {
+    const core = createRuntimeCore(makeClock());
+    const act = (n: number, key: string) => ({
+      id: `k${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key },
+    });
+    await core.ingest(ev("development.server_error", "critical", "e1"));
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
+    for (let i = 0; i < 6; i++) await core.ingest(act(i, i % 2 ? "recovered" : "http-500"));
+    // the person is now "switching" (A B A B A B) — the recovery must still de-escalate
+    const rec = await core.ingest(ev("development.server_recovered", "info", "e2"));
+    expect(rec.worldState.inferredIntent?.label).toBe("switching");
+    expect(rec.decision?.uiPlan?.intent).toBe("restore_normal");
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
+  });
+});
