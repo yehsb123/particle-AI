@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
-import { createRuntimeCore, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
+import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
@@ -50,6 +50,8 @@ export function Workspace() {
   const [connected, setConnected] = useState(false);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
+  const [events, setEvents] = useState<MatterEvent[]>([]);
+  const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
   const counter = useRef(0);
@@ -134,6 +136,7 @@ export function Workspace() {
     async (event: MatterEvent) => {
       pushLog(`${event.type} · ${event.severity}`, "event");
       setPresence("evaluating");
+      setEvents((e) => [...e, event]);
       const res = await core.current.ingest(event, attention);
       applyResult(res);
       if (!res.deliberated) pushLog(`no morph — ${event.type} not significant`, "note");
@@ -240,6 +243,15 @@ export function Workspace() {
     }),
     [undo, pushLog, lang],
   );
+
+  // Spec §21: replay the session's event log through a fresh core and check determinism.
+  const replayVerify = useCallback(async () => {
+    if (events.length === 0) return setReplayResult("none");
+    const { core: fresh } = await replay(events, { iso: nowIso, ms: () => Date.now() });
+    const same = JSON.stringify(fresh.getBlueprint(SESSION).root) === JSON.stringify(core.current.getBlueprint(SESSION).root);
+    setReplayResult(same ? "identical" : "differs");
+    pushLog(same ? "replay ✓ deterministic" : "replay differs (undo/approval not events)", same ? "morph" : "note");
+  }, [events, pushLog]);
 
   const applyTheme = (t: "system" | "dark" | "light") => {
     setTheme(t);
@@ -380,6 +392,15 @@ export function Workspace() {
         </div>
         {devMode ? (
           <div style={{ paddingTop: 16 }}>
+            <div className="simrow" style={{ alignItems: "center", marginBottom: 10 }}>
+              <button className="btn" onClick={() => void replayVerify()}>{t("replayBtn", lang)}</button>
+              {replayResult ? (
+                <span className={`badge ${replayResult === "identical" ? "ok" : replayResult === "differs" ? "warn" : ""}`}>
+                  <span className="dot" />
+                  {replayResult === "identical" ? t("replayIdentical", lang) : replayResult === "differs" ? t("replayDiffers", lang) : t("replayNone", lang)}
+                </span>
+              ) : null}
+            </div>
             <DeveloperInspector debug={debug} lang={lang} />
           </div>
         ) : null}

@@ -20,4 +20,9 @@ test("security scenario: vulnerability morphs a security workspace; update is ga
   // patched → back to the development workspace
   await page.getByRole("button", { name: "Vulnerability patched" }).click();
   await expect(page.getByText("Security alert", { exact: true })).toHaveCount(0);
+
+  // spec §21: replaying the session's event log reproduces this exact UI (determinism)
+  await page.getByRole("button", { name: "Developer mode" }).click();
+  await page.getByRole("button", { name: "Replay & verify" }).click();
+  await expect(page.getByText(/deterministic ✓/)).toBeVisible();
 });

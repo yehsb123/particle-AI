@@ -77,6 +77,11 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   },
   patternTimes: { en: "times", ko: "회 반복" },
   patternLater: { en: "Maybe later", ko: "나중에" },
+  // replay (spec §21)
+  replayBtn: { en: "Replay & verify", ko: "리플레이 & 검증" },
+  replayIdentical: { en: "deterministic ✓ — replaying the event log reproduced this exact UI", ko: "결정론 ✓ — 이벤트 로그 리플레이가 현재 UI를 정확히 재현했습니다" },
+  replayDiffers: { en: "differs — undo/approvals are not events, so the replay diverged (expected)", ko: "불일치 — undo/승인은 이벤트가 아니므로 리플레이가 달라짐 (정상)" },
+  replayNone: { en: "no events to replay yet", ko: "리플레이할 이벤트가 없습니다" },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },
