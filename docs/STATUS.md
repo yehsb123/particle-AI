@@ -29,6 +29,12 @@ Updated at the end of each phase.
   before it (multi-step undo) — reversibility made visible.
 - **Held-morph explanations**: when the guard holds a change (cooldown, dwell, focus/unsaved
   protection, low confidence) the body says why in plain language (EN/KO).
+- **Accessibility audit (axe-core)**: E2E fails on serious/critical WCAG A/AA violations across
+  initial, incident and developer-mode states; fixed accessible names, focusable scroll
+  regions, and light-theme contrast (warn/ok badges, primary hover).
+- **CI runs the full Playwright suite** (7 specs); connected mode self-skips without a server.
+- **Connected-mode parity**: server responses carry patternSuggestions; held reasons and
+  pattern banners render in server mode too.
 
 ## Completion sprint (all committed)
 - **@particle/memory** (§20): working/episodic/preference stores + `PatternDetector` that
