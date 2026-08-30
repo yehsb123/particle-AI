@@ -15,7 +15,7 @@
 import { watch, existsSync, statSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, matterEvent, OutputTracker, branchFromHead, gitDirFrom, type Signal } from "./shape";
+import { relPath, isIgnored, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, type Signal } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -148,6 +148,15 @@ if (WATCH.length === 0 && !piped) {
   );
   process.exit(0);
 }
+// one startup probe: sensing stays best-effort, but a silent black hole helps nobody
+void fetch(`${RUNTIME}/health`, { signal: AbortSignal.timeout(2_000) })
+  .then((r) => { if (!r.ok) throw new Error(String(r.status)); })
+  .catch(() => {
+    const w = healthWarning(RUNTIME, false);
+    if (w) process.stderr.write(w + "
+");
+  });
+
 if (WATCH.length > 0) watchPaths(WATCH);
 const gitRoots = WATCH.map((p) => resolve(p)).filter((r) => watchGitBranch(r));
 if (piped) pipeOutput();

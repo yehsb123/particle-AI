@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
-import { relPath, isIgnored, classifyLine, OutputTracker, matterEvent, branchFromHead, gitDirFrom } from "./shape";
+import { relPath, isIgnored, classifyLine, OutputTracker, matterEvent, branchFromHead, gitDirFrom, healthWarning } from "./shape";
 
 describe("desktop agent shaping (privacy)", () => {
   it("sends relative forward-slash paths, never the absolute location", () => {
@@ -21,6 +21,14 @@ describe("desktop agent shaping (privacy)", () => {
     expect(e.sessionId).toBe("desktop");
     expect(e.timestamp).toBe("2026-08-31T00:00:00.000Z");
     expect(e.payload).toEqual({ path: "src/db.ts" });
+  });
+});
+
+describe("startup health warning", () => {
+  it("warns once when the runtime is down, stays silent when it is up", () => {
+    expect(healthWarning("http://localhost:8787", true)).toBeNull();
+    expect(healthWarning("http://localhost:8787", false)).toContain("http://localhost:8787");
+    expect(healthWarning("http://localhost:8787", false)).toContain("pnpm runtime");
   });
 });
 

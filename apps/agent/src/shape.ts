@@ -41,6 +41,11 @@ export function gitDirFrom(root: string, dotGitIsDir: boolean, dotGitText: strin
   return m?.[1] ? resolvePath(root, m[1].trim()) : null;
 }
 
+/** One-line startup warning when the runtime is unreachable (sensing stays best-effort). */
+export function healthWarning(runtimeUrl: string, reachable: boolean): string | null {
+  return reachable ? null : `[particle-agent] runtime not reachable at ${runtimeUrl} — events are dropped until it is up (pnpm runtime)`;
+}
+
 export type Severity = "debug" | "info" | "warning" | "critical";
 export type Source = "user" | "development" | "sensor";
 
