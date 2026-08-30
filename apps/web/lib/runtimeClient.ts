@@ -89,6 +89,16 @@ export class RuntimeClient {
     this.ws = undefined;
   }
 
+  /** Send a raw MatterEvent to the server (behavior keys, sensors) — same path the extension uses. */
+  async emit(event: unknown): Promise<SimResponse | null> {
+    const res = await fetch(`${this.httpBase}/api/events`, {
+      method: "POST",
+      headers: auth({ "content-type": "application/json" }),
+      body: JSON.stringify(event),
+    });
+    return (await res.json().catch(() => null)) as SimResponse | null;
+  }
+
   async emitSim(key: string): Promise<SimResponse | null> {
     const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST", headers: auth() });
     return (await res.json().catch(() => null)) as SimResponse | null;

@@ -212,7 +212,15 @@ export function Workspace() {
     if (mode === "connected" && client.current) {
       pushLog(`${spec.type} · ${spec.severity} → server`, "event");
       setPresence("evaluating");
-      void client.current.emitSim(spec.key).then((resp) => {
+      const c = client.current;
+      // a click is behavior in EVERY mode: the semantic action key goes first (repeats → "stuck")
+      void c
+        .emit({ id: `u${++counter.current}-${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.action", severity: "debug", payload: { key: spec.key } })
+        .then((r) => {
+          if (r?.learned) setLearned(r.learned);
+          return c.emitSim(spec.key);
+        })
+        .then((resp) => {
         if (resp?.pendingApprovals) addApprovals(resp.pendingApprovals);
         if (resp?.deliberated && resp.morph && !resp.morph.applied && resp.morph.guardReasonCodes.length) {
           setHeld({ codes: resp.morph.guardReasonCodes, at: Date.now(), retryMs: resp.retryAfterMs });
