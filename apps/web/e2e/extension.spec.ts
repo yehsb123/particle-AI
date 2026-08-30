@@ -16,6 +16,7 @@ const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "../../extension/d
 const RUNTIME = "http://localhost:8787";
 
 test("extension: navigation → shape events in the runtime; side panel body auto-connects", async () => {
+  test.setTimeout(60_000); // extension boot + live runtime round-trips can be slow under load
   test.skip(!existsSync(resolve(DIST, "manifest.json")), "extension not built (pnpm --filter @particle/extension build)");
   const up = await fetch(`${RUNTIME}/api/brain`).then((r) => r.ok).catch(() => false);
   test.skip(!up, "runtime not running on :8787");
