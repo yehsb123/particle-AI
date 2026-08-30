@@ -5,6 +5,7 @@ export type SimResponse = {
   morph?: { applied: boolean; guardReasonCodes: string[] };
   pendingApprovals?: ApprovalRequest[];
   patternSuggestions?: { key: string; count: number }[];
+  learned?: { suppressed: string; dismissals: number };
 };
 
 export type ServerMessage =

@@ -53,6 +53,7 @@ export function Workspace() {
   const [connected, setConnected] = useState(false);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
+  const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
   const [held, setHeld] = useState<{ codes: string[]; at: number } | null>(null);
@@ -90,6 +91,7 @@ export function Workspace() {
             .map((s) => ({ key: s.key, count: s.count })),
         ]);
       }
+      if (res.learned) setLearned(res.learned);
       setInspector({
         significance: res.significance.score,
         deliberated: res.deliberated,
@@ -180,6 +182,7 @@ export function Workspace() {
         if (resp?.patternSuggestions?.length) {
           setPatternSugs((p) => [...p, ...resp.patternSuggestions!.filter((x) => !p.some((y) => y.key === x.key))]);
         }
+        if (resp?.learned) setLearned(resp.learned);
       });
       return;
     }
@@ -607,6 +610,18 @@ export function Workspace() {
                 </div>
               ))}
             </div>
+          </section>
+        ) : null}
+
+        {learned ? (
+          <section style={{ background: "var(--accent-low)" }} aria-live="polite" data-testid="learned-banner">
+            <h3>{t("learnedTitle", lang)}</h3>
+            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
+              {t("learnedText", lang)} <span style={{ fontFamily: "var(--mono)" }}>{learned.suppressed}</span> · ×{learned.dismissals}
+            </p>
+            <button className="btn muted" style={{ padding: "4px 12px" }} onClick={() => setLearned(null)}>
+              {t("learnedOk", lang)}
+            </button>
           </section>
         ) : null}
 

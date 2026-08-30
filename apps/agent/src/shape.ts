@@ -10,7 +10,7 @@ const IGNORED_SEGMENTS = new Set(["node_modules", ".git", "dist", ".next", ".tur
 
 /** Relative, forward-slash path — never the absolute location on disk. */
 export function relPath(root: string, abs: string): string {
-  return relative(root, abs).split(sep).join("/");
+  return relative(root, abs).split(sep).join("/").replace(/\\/g, "/");
 }
 
 export function isIgnored(rel: string): boolean {

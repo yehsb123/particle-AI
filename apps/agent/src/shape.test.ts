@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { resolve } from "node:path";
 import { relPath, isIgnored, classifyLine, OutputTracker, matterEvent } from "./shape";
 
 describe("desktop agent shaping (privacy)", () => {
   it("sends relative forward-slash paths, never the absolute location", () => {
-    const rel = relPath("C:\\Users\\me\\proj", "C:\\Users\\me\\proj\\src\\db.ts");
-    expect(rel === "src/db.ts" || rel === "../me/proj/src/db.ts" || rel.endsWith("src/db.ts")).toBe(true);
-    expect(rel).not.toContain("\\");
+    const root = resolve("proj");
+    expect(relPath(root, resolve(root, "src", "db.ts"))).toBe("src/db.ts");
+    expect(relPath(root, resolve(root, "deep", "er", "x.tsx"))).toBe("deep/er/x.tsx");
+    expect(relPath(root, resolve(root, "src", "db.ts"))).not.toContain("\\");
   });
   it("ignores build output, deps, VCS internals, temp and lock files", () => {
     for (const p of ["node_modules/x/y.js", ".git/HEAD", "dist/a.js", ".next/b", "src/.foo.swp", "src/a.ts~", "pnpm-lock.yaml.lock", "../outside.ts", ""]) {

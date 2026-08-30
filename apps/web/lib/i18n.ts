@@ -77,6 +77,13 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   },
   patternTimes: { en: "times", ko: "회 반복" },
   patternLater: { en: "Maybe later", ko: "나중에" },
+  // learned-preference banner (Concept v2 P4 — undo is feedback)
+  learnedTitle: { en: "Learned from you", ko: "학습했어요" },
+  learnedText: {
+    en: "You dismissed this kind of change twice, so it won't be offered automatically again this session:",
+    ko: "이런 종류의 변경을 두 번 닫으셔서 이 세션에서는 더 이상 자동으로 띄우지 않습니다:",
+  },
+  learnedOk: { en: "Got it", ko: "확인" },
   // replay (spec §21)
   replayBtn: { en: "Replay & verify", ko: "리플레이 & 검증" },
   replayIdentical: { en: "deterministic ✓ — replaying the event log reproduced this exact UI", ko: "결정론 ✓ — 이벤트 로그 리플레이가 현재 UI를 정확히 재현했습니다" },
