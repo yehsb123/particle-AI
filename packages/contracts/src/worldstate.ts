@@ -60,11 +60,23 @@ export const BehaviorState = z.object({
   recentEntities: z.array(z.string()).default([]),
   /** how many undo actions the user performed recently (a "don't do that" signal) */
   undoCount: z.number().int().nonnegative().default(0),
+  /** L2 communication shape — per-host counters (host only; never URL path/query/body) */
+  network: z
+    .object({
+      requests: z.number().int().nonnegative().default(0),
+      failures: z.number().int().nonnegative().default(0),
+      /** requests slower than the slow threshold */
+      slow: z.number().int().nonnegative().default(0),
+      /** hosts with the most recent failure first */
+      failingHosts: z.array(z.string()).default([]),
+    })
+    .default({ requests: 0, failures: 0, slow: 0, failingHosts: [] }),
 });
 export type BehaviorState = z.infer<typeof BehaviorState>;
 
 export const EMPTY_BEHAVIOR: BehaviorState = {
   interactions: 0, idleSeconds: 0, awaySeconds: 0, repeatCount: 0, recentEntities: [], undoCount: 0,
+  network: { requests: 0, failures: 0, slow: 0, failingHosts: [] },
 };
 
 export const ActiveContext = z.object({

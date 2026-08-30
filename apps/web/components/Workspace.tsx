@@ -28,7 +28,9 @@ type Inspector = {
   dropped: string[];
 };
 
-const SESSION = "session-local";
+const SESSION =
+  typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("session") ?? "session-local" : "session-local";
+const AUTO_CONNECT = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("connect") === "1";
 const nowIso = () => new Date().toISOString();
 
 export function Workspace() {
@@ -275,6 +277,14 @@ export function Workspace() {
       pushLog("switched to local runtime", "note");
     }
   }, [mode, handleServerMessage, pushLog]);
+
+  // Embedded body (extension side panel opens /?connect=1&session=ext): connect to the runtime once.
+  const toggleModeRef = useRef(toggleMode);
+  toggleModeRef.current = toggleMode;
+  useEffect(() => {
+    if (AUTO_CONNECT) void toggleModeRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rendererCtx = useMemo(
     () => ({

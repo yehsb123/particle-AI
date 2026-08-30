@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Particle AI — Sensing consent</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 560px; margin: 32px auto; padding: 0 16px; color: #1C1B1F; }
+  h1 { font-size: 18px; }
+  label { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid #E6E1E5; border-radius: 12px; margin: 10px 0; }
+  small { color: #605D64; }
+  code { background: #F5EFF7; padding: 1px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<h1>What Particle AI may sense</h1>
+<p><small>Shape only — never content. Nothing leaves this machine unless you enable a remote model in the runtime.</small></p>
+<label><input type="checkbox" id="interactions"> <span><b>Interactions (L0)</b><br><small>that you clicked / scrolled / typed and when — never <em>what</em></small></span></label>
+<label><input type="checkbox" id="tabs"> <span><b>Tabs &amp; focus (L3)</b><br><small>site hostnames you navigate to and time away — never full URLs or page text</small></span></label>
+<label><input type="checkbox" id="network"> <span><b>Communication shape (L2) — opt-in</b><br><small>hostname, status code and latency of requests — never paths, queries or bodies</small></span></label>
+<p><small>Runtime: <code>http://localhost:8787</code> · Body: side panel</small></p>
+<script src="options.js"></script>
+</body>
+</html>

@@ -50,3 +50,28 @@ describe("world-model reduce", () => {
     expect(next.recentEvents).toHaveLength(1);
   });
 });
+
+describe("world-model network shape (Concept v2, L2)", () => {
+  const net = (payload: Record<string, unknown>, id: string) =>
+    ev("network.request", { source: "sensor", payload, id, severity: "info" });
+
+  it("counts requests/slow and opens a network_failure problem on 5xx (host only)", () => {
+    let s = reduce(emptyWorldState("s", T), net({ host: "api.example.com", status: 200, ms: 120 }, "n1"));
+    s = reduce(s, net({ host: "api.example.com", status: 200, ms: 2500 }, "n2"));
+    expect(s.behavior.network.requests).toBe(2);
+    expect(s.behavior.network.slow).toBe(1);
+    s = reduce(s, net({ host: "api.example.com", status: 503 }, "n3"));
+    expect(s.behavior.network.failures).toBe(1);
+    expect(s.behavior.network.failingHosts).toEqual(["api.example.com"]);
+    expect(s.activeProblems.some((p) => p.kind === "network_failure")).toBe(true);
+    expect(s.activeProblems[0]!.summary).not.toMatch(/\?|\/api/); // no path/query leaks
+  });
+
+  it("clears the network problem once the failing host succeeds again", () => {
+    let s = reduce(emptyWorldState("s", T), net({ host: "api.example.com", status: 502 }, "n1"));
+    expect(s.activeProblems).toHaveLength(1);
+    s = reduce(s, net({ host: "api.example.com", status: 200, ms: 90 }, "n2"));
+    expect(s.activeProblems).toHaveLength(0);
+    expect(s.behavior.network.failingHosts).toEqual([]);
+  });
+});

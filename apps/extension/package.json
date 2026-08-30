@@ -1,0 +1,17 @@
+{
+  "name": "@particle/extension",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "esbuild": "0.21.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

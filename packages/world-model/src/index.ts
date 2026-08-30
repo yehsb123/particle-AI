@@ -126,6 +126,38 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
       }
       break;
     }
+    case "network.request": {
+      // L2 shape: { host, status?, ms?, error? } — never URL path/query/body
+      const host = str(event.payload.host) ?? "unknown";
+      const status = Number(event.payload.status ?? 0) || 0;
+      const ms = Number(event.payload.ms ?? 0) || 0;
+      const failed = event.payload.error === true || status >= 500;
+      const net = { ...b.network, failingHosts: [...b.network.failingHosts] };
+      net.requests += 1;
+      if (ms >= 2000) net.slow += 1;
+      if (failed) {
+        net.failures += 1;
+        net.failingHosts = [host, ...net.failingHosts.filter((h) => h !== host)].slice(0, 5);
+        if (!next.activeProblems.some((p) => p.kind === "network_failure")) {
+          next.activeProblems.push({
+            id: `prob-${event.id}`,
+            kind: "network_failure",
+            summary: `${host} is failing (${status || "network error"})`,
+            severity: "warning",
+            openedByEventId: event.id,
+            openedAt: event.timestamp,
+          });
+        }
+      } else if (status > 0 && status < 400) {
+        // a later success to a failing host clears the network problem
+        net.failingHosts = net.failingHosts.filter((h) => h !== host);
+        if (net.failingHosts.length === 0) {
+          next.activeProblems = next.activeProblems.filter((p) => p.kind !== "network_failure");
+        }
+      }
+      b.network = net;
+      break;
+    }
   }
   next.behavior = b;
 

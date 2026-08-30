@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Particle AI",
+  "version": "0.1.0",
+  "description": "An AI skin for your browser: observes behavior and communication shape (never content), infers intent, and reshapes a side-panel workspace around what you are doing.",
+  "permissions": ["tabs", "webNavigation", "webRequest", "storage", "sidePanel", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }],
+  "side_panel": { "default_path": "sidepanel.html" },
+  "options_page": "options.html",
+  "action": { "default_title": "Particle AI — open the side panel" }
+}
