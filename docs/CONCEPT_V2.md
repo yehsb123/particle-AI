@@ -73,7 +73,7 @@ Sensing "everything" is only acceptable if:
 
 ## Phases (each independently valuable)
 
-Status (2026-08-31): P1 ✅ · P2 ✅ (extension + `network_failure` layout) · P3 ✅ (agent: files + piped output) · P4 ✅ (dismissal learning, persisted across reloads/restarts; cross-site templates pending). Details in `STATUS.md`.
+Status (2026-08-31): P1 ✅ · P2 ✅ (extension + `network_failure` layout) · P3 ✅ (agent: files + piped output) · P4 ✅ (dismissal learning AND pattern→template memory persisted across reloads/restarts; suggestions are offered once, ever). Details in `STATUS.md`.
 
 - **P1 Intent engine + in-app behavior sensing** — prove behavior→intent→morph with **no
   errors involved** inside the current web body (cheapest proof of the thesis).

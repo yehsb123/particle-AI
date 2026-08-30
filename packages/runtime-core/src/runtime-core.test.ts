@@ -473,3 +473,24 @@ describe("RuntimeCore — stale dismiss & system ticks", () => {
     expect(keys.some((k) => k.startsWith("runtime.reconcile"))).toBe(false);
   });
 });
+
+describe("RuntimeCore — patterns survive a restart (P4, templates across sessions)", () => {
+  it("export → import keeps counts AND the suggested flag, so nothing is re-offered", async () => {
+    const a = createRuntimeCore(makeClock());
+    let sugs = 0;
+    for (let round = 0; round < 3; round++) {
+      await a.ingest(ev("development.server_error", "critical", `e${round}`));
+      const rec = await a.ingest(ev("development.server_recovered", "info", `r${round}`));
+      sugs += rec.patternSuggestions.length;
+      // also count suggestions surfaced by the error ingests
+    }
+    const all = a.exportMemory("s");
+    expect(all.patterns.some((p) => p.count >= 3 && p.suggested)).toBe(true);
+
+    const b = createRuntimeCore(makeClock());
+    b.importMemory("s", JSON.parse(JSON.stringify(all)));
+    // the same flow again: counts keep growing but the already-seen suggestion is NOT re-offered
+    const out = await b.ingest(ev("development.server_error", "critical", "x1"));
+    expect(out.patternSuggestions.filter((p) => all.patterns.some((q) => q.key === p.key && q.suggested))).toEqual([]);
+  });
+});

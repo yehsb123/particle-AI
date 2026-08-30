@@ -427,7 +427,9 @@ export function Workspace() {
       try {
         const prefs = localStorage.getItem(PREFS_KEY);
         if (prefs) {
-          const parsedPrefs = JSON.parse(prefs) as { preferences?: { key: string; weight: number }[] };
+          // preferences ONLY: the event-log replay below re-observes the patterns, so importing
+          // them too would double-count (runtime-core.importMemory doc)
+          const parsedPrefs = { preferences: (JSON.parse(prefs) as { preferences?: { key: string; weight: number }[] }).preferences };
           importedPrefs.current = parsedPrefs;
           core.current.importMemory(SESSION, parsedPrefs);
         }

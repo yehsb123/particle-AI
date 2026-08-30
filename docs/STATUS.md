@@ -165,6 +165,11 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   event); Playwright workers serialized — options.spec and extension.spec share the live
   runtime's `ext` session, and parallel workers raced each other's consent toggles (the
   intermittent extension failure). 14 specs green, serial.
+- **Pattern memory persists** (2026-08-31): `exportMemory/importMemory` now carry the pattern
+  table (counts + the `suggested` flag), and the server's `memory` snapshots/resume restore it —
+  a restart never re-offers a template suggestion the person already saw, and counting continues
+  where it left off. The web restore imports preferences only (its event-log replay re-observes
+  patterns; importing both would double-count). memory 7, runtime-core 30 tests.
 - **Connected behavioral parity** (2026-08-31): sim clicks now carry their behavior key to the
   SERVER too (`RuntimeClient.emit`), so a server session reads repeats as "stuck", learns from
   dismissals (undo attribution over REST) and notifies the withheld morph — `connected-learn.spec`

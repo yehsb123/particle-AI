@@ -21,6 +21,30 @@ export class PatternDetector {
     return created;
   }
 
+  /** Every observed pattern (for persistence across restarts), threshold or not. */
+  entries(): PatternCandidate[] {
+    return [...this.counts.values()].map((c) => ({ ...c }));
+  }
+
+  /**
+   * Restore persisted patterns. Max count wins and `suggested` is sticky, so a restart never
+   * re-offers a template the person already saw. Garbage is ignored; the table stays bounded.
+   */
+  load(items: PatternCandidate[]): void {
+    for (const it of items) {
+      if (typeof it?.key !== "string" || !Number.isFinite(it.count) || it.count < 1) continue;
+      if (this.counts.size >= 500 && !this.counts.has(it.key)) continue;
+      const existing = this.counts.get(it.key);
+      if (!existing) {
+        this.counts.set(it.key, { key: it.key, count: Math.floor(it.count), firstSeen: String(it.firstSeen ?? ""), lastSeen: String(it.lastSeen ?? ""), suggested: it.suggested === true });
+      } else {
+        existing.count = Math.max(existing.count, Math.floor(it.count));
+        existing.suggested = existing.suggested || it.suggested === true;
+        if (it.lastSeen && String(it.lastSeen) > existing.lastSeen) existing.lastSeen = String(it.lastSeen);
+      }
+    }
+  }
+
   /** All keys that have reached the threshold. */
   candidates(): PatternCandidate[] {
     return [...this.counts.values()].filter((c) => c.count >= this.threshold);

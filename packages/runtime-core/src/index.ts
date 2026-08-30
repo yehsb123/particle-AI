@@ -34,6 +34,7 @@ import {
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
 import { MemorySystem, type PatternCandidate, type Preference } from "@particle/memory";
+export type ExportedMemory = { preferences: Preference[]; patterns: PatternCandidate[] };
 import { inferIntent, intentChanged } from "@particle/intent-engine";
 import type { ApprovalRequest } from "@particle/contracts";
 
@@ -222,13 +223,21 @@ export class RuntimeCore {
   }
 
   /** What the runtime has learned about this person that should outlive the session (P4). */
-  exportMemory(sessionId: string): { preferences: Preference[] } {
-    return { preferences: this.session(sessionId).memory.preferences.entries() };
+  exportMemory(sessionId: string): ExportedMemory {
+    const m = this.session(sessionId).memory;
+    return { preferences: m.preferences.entries(), patterns: m.patterns.entries() };
   }
-  /** Bring learned preferences back (e.g. from localStorage or a durable snapshot). */
-  importMemory(sessionId: string, memory: { preferences?: Preference[] } | null | undefined): void {
-    if (!memory?.preferences?.length) return;
-    this.session(sessionId).memory.preferences.load(memory.preferences);
+  /**
+   * Bring learned memory back (e.g. from a durable snapshot). Patterns restore with their
+   * `suggested` flag, so a restart never re-offers a template the person already saw.
+   * NOTE: a host that also REPLAYS the event log must import preferences only — replay
+   * re-observes the patterns, and importing them too would double-count.
+   */
+  importMemory(sessionId: string, memory: { preferences?: Preference[]; patterns?: PatternCandidate[] } | null | undefined): void {
+    if (!memory) return;
+    const m = this.session(sessionId).memory;
+    if (memory.preferences?.length) m.preferences.load(memory.preferences);
+    if (memory.patterns?.length) m.patterns.load(memory.patterns);
   }
 
   /** Public entry: serialize ingests per session so concurrent events cannot interleave. */

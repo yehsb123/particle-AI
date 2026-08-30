@@ -70,3 +70,24 @@ describe("MemorySystem", () => {
     expect(m.patterns.observe("x", T(2)).count).toBe(2);
   });
 });
+
+describe("PatternDetector persistence", () => {
+  it("restores patterns without re-offering suggested ones; garbage ignored; max count wins", () => {
+    const a = new PatternDetector(3);
+    for (let i = 0; i < 3; i++) a.observe("k", T(i));
+    expect(a.takeSuggestions().map((c) => c.key)).toEqual(["k"]); // offered once
+    const saved = a.entries();
+
+    const b = new PatternDetector(3);
+    b.load(JSON.parse(JSON.stringify(saved)) as typeof saved);
+    expect(b.takeSuggestions()).toEqual([]); // a restart never re-offers
+    expect(b.observe("k", T(9)).count).toBe(4); // counting continues from the restored value
+
+    const c = new PatternDetector(3);
+    c.observe("k", T(0));
+    c.load([{ key: "k", count: 2, firstSeen: T(0), lastSeen: T(1), suggested: false }]);
+    expect(c.observe("k", T(2)).count).toBe(3); // max(1,2)+1
+    c.load([{ key: 1 as unknown as string, count: NaN, firstSeen: "", lastSeen: "", suggested: false }]);
+    expect(c.entries().every((e) => typeof e.key === "string")).toBe(true);
+  });
+});
