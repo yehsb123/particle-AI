@@ -15,6 +15,18 @@ export type ServerMessage =
   | { kind: "decision_created"; sessionId: string; audit: { id: string; kind: string; detail: Record<string, unknown> }[] }
   | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } };
 
+/**
+ * Shared secret (optional): from the page URL (`?token=` — how the extension side panel passes it)
+ * or the build-time env. Sent as a header on REST and as `?token=` on the WS upgrade.
+ */
+const TOKEN =
+  (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") : null) ??
+  process.env.NEXT_PUBLIC_DM_TOKEN ??
+  "";
+function auth(extra: Record<string, string> = {}): Record<string, string> {
+  return TOKEN ? { ...extra, "x-particle-token": TOKEN } : extra;
+}
+
 /** Browser client for the Particle AI runtime server (REST + WebSocket). */
 export class RuntimeClient {
   private ws?: WebSocket;
@@ -29,7 +41,8 @@ export class RuntimeClient {
   ) {}
 
   get wsUrl(): string {
-    return this.httpBase.replace(/^http/, "ws") + `/ws/sessions/${this.sessionId}`;
+    const q = TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : "";
+    return this.httpBase.replace(/^http/, "ws") + `/ws/sessions/${this.sessionId}${q}`;
   }
 
   connect(onMessage: (m: ServerMessage) => void, onStatus: (open: boolean) => void): void {
@@ -76,32 +89,32 @@ export class RuntimeClient {
   }
 
   async emitSim(key: string): Promise<SimResponse | null> {
-    const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST" });
+    const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST", headers: auth() });
     return (await res.json().catch(() => null)) as SimResponse | null;
   }
 
   async undo(opts: { componentId?: string; learn?: boolean } = {}): Promise<void> {
     await fetch(`${this.httpBase}/api/morph/${this.sessionId}/undo`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: auth({ "content-type": "application/json" }),
       body: JSON.stringify(opts),
     });
   }
 
   async approve(approvalId: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/approvals/${approvalId}/approve`, { method: "POST" });
+    await fetch(`${this.httpBase}/api/approvals/${approvalId}/approve`, { method: "POST", headers: auth() });
   }
 
   async reject(approvalId: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/approvals/${approvalId}/reject`, { method: "POST" });
+    await fetch(`${this.httpBase}/api/approvals/${approvalId}/reject`, { method: "POST", headers: auth() });
   }
 
   async setAutonomy(level: number): Promise<void> {
-    await fetch(`${this.httpBase}/api/autonomy/${level}`, { method: "POST" });
+    await fetch(`${this.httpBase}/api/autonomy/${level}`, { method: "POST", headers: auth() });
   }
 
   async getUI(): Promise<UIBlueprint> {
-    const res = await fetch(`${this.httpBase}/api/sessions/${this.sessionId}/ui`);
+    const res = await fetch(`${this.httpBase}/api/sessions/${this.sessionId}/ui`, { headers: auth() });
     return (await res.json()) as UIBlueprint;
   }
 }

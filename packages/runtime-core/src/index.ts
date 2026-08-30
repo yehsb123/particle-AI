@@ -407,7 +407,8 @@ export class RuntimeCore {
           eventTypes: [event.type],
         });
         s.memory.preferences.reinforce(`morph:${intent}`);
-        s.memory.patterns.observe(`${event.type}->${intent}`, iso);
+        // system-internal ticks (reconcile) are not the person's behavior — never a pattern
+        if (event.source !== "system") s.memory.patterns.observe(`${event.type}->${intent}`, iso);
         patternSuggestions = s.memory.patterns.takeSuggestions();
       } else {
         audit.push(this.record(event.sessionId, "morph_blocked", { intent, reasonCodes: guard.reasonCodes }));
@@ -489,7 +490,13 @@ export class RuntimeCore {
         decisionId: "user-dismiss",
         operations: [{ op: "remove", targetId: opts.componentId }],
       };
-      const { next, inverse: inv } = applyPatch(s.blueprint, remove, this.deps.clock.iso());
+      let applied: ReturnType<typeof applyPatch>;
+      try {
+        applied = applyPatch(s.blueprint, remove, this.deps.clock.iso());
+      } catch {
+        return null; // stale click — the card is already gone; nothing to do, nothing to learn
+      }
+      const { next, inverse: inv } = applied;
       s.history.push(inv);
       s.morphMeta.push({ intent: "dismiss", variant: opts.componentId, componentIds: [opts.componentId] });
       while (s.morphMeta.length > s.history.depth) s.morphMeta.shift();

@@ -43,7 +43,8 @@ export async function buildServer(): Promise<BuildResult> {
     // Shared secret (when configured) guards every read and write except the health probe.
     // WebSocket clients cannot set headers → `?token=` is accepted for the upgrade.
     if (token && req.url !== "/health") {
-      const q = new URL(req.url, "http://local").searchParams.get("token");
+      // ?token= only for the WS upgrade (browsers cannot set headers there); everything else uses the header
+      const q = req.url.startsWith("/ws/") ? new URL(req.url, "http://local").searchParams.get("token") : null;
       if (req.headers["x-particle-token"] !== token && q !== token) return reply.code(401).send({ error: "token required" });
     }
   });

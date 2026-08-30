@@ -75,7 +75,10 @@ export class SessionRuntime {
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
-    this.scheduleReconcile(event.sessionId, result.retryAfterMs);
+    // A pending reconcile must SURVIVE unrelated events (a file save, an interaction batch) —
+    // cancel only once the body actually caught up; re-arm when a new hold reports a time.
+    if (result.morph.applied) this.cancelReconcile(event.sessionId);
+    else if (result.retryAfterMs !== undefined) this.scheduleReconcile(event.sessionId, result.retryAfterMs);
     if (result.learned) this.emit({ kind: "learned", sessionId: event.sessionId, learned: result.learned });
 
     // Structured trace + log for the developer inspector / observability.
@@ -166,13 +169,16 @@ export class SessionRuntime {
    * One pending tick per session; it is an ordinary event, so the log and replay see it too.
    */
   private reconcileTimers = new Map<string, NodeJS.Timeout>();
-  private scheduleReconcile(sessionId: string, afterMs: number | undefined): void {
+  private cancelReconcile(sessionId: string): void {
     const prev = this.reconcileTimers.get(sessionId);
     if (prev) clearTimeout(prev);
     this.reconcileTimers.delete(sessionId);
-    if (afterMs === undefined) return;
+  }
+  private scheduleReconcile(sessionId: string, afterMs: number): void {
+    this.cancelReconcile(sessionId);
     const t = setTimeout(() => {
       this.reconcileTimers.delete(sessionId);
+      if (!this.core.hasSession(sessionId)) return; // evicted meanwhile — do not resurrect it
       void this.ingest({
         id: `reconcile-${sessionId}-${Date.now()}`,
         sessionId,

@@ -146,6 +146,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   so the log and replay see exactly what happened. Verified live: "Build failure" absent right after
   the third transition, present ~6 s later. WS now also carries `learned` (connected-mode banner).
   Agent pipe verified: 13 repeated tsc-style lines → 3 transition events. runtime-core 27.
+- **Third review (10 findings, all addressed)** (2026-08-31): a pending reconcile now SURVIVES
+  unrelated events (cancelled only when the morph applies; the fixed bug had silently returned for
+  any session with live sensors); token mode no longer bricks the body — the web client sends
+  `x-particle-token` (from `NEXT_PUBLIC_DM_TOKEN` or `?token=`, which the side panel appends from
+  extension storage) and the WS URL carries `?token=` (now honoured ONLY on `/ws/`); the restore
+  gate opens in `finally` so a stale saved log can never deadlock all ingestion; a stale targeted
+  dismiss (card already gone) is a quiet no-op instead of a MorphApplyError → 500; reconcile ticks
+  are never recorded as user patterns; the web reconcile timer is cleared on unmount and a real
+  remount restores again (WeakSet per core); attention-held morphs get their second chance on focus
+  release; sensor send queues have a 5 s timeout and a 500-event cap (drop newest — order beats
+  completeness); evicted sessions get no tick; fake-timer server test proves the tick survives
+  unrelated events. runtime-core 29, runtime 17.
 - **Ordered sends** (2026-08-31): the same smoke exposed that agent/extension sends were parallel
   fetches — a recovery could overtake the failure it recovered from (observed: failed, failed,
   succeeded). Both sensors now serialize sends (one in-flight request); verified 3/3 back-to-back

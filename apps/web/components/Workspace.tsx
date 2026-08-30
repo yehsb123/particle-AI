@@ -42,8 +42,8 @@ const PREFS_KEY = `dm_prefs:${SESSION}`;
 // Live events wait until the saved log has been replayed, so nothing is stamped with a replayed
 // timestamp or written over the log mid-restore. Resolved immediately when there is nothing to restore.
 let releaseRestore: () => void = () => {};
-const restoreGate: Promise<void> = new Promise((r) => { releaseRestore = r; });
-const restoredSessions = new Set<string>(); // StrictMode mounts effects twice — replay once
+let restoreGate: Promise<void> = Promise.resolve(); // re-created per restore (see below)
+const restoredCores = new WeakSet<object>(); // StrictMode double-mounts share a core — replay once; a real remount gets a new core and restores again
 
 export function Workspace() {
   // Lazy, once-only construction — useRef's initializer must not re-run the factory each render.
@@ -79,6 +79,8 @@ export function Workspace() {
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
   const [held, setHeld] = useState<{ codes: string[]; at: number } | null>(null);
+  const heldRef = useRef<typeof held>(null);
+  heldRef.current = held; // read by clearFocus without re-creating the renderer context
   const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
@@ -182,10 +184,15 @@ export function Workspace() {
       else pushLog(`morph blocked — ${res.morph.guardReasonCodes.join(", ") || "no change"}`, "blocked");
       if (res.deliberated && !res.morph.applied && res.morph.guardReasonCodes.length) setHeld({ codes: res.morph.guardReasonCodes, at: Date.now() });
       if (res.morph.applied) setHeld(null);
-      // a timing hold is temporary: schedule one reconcile tick so the body catches up (an event, so replay sees it)
-      if (reconcileTimer.current) clearTimeout(reconcileTimer.current);
-      reconcileTimer.current = null;
+      // a timing hold is temporary: schedule one reconcile tick so the body catches up (an event,
+      // so replay sees it). The pending tick SURVIVES unrelated events — cleared only when the
+      // body actually caught up (morph applied) or a new hold re-arms it.
+      if (res.morph.applied && reconcileTimer.current) {
+        clearTimeout(reconcileTimer.current);
+        reconcileTimer.current = null;
+      }
       if (res.retryAfterMs !== undefined) {
+        if (reconcileTimer.current) clearTimeout(reconcileTimer.current);
         reconcileTimer.current = setTimeout(() => {
           reconcileTimer.current = null;
           void ingestRef.current({ id: `reconcile${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "system", type: "runtime.reconcile", severity: "debug", payload: { reason: "guard_hold_expired" } });
@@ -332,7 +339,17 @@ export function Workspace() {
         pushLog(`action — ${action.capabilityId ?? action.event}`, "note");
       },
       setFocus: (id: string) => setAttention({ typing: true, focusedComponentId: id, lastInteractionAt: nowIso() }),
-      clearFocus: () => setAttention({ typing: false }),
+      clearFocus: () => {
+        setAttention({ typing: false });
+        // an attention-held morph gets its second chance when focus is released (timing holds
+        // already have a timer; focus/unsaved holds end exactly here)
+        if (heldRef.current && !reconcileTimer.current && modeRef.current === "local") {
+          reconcileTimer.current = setTimeout(() => {
+            reconcileTimer.current = null;
+            void ingestRef.current({ id: `reconcile${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "system", type: "runtime.reconcile", severity: "debug", payload: { reason: "focus_released" } });
+          }, 400);
+        }
+      },
       tr: (s: string) => tr(s, lang),
       tpl: (id: string, params: Record<string, unknown>) => fillTemplate(t(id, lang), params),
     }),
@@ -368,6 +385,10 @@ export function Workspace() {
   useEffect(() => () => {
     client.current?.disconnect();
     client.current = null;
+    if (reconcileTimer.current) {
+      clearTimeout(reconcileTimer.current); // never ingest into an unmounted body
+      reconcileTimer.current = null;
+    }
   }, []);
 
   // Restore saved preferences (language, theme, coach) on mount — no SSR mismatch.
@@ -386,14 +407,14 @@ export function Workspace() {
 
       // Event sourcing in the browser: replay the saved event log so the workspace survives a
       // refresh. Only validated events are replayed; undo/approvals are not events (by design).
-      if (restoredSessions.has(SESSION)) return; // StrictMode remount: the first run owns the gate
-      restoredSessions.add(SESSION);
+      if (restoredCores.has(core.current)) return; // StrictMode remount: the first run owns the gate
+      restoredCores.add(core.current);
       if (AUTO_CONNECT) {
         // embedded/connected body: the server owns the state — nothing local to replay
-        releaseRestore();
         setRestored(true);
         return;
       }
+      restoreGate = new Promise((r) => { releaseRestore = r; });
       // learned preferences first, so the replayed log is judged the way the person taught us
       try {
         const prefs = localStorage.getItem(PREFS_KEY);
@@ -440,9 +461,14 @@ export function Workspace() {
             setEvents(parsed);
             counter.current = parsed.length;
             pushLog(t("restoredNote", lang), "note");
-            releaseRestore(); // live events may flow now — after the log is in state
-            setRestored(true);
-          })();
+          })()
+            .catch(() => pushLog("restore failed — starting fresh (the log may predate this build)", "blocked"))
+            .finally(() => {
+              // the gate MUST open even if an old log fails to replay — otherwise every live
+              // event (sensors, clicks, reconcile ticks) would hang forever
+              releaseRestore();
+              setRestored(true);
+            });
         }
       }
     } catch {

@@ -11,6 +11,18 @@ const TEXT = ko
   : "The body is not reachable.\n\npnpm web    (body · localhost:3000)\npnpm runtime (runtime · localhost:8787)\n\nStart both and this panel connects on its own.";
 hint.textContent = TEXT;
 
+/** The body cannot read chrome.storage — pass the runtime token (if any) in its URL. */
+async function bodySrc(): Promise<string> {
+  const base = String(frame.dataset.src);
+  try {
+    const v = await chrome.storage.sync.get("token");
+    const token = typeof v.token === "string" ? v.token.trim() : "";
+    return token ? `${base}&token=${encodeURIComponent(token)}` : base;
+  } catch {
+    return base;
+  }
+}
+
 let loaded = false;
 async function probe(): Promise<void> {
   try {
@@ -18,7 +30,7 @@ async function probe(): Promise<void> {
     hint.hidden = true;
     if (!loaded) {
       loaded = true;
-      frame.src = String(frame.dataset.src); // (re)load the body once it is reachable
+      frame.src = await bodySrc(); // (re)load the body once it is reachable
     }
   } catch {
     hint.hidden = false;

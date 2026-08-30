@@ -438,3 +438,38 @@ describe("RuntimeCore — reconcile after a timing hold", () => {
     expect(idle.retryAfterMs).toBeUndefined();
   });
 });
+
+describe("RuntimeCore — stale dismiss & system ticks", () => {
+  it("a stale targeted dismiss (card already gone) is a silent no-op, never a crash", async () => {
+    const core = createRuntimeCore(makeClock());
+    await core.ingest(ev("development.server_error", "critical", "e1"));
+    await core.ingest(ev("development.server_recovered", "info", "e2")); // incident removed by recovery
+    // morphMeta still remembers the incident morph, but the component is GONE: the targeted branch
+    // must refuse quietly (null), never throw a MorphApplyError into the caller (server 500 / UI crash)
+    expect(core.undo("s", { componentId: "incident" })).toBeNull();
+    expect(core.memoryFor("s").preferences.weightOf("dismissed:surface_incident:runtime_error")).toBe(0);
+    // a plain undo still works: it reverts the recovery, bringing the incident back
+    expect(core.undo("s")).not.toBeNull();
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
+  });
+  it("reconcile-driven morphs never become user 'patterns'", async () => {
+    let t = 0;
+    const core = createRuntimeCore({ iso: () => new Date(t).toISOString(), ms: () => t });
+    const at = (type: string, sev: "warning" | "info" | "debug", id: string, source: "development" | "system" = "development") => ({
+      id, sessionId: "s", timestamp: new Date(t).toISOString(), source, type, severity: sev, payload: {},
+    });
+    for (let round = 0; round < 3; round++) {
+      t += 20_000;
+      await core.ingest(at("development.build_failed", "warning", `f${round}`));
+      t += 1_000;
+      await core.ingest(at("development.build_succeeded", "info", `s${round}`));
+      t += 1_000;
+      const held = await core.ingest(at("development.build_failed", "warning", `f${round}b`));
+      t += held.retryAfterMs ?? 5_000;
+      const fixed = await core.ingest(at("runtime.reconcile", "debug", `r${round}`, "system"));
+      expect(fixed.morph.applied).toBe(true);
+    }
+    const keys = core.memoryFor("s").patterns.candidates().map((c) => c.key);
+    expect(keys.some((k) => k.startsWith("runtime.reconcile"))).toBe(false);
+  });
+});

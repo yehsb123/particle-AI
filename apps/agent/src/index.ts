@@ -26,16 +26,25 @@ const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
 // parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
 let sendQueue: Promise<void> = Promise.resolve();
+let sendPending = 0;
 function send(event: ReturnType<typeof matterEvent>): Promise<void> {
+  if (sendPending >= 500) return sendQueue; // hung/slow endpoint: drop the NEWEST (order beats completeness)
+  sendPending += 1;
   sendQueue = sendQueue.then(async () => {
     try {
       const headers: Record<string, string> = { "content-type": "application/json" };
       if (TOKEN) headers["x-particle-token"] = TOKEN;
-      const res = await fetch(`${RUNTIME}/api/events`, { method: "POST", headers, body: JSON.stringify(event) });
-      if (!res.ok) process.stderr.write(`[particle-agent] runtime rejected ${event.type}: ${res.status}
-`);
+      const res = await fetch(`${RUNTIME}/api/events`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(event),
+        signal: AbortSignal.timeout(5_000), // a hung endpoint must not stall sensing for minutes
+      });
+      if (!res.ok) process.stderr.write(`[particle-agent] runtime rejected ${event.type}: ${res.status}\n`);
     } catch {
       /* runtime offline — sensing is best-effort and local */
+    } finally {
+      sendPending -= 1;
     }
   });
   return sendQueue;

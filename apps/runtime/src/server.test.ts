@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildServer } from "./server";
 import type { SessionRuntime, RuntimeMessage } from "./runtime";
@@ -156,7 +156,8 @@ describe("runtime access control — reads are protected too", () => {
       try {
         expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state" })).statusCode).toBe(401);
         expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state", headers: { "x-particle-token": "t0k" } })).statusCode).toBe(200);
-        expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state?token=t0k" })).statusCode).toBe(200); // WS-style
+        // ?token= is honoured ONLY on the WS upgrade path (browsers cannot set headers there) — not on REST
+        expect((await secured.inject({ method: "GET", url: "/api/sessions/s1/state?token=t0k" })).statusCode).toBe(401);
         expect((await secured.inject({ method: "GET", url: "/health" })).statusCode).toBe(200); // probe stays open
       } finally {
         await secured.close();
@@ -178,5 +179,29 @@ describe("runtime access control — reads are protected too", () => {
     expect(res.json().undone).toBe(true);
     // morph:* reinforcement is normal; no dismissal may have been learned
     expect(runtime.core.exportMemory("u1").preferences.filter((p) => p.key.startsWith("dismissed:"))).toEqual([]);
+  });
+});
+
+describe("runtime reconcile timer", () => {
+  it("a pending reconcile survives unrelated events and surfaces the open problem (fake timers)", async () => {
+    vi.useFakeTimers();
+    try {
+      const mk = (id: string, type: string, sev: string, source = "development", payload: Record<string, unknown> = {}) => ({
+        id, sessionId: "rt1", timestamp: new Date().toISOString(), source, type, severity: sev, payload,
+      });
+      await runtime.ingest(mk("b1", "development.build_failed", "warning"));
+      await runtime.ingest(mk("b2", "development.build_succeeded", "info"));
+      const held = await runtime.ingest(mk("b3", "development.build_failed", "warning"));
+      expect(held.result.morph.applied).toBe(false);
+      expect(held.result.retryAfterMs).toBeGreaterThan(0);
+      // an unrelated, insignificant event must NOT cancel the pending tick
+      await runtime.ingest(mk("i1", "user.interaction", "debug", "user", { count: 3 }));
+      await vi.advanceTimersByTimeAsync((held.result.retryAfterMs ?? 5_000) + 250);
+      const types = runtime.store.listBySession("rt1").map((e) => e.type);
+      expect(types).toContain("runtime.reconcile");
+      expect(JSON.stringify(runtime.getUI("rt1"))).toContain("Build failure");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
