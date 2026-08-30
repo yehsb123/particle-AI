@@ -84,6 +84,7 @@ export function evaluateSignificance(
   const behaviorSignal =
     (event.type === "user.visibility" && event.payload.visible === true && Number(event.payload.awaySeconds ?? 0) >= 30) ||
     (event.type === "user.action" && world.behavior.lastActionKey === event.payload.key && world.behavior.repeatCount + 1 >= 3) ||
+    (event.type === "user.opened_file" && world.behavior.lastActionKey === event.payload.path && world.behavior.repeatCount + 1 >= 3) ||
     (event.type === "user.idle" && Number(event.payload.seconds ?? 0) >= 60);
   if (behaviorSignal) reasonCodes.push("behavior_signal");
 

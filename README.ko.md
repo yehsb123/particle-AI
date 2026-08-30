@@ -68,6 +68,17 @@ pnpm runtime && pnpm web                  # 런타임 :8787, 바디 :3000
 
 자세한 내용: [`apps/extension/README.md`](apps/extension/README.md), [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md)
 
+## 데스크톱 에이전트 (옵트인)
+
+`apps/agent`는 감지를 에디터·터미널까지 넓힙니다 — 역시 형태만: 파일 **저장**(상대 경로만)과 파이프된 출력의 테스트/빌드 **통과↔실패 전이**. 같은 파일을 반복 저장하면 "stuck" 컨텍스트 카드가, 테스트가 실패하면 테스트 실패 레이아웃이 작업 옆에 나타나고 다시 통과하면 스스로 사라집니다.
+
+```bash
+DM_WATCH_PATHS=. pnpm agent      # 파일 저장 감지
+pnpm test 2>&1 | pnpm agent      # 실행 결과 전이 감지 (출력은 그대로 터미널에 표시)
+```
+
+바디: `http://localhost:3000/?connect=1&session=desktop`. 자세한 내용: [`apps/agent/README.md`](apps/agent/README.md)
+
 ## 데이터 영속화 (선택)
 
 `DATABASE_URL`이 설정되면 이벤트가 Postgres(Drizzle + postgres-js)에 durable하게 저장됩니다. 없으면 인메모리 + 결정론적 리플레이로 동작합니다.

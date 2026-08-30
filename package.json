@@ -15,7 +15,8 @@
     "test:e2e": "turbo run test:e2e",
     "lint": "turbo run lint",
     "web": "pnpm --filter @particle/web dev",
-    "runtime": "pnpm --filter @particle/runtime dev"
+    "runtime": "pnpm --filter @particle/runtime dev",
+    "agent": "pnpm --filter @particle/agent start"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

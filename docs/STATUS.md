@@ -28,6 +28,13 @@ Updated at the end of each phase.
   re-deliberate; recovery of the last failing host closes the problem and restores the body.
   Sim palette (web + runtime) gained `API 503` / `API recovered`; E2E `network.spec.ts`
   (10/10 specs green).
+- **P3 desktop agent (opt-in)** (2026-08-31): `apps/agent` — file saves under `DM_WATCH_PATHS`
+  → `user.opened_file { path }` (relative only); piped tool output → test/build pass↔fail
+  **transitions** (`OutputTracker`, summary lines only, output passed through). Repeated saves
+  of one file now count as the "stuck" signal (significance + runtime-core test). Live-verified
+  against the real runtime: piped `Tests 2 failed` opened the Test failure layout, a green run
+  closed it. Fixed an extension bug: navigation sent `user.action` AND `user.opened_file`,
+  alternating the repeat key so "stuck" could never trigger — one event now.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

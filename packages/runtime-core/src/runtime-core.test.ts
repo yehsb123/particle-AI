@@ -251,4 +251,17 @@ describe("RuntimeCore — full loop", () => {
     expect(ok.worldState.activeProblems).toEqual([]);
     expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
   });
+  it("Concept v2 (L4): repeated saves of the same file read as 'stuck' (desktop agent path)", async () => {
+    const core = createRuntimeCore(makeClock());
+    const save = (n: number) => ({
+      id: `f${n}`, sessionId: "desktop", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.opened_file", severity: "debug" as const, payload: { path: "src/db.ts" },
+    });
+    await core.ingest(save(1));
+    await core.ingest(save(2));
+    const third = await core.ingest(save(3));
+    expect(third.worldState.inferredIntent?.label).toBe("stuck");
+    expect(third.morph.applied).toBe(true);
+    expect(findById(core.getBlueprint("desktop").root, "context")?.props?.title).toBe("You seem stuck on this");
+  });
 });

@@ -46,7 +46,7 @@ chrome.webNavigation.onCommitted.addListener((d) => {
   if (!consent.tabs || d.frameId !== 0) return;
   const host = hostOf(d.url);
   if (isSelfHost(host)) return;
-  void send(matterEvent(SESSION, "user", "user.action", "debug", { key: `nav:${host}` }));
+  // one event only: sending user.action AND user.opened_file alternated the repeat key and reset the count
   void send(matterEvent(SESSION, "user", "user.opened_file", "debug", { path: `site:${host}` }));
 });
 

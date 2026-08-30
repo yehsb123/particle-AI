@@ -63,6 +63,18 @@ pnpm runtime && pnpm web                  # runtime :8787, body :3000
 Consent per sensing layer lives in the extension's Options page. See
 [`apps/extension/README.md`](apps/extension/README.md) and [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
 
+## Desktop agent (opt-in)
+
+`apps/agent` extends sensing to the editor and terminal — still shape only: file **saves**
+(relative paths) and test/build **pass↔fail transitions** from piped output.
+
+```bash
+DM_WATCH_PATHS=. pnpm agent      # sense file saves
+pnpm test 2>&1 | pnpm agent      # sense a run's transitions (output is passed through)
+```
+
+See [`apps/agent/README.md`](apps/agent/README.md).
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
