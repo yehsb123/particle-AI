@@ -22,6 +22,25 @@ export function isIgnored(rel: string): boolean {
   return base.startsWith(".") || base.endsWith("~") || base.endsWith(".swp") || base.endsWith(".tmp") || base.endsWith(".lock");
 }
 
+/**
+ * Branch name from the text of `.git/HEAD` — "ref: refs/heads/main" → "main"; a detached HEAD
+ * becomes "detached@<short sha>". Anything else is undefined (never sent).
+ */
+export function branchFromHead(text: string): string | undefined {
+  const t = text.trim();
+  if (!t) return undefined;
+  const ref = /^ref:\s*refs\/heads\/(.+)$/.exec(t);
+  if (ref?.[1]) return ref[1].trim();
+  return /^[0-9a-f]{7,40}$/i.test(t) ? `detached@${t.slice(0, 7)}` : undefined;
+}
+
+/** Resolve the git directory for a root: `.git` as a directory, or a worktree's `gitdir:` file. */
+export function gitDirFrom(root: string, dotGitIsDir: boolean, dotGitText: string | undefined, resolvePath: (base: string, p: string) => string): string | null {
+  if (dotGitIsDir) return resolvePath(root, ".git");
+  const m = /^gitdir:\s*(.+)$/m.exec(dotGitText ?? "");
+  return m?.[1] ? resolvePath(root, m[1].trim()) : null;
+}
+
 export type Severity = "debug" | "info" | "warning" | "critical";
 export type Source = "user" | "development" | "sensor";
 

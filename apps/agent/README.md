@@ -29,3 +29,12 @@ Env (all optional): `DM_RUNTIME_URL` (default `http://localhost:8787`), `DM_AGEN
 `DM_AGENT_DEBOUNCE_MS` (default 400).
 
 With nothing configured and no pipe, the agent prints how to opt in and exits.
+
+## Notes
+
+- Git is sensed by watching `.git/HEAD` (worktrees' `gitdir:` pointers are followed) — no `git`
+  process is spawned and nothing but the branch name is read.
+- Linux: `fs.watch({ recursive: true })` registers an inotify watch per directory. Large trees can
+  exceed `fs.inotify.max_user_watches`; raise it (`sudo sysctl fs.inotify.max_user_watches=524288`)
+  or point `DM_WATCH_PATHS` at the sub-directories you actually work in. Watcher errors are logged
+  and never crash the agent.

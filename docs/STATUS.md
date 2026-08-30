@@ -90,6 +90,9 @@ Updated at the end of each phase.
   Server: a `memory` snapshot is saved with every morph snapshot and on undo; `resume` imports it.
   E2E `learn.spec` now reloads and proves the card stays withheld with zero new dismissals.
   runtime-core 26, runtime 13, memory 6.
+- **Agent git sensing without polling** (2026-08-31): `.git/HEAD` is watched (worktree `gitdir:`
+  pointers followed); `branchFromHead` parses the ref (detached → `detached@<sha7>`), no `git`
+  process is spawned. Linux inotify limits documented. agent 10 tests.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

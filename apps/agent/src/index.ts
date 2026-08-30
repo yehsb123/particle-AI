@@ -12,11 +12,10 @@
  *
  * Nothing runs unless you opt in with DM_WATCH_PATHS or a pipe. Events go to the LOCAL runtime.
  */
-import { watch, existsSync, statSync } from "node:fs";
-import { execFile } from "node:child_process";
+import { watch, existsSync, statSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, matterEvent, OutputTracker, type Signal } from "./shape";
+import { relPath, isIgnored, matterEvent, OutputTracker, branchFromHead, gitDirFrom, type Signal } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -63,21 +62,49 @@ function watchPaths(paths: string[]): void {
   }
 }
 
-/** Branch switches are a strong context-switch signal: `git rev-parse --abbrev-ref HEAD` polled, name only. */
-function watchGitBranch(root: string, everyMs = 3000): void {
-  let last: string | undefined;
-  const tick = () =>
-    execFile("git", ["-C", root, "rev-parse", "--abbrev-ref", "HEAD"], { timeout: 2000 }, (err, out) => {
-      if (err) return;
-      const branch = out.trim();
-      if (!branch || branch === last) return;
-      const first = last === undefined;
-      last = branch;
-      if (!first) void send(matterEvent(SESSION, "user", "user.action", "debug", { key: `branch:${branch}` }));
+function gitDir(root: string): string | null {
+  const dot = join(root, ".git");
+  if (!existsSync(dot)) return null;
+  const isDir = statSync(dot).isDirectory();
+  let text: string | undefined;
+  if (!isDir) {
+    try { text = readFileSync(dot, "utf8"); } catch { return null; }
+  }
+  return gitDirFrom(root, isDir, text, (base, p) => resolve(base, p));
+}
+
+/**
+ * Branch switches are a strong context-switch signal. Instead of polling `git`, watch the git
+ * directory for changes to HEAD (checkout rewrites it) and send the branch NAME only.
+ */
+function watchGitBranch(root: string): boolean {
+  const dir = gitDir(root);
+  if (!dir) return false;
+  const head = join(dir, "HEAD");
+  const read = (): string | undefined => {
+    try { return branchFromHead(readFileSync(head, "utf8")); } catch { return undefined; }
+  };
+  let last = read();
+  let timer: NodeJS.Timeout | undefined;
+  const check = () => {
+    const branch = read();
+    if (!branch || branch === last) return;
+    last = branch;
+    void send(matterEvent(SESSION, "user", "user.action", "debug", { key: `branch:${branch}` }));
+  };
+  try {
+    const w = watch(dir, (_kind, filename) => {
+      if (filename && filename.toString() !== "HEAD") return; // index/refs churn is not a switch
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(check, 150); // checkout writes HEAD via a temp file + rename
     });
-  tick();
-  setInterval(tick, everyMs);
+    w.on("error", (e) => process.stderr.write(`[particle-agent] git watcher error for ${root}: ${(e as Error).message}\n`));
+  } catch (e) {
+    process.stderr.write(`[particle-agent] cannot watch ${head}: ${(e as Error).message}\n`);
+    return false;
+  }
   process.stderr.write(`[particle-agent] sensing git branch switches in ${root} (branch name only)\n`);
+  return true;
 }
 
 function pipeOutput(): void {
@@ -105,8 +132,7 @@ if (WATCH.length === 0 && !piped) {
   process.exit(0);
 }
 if (WATCH.length > 0) watchPaths(WATCH);
-const gitRoots = WATCH.map((p) => resolve(p)).filter((r) => existsSync(join(r, ".git")));
-for (const r of gitRoots) watchGitBranch(r);
+const gitRoots = WATCH.map((p) => resolve(p)).filter((r) => watchGitBranch(r));
 if (piped) pipeOutput();
 // tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
 const layers = [...(WATCH.length ? ["files"] : []), ...(gitRoots.length ? ["git"] : []), ...(piped ? ["output"] : [])];

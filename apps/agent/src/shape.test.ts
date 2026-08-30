@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
-import { relPath, isIgnored, classifyLine, OutputTracker, matterEvent } from "./shape";
+import { relPath, isIgnored, classifyLine, OutputTracker, matterEvent, branchFromHead, gitDirFrom } from "./shape";
 
 describe("desktop agent shaping (privacy)", () => {
   it("sends relative forward-slash paths, never the absolute location", () => {
@@ -21,6 +21,22 @@ describe("desktop agent shaping (privacy)", () => {
     expect(e.sessionId).toBe("desktop");
     expect(e.timestamp).toBe("2026-08-31T00:00:00.000Z");
     expect(e.payload).toEqual({ path: "src/db.ts" });
+  });
+});
+
+describe("git HEAD parsing (branch name only)", () => {
+  it("reads the branch from .git/HEAD, marks detached heads, rejects anything else", () => {
+    expect(branchFromHead("ref: refs/heads/main\n")).toBe("main");
+    expect(branchFromHead("ref: refs/heads/feature/x-1")).toBe("feature/x-1");
+    expect(branchFromHead("0123456789abcdef0123456789abcdef01234567")).toBe("detached@0123456");
+    expect(branchFromHead("")).toBeUndefined();
+    expect(branchFromHead("garbage")).toBeUndefined();
+  });
+  it("resolves a plain .git directory or a worktree's gitdir pointer", () => {
+    const join = (b: string, p: string) => `${b}/${p}`;
+    expect(gitDirFrom("/r", true, undefined, join)).toBe("/r/.git");
+    expect(gitDirFrom("/r", false, "gitdir: ../main/.git/worktrees/r\n", join)).toBe("/r/../main/.git/worktrees/r");
+    expect(gitDirFrom("/r", false, "not a pointer", join)).toBeNull();
   });
 });
 
