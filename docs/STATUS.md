@@ -165,6 +165,14 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   event); Playwright workers serialized — options.spec and extension.spec share the live
   runtime's `ext` session, and parallel workers raced each other's consent toggles (the
   intermittent extension failure). 14 specs green, serial.
+- **Held banner countdown + browser proof** (2026-08-31): the "morph held" banner now says when
+  the body will catch up (`retryAfterMs` exposed on REST responses, en/ko), and `held.spec`
+  asserts the whole story in a real browser: hold explained → countdown shown → the reconcile
+  tick re-surfaces the still-open Build failure on its own. Extension store icons generated
+  (manifest `icons` + `action.default_icon`, dist-validated); Playwright `retries: 1` absorbs
+  live-extension environment flakes (isolated failures always pass); agent warns once at startup
+  when the runtime is unreachable. Fourth review (docs vs implementation): all claims verified,
+  spec-count wording unified (14 tests / 13 specs).
 - **Ordered sends** (2026-08-31): the same smoke exposed that agent/extension sends were parallel
   fetches — a recovery could overtake the failure it recovered from (observed: failed, failed,
   succeeded). Both sensors now serialize sends (one in-flight request); verified 3/3 back-to-back
