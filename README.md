@@ -72,6 +72,8 @@ Reliability guardrails make this safe:
 - The whole thing runs in **deterministic mock mode** with no API key.
 - Providers are abstract — swap Anthropic / OpenAI / a local model without touching the core.
 
+![Particle AI — the body in the extension side panel (dark)](docs/store/sidepanel-dark.png)
+
 ## Quick start
 
 ```bash
