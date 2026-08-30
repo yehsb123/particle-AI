@@ -5,7 +5,6 @@ test("morph history strip lists morphs and supports multi-step undo", async ({ p
   await page.goto("http://localhost:3000");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Reset session" }).click().catch(() => {});
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByText("no morphs yet")).toBeVisible();

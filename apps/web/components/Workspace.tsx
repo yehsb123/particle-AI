@@ -36,6 +36,14 @@ const AUTO_CONNECT = typeof window !== "undefined" && new URLSearchParams(window
 const replayAt: { current: string | null } = { current: null };
 const nowIso = () => replayAt.current ?? new Date().toISOString();
 const nowMs = () => (replayAt.current ? Date.parse(replayAt.current) : Date.now());
+// Storage is per session: the main tab and the extension side panel share an origin but not a log.
+const EVENTS_KEY = `dm_events:${SESSION}`;
+const PREFS_KEY = `dm_prefs:${SESSION}`;
+// Live events wait until the saved log has been replayed, so nothing is stamped with a replayed
+// timestamp or written over the log mid-restore. Resolved immediately when there is nothing to restore.
+let releaseRestore: () => void = () => {};
+const restoreGate: Promise<void> = new Promise((r) => { releaseRestore = r; });
+const restoredSessions = new Set<string>(); // StrictMode mounts effects twice — replay once
 
 export function Workspace() {
   // Lazy, once-only construction — useRef's initializer must not re-run the factory each render.
@@ -58,6 +66,8 @@ export function Workspace() {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
+  const [restored, setRestored] = useState(false);
+  const importedPrefs = useRef<{ preferences?: { key: string; weight: number }[] } | null>(null);
   // Honest indicator: this page's own in-app sensors + whatever other sensors REPORTED to this
   // session (extension / agent announce their consented layers via sensor.layers_changed).
   const sensingLine = useMemo(() => {
@@ -155,12 +165,13 @@ export function Workspace() {
 
   const ingest = useCallback(
     async (event: MatterEvent) => {
+      await restoreGate;
       const quiet = event.severity === "debug"; // behavior sensing — shape only, no log spam
       if (!quiet) pushLog(`${event.type} · ${event.severity}`, "event");
       setPresence("evaluating");
       setEvents((e) => {
         const next = [...e, event];
-        try { localStorage.setItem("dm_events", JSON.stringify(next.slice(-500))); } catch {} // bounded log
+        try { localStorage.setItem(EVENTS_KEY, JSON.stringify(next.slice(-500))); } catch {} // bounded log
         return next;
       });
       const res = await core.current.ingest(event, attention);
@@ -221,14 +232,14 @@ export function Workspace() {
 
   const undo = useCallback((componentId?: string) => {
     if (mode === "connected" && client.current) {
-      void client.current.undo();
+      void client.current.undo({ componentId }); // attribution travels with the gesture
       pushLog("undo → server", "undo");
       return;
     }
     const bp = core.current.undo(SESSION, { componentId });
     if (!bp) return;
     // what was just learned outlives this tab (P4): preferences only — never events or content
-    try { localStorage.setItem("dm_prefs", JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
     setMorphs((m) => m.slice(0, -1));
@@ -319,7 +330,8 @@ export function Workspace() {
   // Spec §21: replay the session's event log through a fresh core and check determinism.
   const replayVerify = useCallback(async () => {
     if (events.length === 0) return setReplayResult("none");
-    const { core: fresh } = await replay(events); // event-sourced clock
+    // event-sourced clock + the preferences that were in force when this session was restored
+    const { core: fresh } = await replay(events, undefined, { memory: importedPrefs.current });
     const same = JSON.stringify(fresh.getBlueprint(SESSION).root) === JSON.stringify(core.current.getBlueprint(SESSION).root);
     setReplayResult(same ? "identical" : "differs");
     pushLog(same ? "replay ✓ deterministic" : "replay differs (undo/approval not events)", same ? "morph" : "note");
@@ -362,22 +374,49 @@ export function Workspace() {
 
       // Event sourcing in the browser: replay the saved event log so the workspace survives a
       // refresh. Only validated events are replayed; undo/approvals are not events (by design).
+      if (restoredSessions.has(SESSION)) return; // StrictMode remount: the first run owns the gate
+      restoredSessions.add(SESSION);
+      if (AUTO_CONNECT) {
+        // embedded/connected body: the server owns the state — nothing local to replay
+        releaseRestore();
+        setRestored(true);
+        return;
+      }
       // learned preferences first, so the replayed log is judged the way the person taught us
       try {
-        const prefs = localStorage.getItem("dm_prefs");
-        if (prefs) core.current.importMemory(SESSION, JSON.parse(prefs) as { preferences?: { key: string; weight: number }[] });
+        const prefs = localStorage.getItem(PREFS_KEY);
+        if (prefs) {
+          const parsedPrefs = JSON.parse(prefs) as { preferences?: { key: string; weight: number }[] };
+          importedPrefs.current = parsedPrefs;
+          core.current.importMemory(SESSION, parsedPrefs);
+        }
       } catch {}
-      const raw = localStorage.getItem("dm_events");
+      const raw = localStorage.getItem(EVENTS_KEY);
+      if (!raw) {
+        releaseRestore();
+        setRestored(true);
+      }
       if (raw) {
-        const parsed = (JSON.parse(raw) as unknown[]).map((x) => MatterEventSchema.safeParse(x)).filter((r) => r.success).map((r) => r.data);
+        const parsed = (JSON.parse(raw) as unknown[])
+          .map((x) => MatterEventSchema.safeParse(x))
+          .filter((r) => r.success)
+          .map((r) => r.data)
+          .filter((ev) => ev.sessionId === SESSION); // never replay another session's log
+        if (!parsed.length) {
+          releaseRestore();
+          setRestored(true);
+        }
         if (parsed.length) {
           void (async () => {
             const results: IngestResult[] = [];
-            for (const ev of parsed) {
-              replayAt.current = ev.timestamp;
-              results.push(await core.current.ingest(ev));
+            try {
+              for (const ev of parsed) {
+                replayAt.current = ev.timestamp;
+                results.push(await core.current.ingest(ev));
+              }
+            } finally {
+              replayAt.current = null;
             }
-            replayAt.current = null;
             const last = results.at(-1);
             if (last) applyResult(last);
             // the history strip must match the undo stack that replay just rebuilt
@@ -389,11 +428,15 @@ export function Workspace() {
             setEvents(parsed);
             counter.current = parsed.length;
             pushLog(t("restoredNote", lang), "note");
+            releaseRestore(); // live events may flow now — after the log is in state
+            setRestored(true);
           })();
         }
       }
     } catch {
       setShowCoach(true);
+      releaseRestore();
+      setRestored(true);
     }
   }, []);
   useEffect(() => {
@@ -464,7 +507,7 @@ export function Workspace() {
   }, []);
 
   return (
-    <div className="app">
+    <div className="app" data-restored={restored ? "1" : "0"}>
       <main className="stage">
         <div className="brandbar">
           <div className="brand">
@@ -601,7 +644,7 @@ export function Workspace() {
           <h3>{t("controls", lang)}</h3>
           <div className="simrow">
             <button className="btn" onClick={() => undo()} disabled={!canUndo}>{t("undo", lang)}</button>
-            <button className="btn muted" onClick={() => { try { localStorage.removeItem("dm_events"); localStorage.removeItem("dm_prefs"); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
+            <button className="btn muted" onClick={() => { try { localStorage.removeItem(EVENTS_KEY); localStorage.removeItem(PREFS_KEY); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
             <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>

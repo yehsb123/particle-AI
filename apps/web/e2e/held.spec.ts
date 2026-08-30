@@ -8,7 +8,6 @@ test("a guard-held morph explains itself in the body", async ({ page }) => {
   await page.goto("http://localhost:3000");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Reset session" }).click().catch(() => {});
   await page.waitForLoadState("networkidle");
 
   // warning-level incident (no cooldown bypass) → morph

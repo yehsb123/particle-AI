@@ -8,7 +8,6 @@ test("two dismissals of the same context card make the AI stop offering it (and 
   await page.goto("http://localhost:3000");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Reset session" }).click().catch(() => {});
   await page.waitForLoadState("networkidle");
 
   const cpu = page.getByRole("button", { name: "High CPU" });
@@ -36,7 +35,7 @@ test("two dismissals of the same context card make the AI stop offering it (and 
   // without a single new dismissal (preferences persist; the replayed log is judged with them)
   await page.reload();
   await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(800);
+  await expect(page.locator('.app[data-restored="1"]')).toBeVisible({ timeout: 10_000 }); // log replayed, live events flow
   await cpu.click();
   await expect(page.getByTestId("learned-banner")).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText("You seem stuck on this")).toHaveCount(0);

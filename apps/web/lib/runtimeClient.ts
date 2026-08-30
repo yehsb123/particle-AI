@@ -79,8 +79,12 @@ export class RuntimeClient {
     return (await res.json().catch(() => null)) as SimResponse | null;
   }
 
-  async undo(): Promise<void> {
-    await fetch(`${this.httpBase}/api/morph/${this.sessionId}/undo`, { method: "POST" });
+  async undo(opts: { componentId?: string; learn?: boolean } = {}): Promise<void> {
+    await fetch(`${this.httpBase}/api/morph/${this.sessionId}/undo`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(opts),
+    });
   }
 
   async approve(approvalId: string): Promise<void> {

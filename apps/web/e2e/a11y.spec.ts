@@ -15,7 +15,6 @@ test("no serious accessibility violations (workspace, incident, developer mode)"
   await page.goto("http://localhost:3000");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Reset session" }).click().catch(() => {});
   await page.waitForLoadState("networkidle");
   await audit(page, "initial");
 
@@ -37,7 +36,6 @@ test("no serious accessibility violations in dark mode (workspace, incident, con
   await page.goto("http://localhost:3000");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Reset session" }).click().catch(() => {});
   await page.waitForLoadState("networkidle");
   // theme button cycles system → dark → light; one click from a fresh session lands on dark
   await page.getByRole("button", { name: /Theme:/ }).click();

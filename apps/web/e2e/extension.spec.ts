@@ -30,6 +30,9 @@ test("extension: navigation → shape events in the runtime; side panel body aut
     if (!sw) sw = await context.waitForEvent("serviceworker", { timeout: 15_000 });
     const extId = new URL(sw.url()).host;
 
+    // only THIS run's events are judged — the shared `ext` session may hold earlier local activity
+    const before = ((await fetch(`${RUNTIME}/api/sessions/ext/events`).then((r) => r.json())) as { events: unknown[] }).events.length;
+
     // 1) a synthetic site: fulfilled locally so no real network is touched
     await context.route("http://example.test/**", (route) =>
       route.fulfill({ contentType: "text/html", body: "<!doctype html><title>x</title><h1>hello</h1>" }),
@@ -52,7 +55,7 @@ test("extension: navigation → shape events in the runtime; side panel body aut
 
     // shape only: nothing about the path or query ever reached the runtime
     const events = (await fetch(`${RUNTIME}/api/sessions/ext/events`).then((r) => r.json())) as { events: unknown[] };
-    const dump = JSON.stringify(events);
+    const dump = JSON.stringify(events.events.slice(before));
     expect(dump).not.toContain("secret");
     expect(dump).not.toContain("token=abc");
     // network sensing is opt-in and off by default → no network.request events

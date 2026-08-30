@@ -114,6 +114,15 @@ Updated at the end of each phase.
   synchronously (MV3 wake-ups) with consent checked inside, and `ready` always resolves.
   `environment.files` bounded (50). Agent: first readable HEAD is a baseline, not a switch.
   runtime 16 tests, runtime-core 26.
+- **Second review, batch B** (2026-08-31, web): live events wait on a restore gate until the saved
+  log is replayed and in state (no event is stamped with a replayed timestamp, nothing overwrites
+  the log mid-restore); storage is per session (`dm_events:<id>`, `dm_prefs:<id>`) and another
+  session's events are never replayed; the embedded/connected body skips local restore; StrictMode's
+  double-mounted effect replays once; connected-mode undo carries `{componentId}` to the server;
+  `replay(events, clock?, { memory })` seeds the preferences that were in force at restore so
+  Replay & verify cannot report a false "differs"; `.app[data-restored]` marks restore completion.
+  E2E: no Reset-click/reload races (fresh context per test), learn.spec waits for `data-restored`,
+  extension.spec judges only this run's events. 13/13.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

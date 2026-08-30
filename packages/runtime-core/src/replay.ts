@@ -12,13 +12,19 @@ export type ReplayResult = {
  * given the clock and the mock brain, replaying the same events reproduces the exact same
  * world state, UI, and audit trail — the property that makes the runtime debuggable.
  */
-export async function replay(events: MatterEvent[], clock?: RuntimeClock): Promise<ReplayResult> {
+export async function replay(
+  events: MatterEvent[],
+  clock?: RuntimeClock,
+  opts: { memory?: { preferences?: { key: string; weight: number }[] } | null } = {},
+): Promise<ReplayResult> {
   // Event-sourced clock: "now" is the timestamp of the event being replayed, so cooldown/dwell
   // guards see the same gaps they saw live. A wall clock would collapse minutes into microseconds
   // and reject morphs that were allowed the first time.
   let current = events[0]?.timestamp ?? new Date(0).toISOString();
   const eventClock: RuntimeClock = { iso: () => current, ms: () => Date.parse(current) };
   const core = createRuntimeCore(clock ?? eventClock);
+  // learned preferences are not events — seed them so a verify run judges the log the same way
+  if (opts.memory && events[0]) core.importMemory(events[0].sessionId, opts.memory);
   const steps: IngestResult[] = [];
   for (const event of events) {
     current = event.timestamp;

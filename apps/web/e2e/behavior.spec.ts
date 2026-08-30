@@ -8,7 +8,6 @@ test("repeating the same action (no error) makes the AI surface context — inte
   await page.goto("http://localhost:3000");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Reset session" }).click().catch(() => {});
   await page.waitForLoadState("networkidle");
 
   // 'High CPU' never morphs by itself — only the repeated BEHAVIOR does
