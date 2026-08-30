@@ -72,7 +72,7 @@ export function developmentBlueprint(now: string, decisionId = "seed"): UIBluepr
   };
 }
 
-export type IncidentKind = "runtime_error" | "build_failure" | "test_failure" | "security_alert";
+export type IncidentKind = "runtime_error" | "build_failure" | "test_failure" | "security_alert" | "network_failure";
 
 const ACTIONS: UIComponent = {
   id: "incident-actions",
@@ -218,6 +218,71 @@ function incidentPanel(kind: IncidentKind): UIComponent {
           ],
         },
         ACTIONS,
+      ],
+    };
+  }
+
+  if (kind === "network_failure") {
+    // Concept v2 (L2): derived from the SHAPE of traffic (host / status / latency) - never content.
+    return {
+      id: "incident",
+      type: "Panel",
+      props: { title: "Connection trouble", tone: "warn", badge: "NETWORK" },
+      children: [
+        {
+          id: "incident-grid",
+          type: "Grid",
+          props: { columns: 2, gap: "md" },
+          children: [
+            {
+              id: "incident-hosts",
+              type: "Table",
+              // real rows come from the network.inspect_shape capability at morph time
+              props: { title: "Failing hosts", columns: ["Host", "State"], rows: [] },
+              bindings: [{ prop: "rows", source: "capability:network.inspect_shape:rows" }],
+            },
+            {
+              id: "incident-assessment",
+              type: "Card",
+              props: { title: "AI assessment" },
+              children: [
+                {
+                  id: "incident-assessment-text",
+                  type: "Markdown",
+                  props: {
+                    text: "A service you depend on is failing. Nothing on your side changed - this was read from the shape of your traffic (host, status, latency), never its content.",
+                  },
+                },
+                { id: "incident-confidence", type: "Progress", props: { value: 0.8, label: "confidence" } },
+              ],
+            },
+            {
+              id: "incident-timeline",
+              type: "Timeline",
+              props: {
+                title: "Connection timeline",
+                items: [
+                  { time: "T+0s", label: "First failing response" },
+                  { time: "T+0s", label: "Host marked as failing" },
+                  { time: "T+1s", label: "Watching for recovery" },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          id: "incident-actions",
+          type: "ActionPanel",
+          props: { title: "Suggested actions" },
+          children: [
+            {
+              id: "action-undo-morph",
+              type: "Button",
+              props: { text: "Undo this change", tone: "muted" },
+              actions: [{ event: "user.requested_undo" }],
+            },
+          ],
+        },
       ],
     };
   }

@@ -21,6 +21,9 @@ export const SIM_EVENTS: SimSpec[] = [
   { label: "Vulnerability found", key: "vuln", type: "security.vulnerability_detected", source: "external", severity: "critical", payload: { advisory: "CVE-2026-1234" } },
   { label: "Vulnerability patched", key: "vuln-patched", type: "security.vulnerability_patched", source: "external", severity: "info" },
   { label: "Critical alert", key: "critical-alert", type: "external.alert", source: "external", severity: "critical" },
+  // Concept v2 (L2) - traffic SHAPE only: host / status / latency
+  { label: "API 503", key: "api-503", type: "network.request", source: "sensor", severity: "warning", payload: { host: "api.example.com", status: 503, ms: 1800 } },
+  { label: "API recovered", key: "api-ok", type: "network.request", source: "sensor", severity: "info", payload: { host: "api.example.com", status: 200, ms: 140 } },
 ];
 
 export function buildEvent(spec: SimSpec, sessionId: string, id: string, timestamp: string): MatterEvent {

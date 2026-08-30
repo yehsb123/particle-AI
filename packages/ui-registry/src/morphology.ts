@@ -1,7 +1,7 @@
 import type { UIBlueprint, UIComponent, UIMorphIntent, UIPatch } from "@particle/contracts";
 import { incidentPatch, recoveryPatch, augmentPatch, type IncidentKind, type AugmentKind } from "./blueprints";
 
-const INCIDENT_KINDS: IncidentKind[] = ["runtime_error", "build_failure", "test_failure", "security_alert"];
+const INCIDENT_KINDS: IncidentKind[] = ["runtime_error", "build_failure", "test_failure", "security_alert", "network_failure"];
 function asIncidentKind(v: string | undefined): IncidentKind {
   return (v && INCIDENT_KINDS.includes(v as IncidentKind) ? v : "runtime_error") as IncidentKind;
 }

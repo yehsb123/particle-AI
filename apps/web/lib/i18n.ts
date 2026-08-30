@@ -200,6 +200,20 @@ const CONTENT: Record<string, string> = {
   "Update dependency": "의존성 업데이트",
   "Vulnerability found": "취약점 발견",
   "Vulnerability patched": "취약점 패치됨",
+  // network shape scenario (Concept v2, L2)
+  "Connection trouble": "연결 문제",
+  NETWORK: "네트워크",
+  "Failing hosts": "실패 중인 호스트",
+  Host: "호스트",
+  failing: "실패 중",
+  "A service you depend on is failing. Nothing on your side changed - this was read from the shape of your traffic (host, status, latency), never its content.":
+    "의존하는 서비스가 실패하고 있습니다. 사용자 쪽에서 바뀐 것은 없습니다 - 통신의 형태(호스트·상태·지연시간)만 읽었고, 내용은 절대 보지 않았습니다.",
+  "Connection timeline": "연결 타임라인",
+  "First failing response": "첫 실패 응답",
+  "Host marked as failing": "호스트를 실패 상태로 표시",
+  "Watching for recovery": "복구 감시 중",
+  "API 503": "API 503",
+  "API recovered": "API 복구",
 };
 
 /** Translate a blueprint content string when in Korean; unknown strings (code, logs) pass through. */

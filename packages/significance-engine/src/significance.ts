@@ -87,9 +87,25 @@ export function evaluateSignificance(
     (event.type === "user.idle" && Number(event.payload.seconds ?? 0) >= 60);
   if (behaviorSignal) reasonCodes.push("behavior_signal");
 
+  // Network shape (Concept v2, L2): a host starts failing (open) or the last failing host
+  // recovers (close). Repeated failures to an already-failing host are NOT re-deliberated.
+  let networkSignal = false;
+  if (event.type === "network.request") {
+    const status = Number(event.payload.status ?? 0) || 0;
+    const host = String(event.payload.host ?? "unknown");
+    const failed = event.payload.error === true || status >= 500;
+    const failing = world.behavior.network.failingHosts;
+    const open = world.activeProblems.some((p) => p.kind === "network_failure");
+    networkSignal = failed
+      ? !open
+      : status > 0 && status < 400 && open && failing.length === 1 && failing[0] === host;
+  }
+  if (networkSignal) reasonCodes.push("network_shape");
+
   const shouldDeliberate =
     score >= config.threshold ||
     behaviorSignal ||
+    networkSignal ||
     event.severity === "critical" ||
     PROBLEM_OPENERS.has(event.type) ||
     (PROBLEM_CLOSERS.has(event.type) && world.activeProblems.length > 0);

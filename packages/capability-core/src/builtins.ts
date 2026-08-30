@@ -113,6 +113,21 @@ export function builtinCapabilities(memory: Map<string, unknown> = new Map()): C
       }),
       (input) => ({ reverted: true, target: (input as { target?: string })?.target ?? "recent diff" }),
     ),
+    // Network shape (Concept v2, L2): what the runtime knows about traffic - hosts, counts, never content.
+    cap(
+      manifest({ id: "network.inspect_shape", name: "Inspect network shape", risk: "read", tags: ["network"] }),
+      (_i, ctx) => {
+        const net = ctx.worldState?.behavior.network ?? { requests: 0, failures: 0, slow: 0, failingHosts: [] };
+        return {
+          requests: net.requests,
+          failures: net.failures,
+          slow: net.slow,
+          failingHosts: net.failingHosts,
+          // table-shaped view for UI bindings
+          rows: net.failingHosts.map((h) => [h, "failing"]),
+        };
+      },
+    ),
     // Security scenario: read-only dependency scan + gated remediation.
     cap(
       manifest({ id: "security.scan_dependencies", name: "Scan dependencies", risk: "read", tags: ["security"] }),

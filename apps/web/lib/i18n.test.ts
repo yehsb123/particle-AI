@@ -39,7 +39,7 @@ function blueprintStrings(): Set<string> {
     for (const c of n.children ?? []) walk(c);
   };
   walk(developmentBlueprint("t").root);
-  for (const kind of ["runtime_error", "build_failure", "test_failure"] as IncidentKind[]) {
+  for (const kind of ["runtime_error", "build_failure", "test_failure", "network_failure"] as IncidentKind[]) {
     for (const op of incidentPatch("d", kind).operations) {
       if (op.op === "add") walk(op.component);
     }

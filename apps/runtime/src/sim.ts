@@ -19,5 +19,7 @@ export const SIM_EVENTS: Record<string, SimSpec> = {
   "vuln": { label: "Vulnerability found", type: "security.vulnerability_detected", source: "external", severity: "critical", payload: { advisory: "CVE-2026-1234" } },
   "vuln-patched": { label: "Vulnerability patched", type: "security.vulnerability_patched", source: "external", severity: "info" },
   "critical-alert": { label: "Critical alert", type: "external.alert", source: "external", severity: "critical" },
+  "api-503": { label: "API 503", type: "network.request", source: "sensor", severity: "warning", payload: { host: "api.example.com", status: 503, ms: 1800 } },
+  "api-ok": { label: "API recovered", type: "network.request", source: "sensor", severity: "info", payload: { host: "api.example.com", status: 200, ms: 140 } },
   "open-file": { label: "Open file", type: "user.opened_file", source: "user", severity: "info", payload: { path: "src/db.ts" } },
 };

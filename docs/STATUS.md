@@ -20,6 +20,14 @@ Updated at the end of each phase.
   Web reads `session`/`connect` URL params and auto-connects. 4 extension unit tests; full
   suite + 9 E2E green. Build note: `fs.cpSync` recursive segfaults on Node 22.17/Windows →
   file-by-file copy.
+- **P2 `network_failure` layout** (2026-08-31): traffic *shape* is a first-class problem kind.
+  `network.request` 5xx/error on a new host → significance `network_shape` → brain plans
+  read-only `network.inspect_shape` + `workspace.get_state` → "Connection trouble" panel
+  (failing-host table bound to the capability, honest assessment text, timeline, undo only —
+  nothing to remediate on the user's side). Repeated failures to the same host do NOT
+  re-deliberate; recovery of the last failing host closes the problem and restores the body.
+  Sim palette (web + runtime) gained `API 503` / `API recovered`; E2E `network.spec.ts`
+  (10/10 specs green).
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

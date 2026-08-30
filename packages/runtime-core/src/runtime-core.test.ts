@@ -230,4 +230,25 @@ describe("RuntimeCore — full loop", () => {
     expect(core.approvals.get(approvalId)).toBeUndefined(); // removed so it can be re-offered
     expect(await core.approve(approvalId)).toBeNull(); // cannot execute a rejected capability
   });
+  it("Concept v2 (L2): the SHAPE of failing traffic opens a connection incident; recovery closes it", async () => {
+    const core = createRuntimeCore(makeClock());
+    const req = (id: string, status: number, sev: "warning" | "info") => ({
+      id, sessionId: "s", timestamp: "2026-08-31T00:00:00Z", source: "sensor" as const,
+      type: "network.request", severity: sev, payload: { host: "api.example.com", status, ms: 900 },
+    });
+    const fail = await core.ingest(req("n1", 503, "warning"));
+    expect(fail.worldState.activeProblems.map((p) => p.kind)).toEqual(["network_failure"]);
+    expect(fail.morph.applied).toBe(true);
+    const panel = findById(core.getBlueprint("s").root, "incident");
+    expect(panel?.props?.title).toBe("Connection trouble");
+    // rows are bound from network.inspect_shape - real hosts, no placeholder
+    expect(findById(core.getBlueprint("s").root, "incident-hosts")?.props?.rows).toEqual([["api.example.com", "failing"]]);
+    // a second failure to the same host does not re-deliberate (anti-thrash)
+    const again = await core.ingest(req("n2", 503, "warning"));
+    expect(again.morph.applied).toBe(false);
+    // recovery of the only failing host closes the problem and the body returns to work
+    const ok = await core.ingest(req("n3", 200, "info"));
+    expect(ok.worldState.activeProblems).toEqual([]);
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
+  });
 });

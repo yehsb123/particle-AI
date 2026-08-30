@@ -21,6 +21,10 @@ const PROBLEM_CLOSERS = new Set([
 
 /** Capability plans per problem kind — diagnostics are read-only; remediation is gated. */
 function planFor(kind: string) {
+  if (kind === "network_failure") {
+    // read-only: the shape of traffic + workspace state; nothing to remediate on the user's side
+    return [{ capabilityId: "network.inspect_shape" }, { capabilityId: "workspace.get_state" }];
+  }
   if (kind === "security_alert") {
     return [
       { capabilityId: "security.scan_dependencies" },
@@ -98,7 +102,8 @@ export function deterministicDecision(ctx: DecisionContext): RuntimeDecision {
           ? "Detected a return after time away (no error involved); augmented the workspace with a re-entry summary."
           : "Detected a stuck pattern from repeated actions (no error involved); augmented the workspace with related context.",
     };
-  } else if (PROBLEM_CLOSERS.has(event.type)) {
+  } else if (PROBLEM_CLOSERS.has(event.type) || significance.reasonCodes.includes("network_shape")) {
+    // (no problem is open here, so a "network_shape" signal can only be the last failing host recovering)
     decision = {
       id,
       significance: significance.score,
