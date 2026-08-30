@@ -90,6 +90,19 @@ pnpm test 2>&1 | pnpm agent      # sense a run's transitions (output is passed t
 
 See [`apps/agent/README.md`](apps/agent/README.md).
 
+## Runtime access control
+
+The runtime holds a shape-level record of what you did, so by default it only talks to you:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `DM_HOST` | `127.0.0.1` | bind address — set `0.0.0.0` only to expose it on your LAN |
+| `DM_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | browser origins allowed to read/write; `chrome-extension://` origins are always allowed; any other page gets no CORS grant and a 403 |
+| `DM_INGEST_TOKEN` | *(empty)* | optional shared secret — when set, every read and write needs `x-particle-token` (WS: `?token=`); the extension takes it in its options page, the agent from the same env var |
+
+Reads never create sessions, so unknown ids cannot evict real ones. Shape-only is enforced at the
+sensors; the runtime trusts the body, the extension and token holders.
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in

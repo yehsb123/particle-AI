@@ -399,3 +399,42 @@ describe("RuntimeCore — learned preferences outlive the session (P4 persistenc
     expect(b.exportMemory("s").preferences.every((p) => typeof p.key === "string")).toBe(true);
   });
 });
+
+describe("RuntimeCore — reconcile after a timing hold", () => {
+  it("a re-escalation held by the cooldown reports retryAfterMs; a reconcile tick after it surfaces the open problem", async () => {
+    // fixed-step clock: 1 s per read (the guard reads it once per morph attempt)
+    let t = 0;
+    const core = createRuntimeCore({ iso: () => new Date(t).toISOString(), ms: () => t });
+    const at = (type: string, sev: "warning" | "info" | "debug", id: string, source: "development" | "system" = "development") => ({
+      id, sessionId: "s", timestamp: new Date(t).toISOString(), source, type, severity: sev, payload: {},
+    });
+    t = 0;
+    expect((await core.ingest(at("development.build_failed", "warning", "b1"))).morph.applied).toBe(true);
+    t = 1_000;
+    expect((await core.ingest(at("development.build_succeeded", "info", "b2"))).morph.applied).toBe(true);
+    t = 2_000;
+    const held = await core.ingest(at("development.build_failed", "warning", "b3"));
+    expect(held.morph.applied).toBe(false);
+    expect(held.morph.guardReasonCodes).toContain("cooldown_active");
+    expect(held.retryAfterMs).toBeGreaterThan(3_000); // 5 s cooldown since the 1 s de-escalation, + margin
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined(); // body out of step with the world
+    // too early: the tick deliberates but the guard still holds (and reports a shorter retry)
+    t = 3_000;
+    const early = await core.ingest(at("runtime.reconcile", "debug", "r0", "system"));
+    expect(early.morph.applied).toBe(false);
+    expect(early.retryAfterMs).toBeLessThan(held.retryAfterMs!);
+    // on time: the reconcile tick brings the body back in step
+    t = 2_000 + held.retryAfterMs!;
+    const fixed = await core.ingest(at("runtime.reconcile", "debug", "r1", "system"));
+    expect(fixed.deliberated).toBe(true);
+    expect(fixed.morph.applied).toBe(true);
+    expect(findById(core.getBlueprint("s").root, "incident")?.props?.title).toBe("Build failure");
+    // with nothing open, a reconcile tick is a no-op
+    t += 10_000;
+    await core.ingest(at("development.build_succeeded", "info", "b4"));
+    t += 10_000;
+    const idle = await core.ingest(at("runtime.reconcile", "debug", "r2", "system"));
+    expect(idle.deliberated).toBe(false);
+    expect(idle.retryAfterMs).toBeUndefined();
+  });
+});

@@ -126,6 +126,19 @@ Updated at the end of each phase.
 - **Extension options/side panel** (2026-08-31): options page localized (Korean when the browser is
   Korean, via `data-i18n` + a static dictionary — never page content), dark-mode tokens for options
   and the side panel shell (no flash before the body paints), focus ring on inputs.
+- **Reconcile after a timing hold** (2026-08-31): found live via the agent pipe — a build that fails
+  again 1 s after recovering is held by the 5 s cooldown, and with no further output the body stayed
+  out of step with the world forever. Now a hold on timing alone (cooldown / dwell) reports
+  `IngestResult.retryAfterMs`; the server (per-session timer) and the local web body ingest one
+  `runtime.reconcile` event at that time; significance deliberates on it only while a problem is
+  open, so the brain re-surfaces the incident and the guard now allows it. It is an ordinary event,
+  so the log and replay see exactly what happened. Verified live: "Build failure" absent right after
+  the third transition, present ~6 s later. WS now also carries `learned` (connected-mode banner).
+  Agent pipe verified: 13 repeated tsc-style lines → 3 transition events. runtime-core 27.
+- **Ordered sends** (2026-08-31): the same smoke exposed that agent/extension sends were parallel
+  fetches — a recovery could overtake the failure it recovered from (observed: failed, failed,
+  succeeded). Both sensors now serialize sends (one in-flight request); verified 3/3 back-to-back
+  runs arrive in observed order.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current

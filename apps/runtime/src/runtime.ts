@@ -11,7 +11,8 @@ export type RuntimeMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
   | { kind: "ai_presence_changed"; sessionId: string; state: string }
-  | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] };
+  | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] }
+  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } };
 
 export type RuntimeListener = (msg: RuntimeMessage) => void;
 
@@ -74,6 +75,8 @@ export class SessionRuntime {
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
+    this.scheduleReconcile(event.sessionId, result.retryAfterMs);
+    if (result.learned) this.emit({ kind: "learned", sessionId: event.sessionId, learned: result.learned });
 
     // Structured trace + log for the developer inspector / observability.
     this.traces.append({
@@ -155,6 +158,33 @@ export class SessionRuntime {
       ]).catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
     }
     return bp;
+  }
+
+  /**
+   * A morph held purely on timing (cooldown / dwell) must not leave the body out of step with the
+   * world forever — e.g. a build that fails again 1 s after recovering, with no further output.
+   * One pending tick per session; it is an ordinary event, so the log and replay see it too.
+   */
+  private reconcileTimers = new Map<string, NodeJS.Timeout>();
+  private scheduleReconcile(sessionId: string, afterMs: number | undefined): void {
+    const prev = this.reconcileTimers.get(sessionId);
+    if (prev) clearTimeout(prev);
+    this.reconcileTimers.delete(sessionId);
+    if (afterMs === undefined) return;
+    const t = setTimeout(() => {
+      this.reconcileTimers.delete(sessionId);
+      void this.ingest({
+        id: `reconcile-${sessionId}-${Date.now()}`,
+        sessionId,
+        timestamp: this.now(),
+        source: "system",
+        type: "runtime.reconcile",
+        severity: "debug",
+        payload: { reason: "guard_hold_expired" },
+      }).catch(() => undefined);
+    }, Math.min(afterMs, 60_000));
+    t.unref?.();
+    this.reconcileTimers.set(sessionId, t);
   }
 
   /** Reconstruct a session's UI + world from the latest persisted snapshots (resume). */

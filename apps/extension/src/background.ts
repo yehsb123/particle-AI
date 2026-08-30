@@ -47,15 +47,21 @@ chrome.storage.onChanged.addListener((changes, area) => {
   });
 });
 
-async function send(event: ReturnType<typeof matterEvent>): Promise<void> {
-  await ready;
-  try {
-    const headers: Record<string, string> = { "content-type": "application/json" };
-    if (token) headers["x-particle-token"] = token;
-    await fetch(`${RUNTIME}/api/events`, { method: "POST", headers, body: JSON.stringify(event) });
-  } catch {
-    /* runtime offline — sensing is best-effort and local */
-  }
+// Sends are serialized so events arrive in the order they were observed (a recovery must not
+// overtake the failure it recovers from). One in-flight request at a time, best-effort.
+let sendQueue: Promise<void> = Promise.resolve();
+function send(event: ReturnType<typeof matterEvent>): Promise<void> {
+  sendQueue = sendQueue.then(async () => {
+    await ready;
+    try {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (token) headers["x-particle-token"] = token;
+      await fetch(`${RUNTIME}/api/events`, { method: "POST", headers, body: JSON.stringify(event) });
+    } catch {
+      /* runtime offline — sensing is best-effort and local */
+    }
+  });
+  return sendQueue;
 }
 
 /** Tell the runtime what this sensor observes right now, so the body's indicator stays true. */

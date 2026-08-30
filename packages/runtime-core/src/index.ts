@@ -76,6 +76,11 @@ export type IngestResult = {
   pendingApprovals: ApprovalRequest[];
   /** set when a morph was withheld because the person kept dismissing that kind (Concept v2 P4) */
   learned?: { suppressed: string; dismissals: number };
+  /**
+   * set when the guard held a wanted morph purely on timing (cooldown / dwell): the host should
+   * ingest a `runtime.reconcile` event after this many ms so the body catches up with the world
+   */
+  retryAfterMs?: number;
 };
 
 /** Undos of the same augmentation variant after which the runtime stops offering it (per session). */
@@ -321,6 +326,7 @@ export class RuntimeCore {
 
     const morph: MorphOutcome = { applied: false, guardReasonCodes: [], dropped: [] };
     let learned: IngestResult["learned"];
+    let retryAfterMs: number | undefined;
 
     // Learning (Concept v2 P4): a person who keeps dismissing a kind of augmentation has told
     // us something. After DISMISS_THRESHOLD undos of the same variant, the runtime stops
@@ -363,6 +369,15 @@ export class RuntimeCore {
       });
       morph.guardReasonCodes = guard.reasonCodes;
       morph.dropped = guard.dropped.map((d) => `${d.op.op}:${d.reason}`);
+      if (!guard.allowed) {
+        // timing holds are temporary — tell the host when to try again (as an EVENT, so replay sees it too)
+        const now = this.deps.clock.ms();
+        if (guard.reasonCodes.includes("cooldown_active") && s.lastMorphAt !== undefined) {
+          retryAfterMs = Math.max(250, policy.cooldownMs - (now - s.lastMorphAt) + 100);
+        } else if (guard.reasonCodes.includes("major_dwell_active") && s.lastMajorMorphAt !== undefined) {
+          retryAfterMs = Math.max(250, policy.majorDwellMs - (now - s.lastMajorMorphAt) + 100);
+        }
+      }
 
       if (guard.allowed) {
         const { next, inverse } = applyPatch(s.blueprint, guard.patch, this.deps.clock.iso());
@@ -417,6 +432,7 @@ export class RuntimeCore {
       patternSuggestions,
       pendingApprovals,
       learned,
+      retryAfterMs,
     };
   }
 

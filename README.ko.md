@@ -89,6 +89,18 @@ pnpm test 2>&1 | pnpm agent      # 실행 결과 전이 감지 (출력은 그대
 
 바디: `http://localhost:3000/?connect=1&session=desktop`. 자세한 내용: [`apps/agent/README.md`](apps/agent/README.md)
 
+## 런타임 접근 제어
+
+런타임은 당신이 한 일의 형태 기록을 갖고 있으므로 기본적으로 **당신에게만** 응답합니다:
+
+| 설정 | 기본값 | 의미 |
+|---|---|---|
+| `DM_HOST` | `127.0.0.1` | 바인드 주소 — LAN에 노출하려는 경우에만 `0.0.0.0` |
+| `DM_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | 읽기/쓰기가 허용된 브라우저 출처; `chrome-extension://`은 항상 허용; 그 외 페이지는 CORS 허용 없이 403 |
+| `DM_INGEST_TOKEN` | *(비움)* | 선택 공유 비밀 — 설정하면 모든 읽기·쓰기에 `x-particle-token` 필요(WS는 `?token=`); 확장은 옵션 페이지에서, 에이전트는 같은 환경변수로 전달 |
+
+읽기는 세션을 생성하지 않으므로 임의의 id로 실제 세션을 밀어낼 수 없습니다. "형태만"은 센서에서 강제되며, 런타임은 바디·확장·토큰 보유자를 신뢰합니다.
+
 ## 데이터 영속화 (선택)
 
 `DATABASE_URL`이 설정되면 이벤트가 Postgres(Drizzle + postgres-js)에 durable하게 저장됩니다. 없으면 인메모리 + 결정론적 리플레이로 동작합니다.

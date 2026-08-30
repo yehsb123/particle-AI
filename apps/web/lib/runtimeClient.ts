@@ -12,7 +12,8 @@ export type ServerMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
   | { kind: "ai_presence_changed"; sessionId: string; state: string }
-  | { kind: "decision_created"; sessionId: string; audit: { id: string; kind: string; detail: Record<string, unknown> }[] };
+  | { kind: "decision_created"; sessionId: string; audit: { id: string; kind: string; detail: Record<string, unknown> }[] }
+  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } };
 
 /** Browser client for the Particle AI runtime server (REST + WebSocket). */
 export class RuntimeClient {

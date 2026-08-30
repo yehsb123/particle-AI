@@ -67,6 +67,7 @@ export function Workspace() {
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
   const [restored, setRestored] = useState(false);
+  const reconcileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importedPrefs = useRef<{ preferences?: { key: string; weight: number }[] } | null>(null);
   // Honest indicator: this page's own in-app sensors + whatever other sensors REPORTED to this
   // session (extension / agent announce their consented layers via sensor.layers_changed).
@@ -181,6 +182,15 @@ export function Workspace() {
       else pushLog(`morph blocked — ${res.morph.guardReasonCodes.join(", ") || "no change"}`, "blocked");
       if (res.deliberated && !res.morph.applied && res.morph.guardReasonCodes.length) setHeld({ codes: res.morph.guardReasonCodes, at: Date.now() });
       if (res.morph.applied) setHeld(null);
+      // a timing hold is temporary: schedule one reconcile tick so the body catches up (an event, so replay sees it)
+      if (reconcileTimer.current) clearTimeout(reconcileTimer.current);
+      reconcileTimer.current = null;
+      if (res.retryAfterMs !== undefined) {
+        reconcileTimer.current = setTimeout(() => {
+          reconcileTimer.current = null;
+          void ingestRef.current({ id: `reconcile${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "system", type: "runtime.reconcile", severity: "debug", payload: { reason: "guard_hold_expired" } });
+        }, Math.min(res.retryAfterMs, 60_000));
+      }
       if (res.presence === "acting") setTimeout(() => setPresence("observing"), 600);
     },
     [attention, applyResult, pushLog],
@@ -274,6 +284,8 @@ export function Workspace() {
         setDebug((d) => ({ ...d, worldState: m.worldState }));
       } else if (m.kind === "ai_presence_changed") {
         setPresence(m.state as Presence);
+      } else if (m.kind === "learned") {
+        setLearned(m.learned);
       } else if (m.kind === "decision_created") {
         setDebug((d) => ({ ...d, audit: [...m.audit, ...d.audit].slice(0, 60) }));
         pushLog("server decision", "note");

@@ -103,10 +103,16 @@ export function evaluateSignificance(
   }
   if (networkSignal) reasonCodes.push("network_shape");
 
+  // Reconcile tick (scheduled after a guard hold): worth a deliberation only if a problem is still
+  // open — the body may be out of step with the world. Otherwise it is a no-op event.
+  const reconcile = event.type === "runtime.reconcile" && world.activeProblems.length > 0;
+  if (reconcile) reasonCodes.push("reconcile");
+
   const shouldDeliberate =
     score >= config.threshold ||
     behaviorSignal ||
     networkSignal ||
+    reconcile ||
     event.severity === "critical" ||
     PROBLEM_OPENERS.has(event.type) ||
     (PROBLEM_CLOSERS.has(event.type) && world.activeProblems.length > 0);

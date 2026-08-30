@@ -23,15 +23,22 @@ const WATCH = (process.env.DM_WATCH_PATHS ?? "").split(",").map((s) => s.trim())
 const DEBOUNCE_MS = Number(process.env.DM_AGENT_DEBOUNCE_MS ?? 400);
 const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
 
-async function send(event: ReturnType<typeof matterEvent>): Promise<void> {
-  try {
-    const headers: Record<string, string> = { "content-type": "application/json" };
-    if (TOKEN) headers["x-particle-token"] = TOKEN;
-    const res = await fetch(`${RUNTIME}/api/events`, { method: "POST", headers, body: JSON.stringify(event) });
-    if (!res.ok) process.stderr.write(`[particle-agent] runtime rejected ${event.type}: ${res.status}\n`);
-  } catch {
-    /* runtime offline — sensing is best-effort and local */
-  }
+// Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
+// parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
+let sendQueue: Promise<void> = Promise.resolve();
+function send(event: ReturnType<typeof matterEvent>): Promise<void> {
+  sendQueue = sendQueue.then(async () => {
+    try {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (TOKEN) headers["x-particle-token"] = TOKEN;
+      const res = await fetch(`${RUNTIME}/api/events`, { method: "POST", headers, body: JSON.stringify(event) });
+      if (!res.ok) process.stderr.write(`[particle-agent] runtime rejected ${event.type}: ${res.status}
+`);
+    } catch {
+      /* runtime offline — sensing is best-effort and local */
+    }
+  });
+  return sendQueue;
 }
 
 function watchPaths(paths: string[]): void {
