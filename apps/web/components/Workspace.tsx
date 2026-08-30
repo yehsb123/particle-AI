@@ -52,6 +52,7 @@ export function Workspace() {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
+  const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
   const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
@@ -74,6 +75,9 @@ export function Workspace() {
       setBlueprint(res.blueprint);
       setPresence(res.presence as Presence);
       setCanUndo(core.current.canUndo(SESSION));
+      if (res.morph.applied) {
+        setMorphs((m) => [...m, { id: res.morph.patch?.patchId ?? `m${m.length + 1}`, intent: res.decision?.uiPlan?.intent ?? "morph", at: new Date().toLocaleTimeString() }]);
+      }
       addApprovals(res.pendingApprovals);
       if (res.patternSuggestions.length) {
         setPatternSugs((p) => [
@@ -190,8 +194,25 @@ export function Workspace() {
     if (!bp) return;
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
+    setMorphs((m) => m.slice(0, -1));
     pushLog("undo — reverted last morph", "undo");
   }, [mode, pushLog]);
+
+  // Multi-step undo: revert every morph from the end back to (and including) index `i`.
+  const undoTo = useCallback((i: number) => {
+    if (mode === "connected") return;
+    let bp: UIBlueprint | null = null;
+    let steps = 0;
+    for (let k = morphs.length - 1; k >= i; k--) {
+      const next = core.current.undo(SESSION);
+      if (!next) break;
+      bp = next; steps++;
+    }
+    if (bp) setBlueprint(bp);
+    setCanUndo(core.current.canUndo(SESSION));
+    setMorphs((m) => m.slice(0, i));
+    pushLog(`undo ×${steps} — reverted to before step ${i + 1}`, "undo");
+  }, [mode, morphs.length, pushLog]);
 
   const handleServerMessage = useCallback(
     (m: ServerMessage) => {
@@ -405,6 +426,20 @@ export function Workspace() {
           <div className="coach">
             <span>{t("coachText", lang)}</span>
             <button className="btn" onClick={dismissCoach}>{t("coachDismiss", lang)}</button>
+          </div>
+        ) : null}
+        {mode === "local" ? (
+          <div className="history" aria-label={t("historyTitle", lang)}>
+            <span className="history-title">{t("historyTitle", lang)}</span>
+            {morphs.length === 0 ? (
+              <span className="muted" style={{ fontSize: 12 }}>{t("historyEmpty", lang)}</span>
+            ) : (
+              morphs.map((m, i) => (
+                <button key={`${m.id}-${i}`} className="chip" title={t("historyHint", lang)} onClick={() => undoTo(i)}>
+                  <span className="n">{i + 1}</span> {m.intent.replace("_", " ")} <span className="muted">{m.at}</span>
+                </button>
+              ))
+            )}
           </div>
         ) : null}
         <div style={{ paddingTop: 16 }}>
