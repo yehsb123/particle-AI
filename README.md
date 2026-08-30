@@ -43,6 +43,27 @@ Where the senses come from (each layer opt-in, shape only):
 
 The body always shows *what is currently being sensed*, from what the sensors themselves report.
 
+```
+   the page          the browser            the desktop
+  apps/web        apps/extension (MV3)     apps/agent (opt-in)
+  clicks·dwell    tabs·hosts·traffic       file saves·git branch
+  idle·returns    shape (opt-in)           test/build transitions
+      │                  │                        │            shape only,
+      └────────────── ordered, serialized events ─┘            never content
+                             ▼
+                ┌─ Particle AI runtime (local) ─┐
+                │ world model → significance    │   every decision audited,
+                │ → intent (always on) → brain  │   every change reversible,
+                │ → permissions → capabilities  │   event-sourced replay
+                │ → morph guard → reconcile     │
+                └───────────────┬───────────────┘
+                                ▼
+                    the BODY (apps/web / side panel)
+              reshapes itself before anything breaks;
+              learns from your dismissals; shows honestly
+              what it senses
+```
+
 Reliability guardrails make this safe:
 
 - The model only emits **validated UI data** (`UIBlueprint` / `UIPatch`), never executable code.
