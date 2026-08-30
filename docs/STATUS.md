@@ -97,6 +97,11 @@ Updated at the end of each phase.
   params (`summaryTpl`, `jugglingTpl`) next to the English text; blueprints bind `tpl` as well as
   `text`; the renderer fills `t(tpl.id)` in the viewer's language (`fillTemplate`, unknown slots
   stay visible). No generated sentence is ever translated as a string. web 5 tests.
+- **Dark-mode accessibility audit** (2026-08-31): `a11y.spec` now audits dark mode too (initial,
+  behavior context card, incident, developer mode). It found three real AA contrast failures that
+  the light audit could not see: the code editor textarea inherited the UA default (black on the
+  dark panel), the `ok` badge (#81C784 on #1B5E20 ≈ 3.9:1 → #A5D6A7, 5.0:1), and the reason tags
+  (primary-700 on accent-low, 1.4:1 → primary-200, also under `prefers-color-scheme: dark`). 13 specs.
 
 ## Autonomous-loop additions (2026-08-29 ~)
 - **AI presence inspector (spec §23)**: clicking the presence chip opens a popover — current
