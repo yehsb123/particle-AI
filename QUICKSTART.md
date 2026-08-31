@@ -57,10 +57,11 @@ failing test run, and watch the body react to your *desktop*.
 
 Trigger the stuck card (3× High CPU) and **Dismiss** it. Trigger it again, dismiss again.
 The third time, the card is **withheld** and a "Learned from you" banner explains why.
-Reload the page — the lesson survives. **Reset session** forgets everything.
+Reload the page — the lesson survives. Changed your mind? **Redo morph** re-applies what you
+undid and hands the lesson back. **Reset session** forgets everything.
 
 같은 카드를 두 번 닫으면 세 번째부터는 자동으로 띄우지 않고, 이유를 배너로 설명합니다.
-새로고침해도 학습은 유지됩니다.
+새로고침해도 학습은 유지됩니다. 마음이 바뀌면 **변형 다시 실행(Redo)** — 되돌린 변형이 재적용되고 학습도 반환됩니다.
 
 ## 5 — Look inside · 안을 들여다보기 (1m)
 
