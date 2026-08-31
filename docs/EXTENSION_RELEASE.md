@@ -14,19 +14,24 @@ list to walk when we decide to).
 - `webRequest` — opt-in traffic *shape* (host · status · latency); listeners detach without consent
 - `storage` — consent + optional runtime token; `storage.session` for hidden-since
 - `sidePanel` — the body
-- `host_permissions <all_urls>` — hardest to justify; consider narrowing or the activeTab model
-  if review pushes back
+- `host_permissions <all_urls>` — DECISION (2026-08-31): keep, with this justification. Moving it
+  to `optional_host_permissions` would not soften the install warning, because the L0 content
+  script (`content_scripts.matches: <all_urls>`) triggers the same "read data on all websites"
+  prompt — and L0 counting is the product's default sense. What the store reviewer needs instead:
+  the content script reads NO page content (counts only — see `src/content.ts`, 40 lines), the
+  network layer is opt-in in-app and its listeners detach without consent, and everything goes to
+  a user-run localhost runtime (configurable in options; never a remote server).
 
 ## Privacy disclosures
 - [ ] Single-purpose description: "adapts a local workspace to your behavior"
 - [ ] Data usage: no content collected; hostnames/counters sent ONLY to localhost (user-run
   runtime); nothing to remote servers; no sale/transfer
-- [ ] Privacy policy URL (repo `docs/` page is acceptable)
+- [x] Privacy policy: `docs/PRIVACY.md` (what is sensed = shape only, where it goes = the user's own runtime, what is never collected)
 
 ## Hard blockers to fix before store review
-- [ ] `sidepanel.html`/`options.html` reference `http://localhost:3000` — fine for dev builds;
-  a store build should degrade gracefully when no runtime exists (offline hint already does)
-- [ ] Decide the update story for `RUNTIME`/session constants (currently hard-coded)
+- [x] `sidepanel.html` degrades gracefully without a runtime (offline hint + auto-reload)
+- [x] Runtime URL configurable in options (storage.sync); the extension never observes its own
+  runtime host, custom or not
 
 ## Verification
 - [ ] `pnpm --filter @particle/extension build` → load `dist/` clean on a fresh profile

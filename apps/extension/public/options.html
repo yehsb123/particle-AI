@@ -25,6 +25,7 @@
 <label><input type="checkbox" id="tabs"> <span><b data-i18n="tabs">Tabs &amp; focus (L3)</b><br><small data-i18n="tabs_desc">site hostnames you navigate to and time away — never full URLs or page text</small></span></label>
 <label><input type="checkbox" id="network"> <span><b data-i18n="network">Communication shape (L2) — opt-in</b><br><small data-i18n="network_desc">hostname, status code and latency of requests — never paths, queries or bodies</small></span></label>
 <label><span style="flex:1"><b data-i18n="token">Runtime token (optional)</b><br><small data-i18n="token_desc">must match <code>DM_INGEST_TOKEN</code> on the runtime; leave empty if the runtime has none</small><br><input type="text" id="token" autocomplete="off" spellcheck="false"></span></label>
+<label><span style="flex:1"><b data-i18n="runtimeUrl">Runtime URL</b><br><small data-i18n="runtimeUrl_desc">where events go — your own machine by default; leave empty for <code>http://localhost:8787</code></small><br><input type="text" id="runtimeUrl" autocomplete="off" spellcheck="false" placeholder="http://localhost:8787"></span></label>
 <p><small><span data-i18n="runtime">Runtime</span>: <code>http://localhost:8787</code> · <span data-i18n="body">Body: side panel</span></small></p>
 <script src="options.js"></script>
 </body>

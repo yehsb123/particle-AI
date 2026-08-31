@@ -30,9 +30,12 @@ test("extension options page localizes to Korean and saves consent atomically", 
     // two quick toggles must both land (atomic full-object write, no read-modify-write race)
     await page.locator("#network").check();
     await page.locator("#tabs").uncheck();
+    await page.locator("#runtimeUrl").fill("http://127.0.0.1:9999");
+    await page.locator("#runtimeUrl").blur();
     await page.reload();
     await expect(page.locator("#network")).toBeChecked();
     await expect(page.locator("#tabs")).not.toBeChecked();
+    await expect(page.locator("#runtimeUrl")).toHaveValue("http://127.0.0.1:9999");
   } finally {
     await context.close();
   }

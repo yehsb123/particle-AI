@@ -15,6 +15,8 @@ const KO: Record<string, string> = {
   network_desc: "요청의 호스트명·상태 코드·지연시간 — 경로·쿼리·본문은 절대 아님",
   token: "런타임 토큰 (선택)",
   token_desc: "런타임의 <code>DM_INGEST_TOKEN</code>과 일치해야 합니다. 런타임에 토큰이 없으면 비워 두세요",
+  runtimeUrl: "런타임 URL",
+  runtimeUrl_desc: "이벤트가 전송되는 곳 — 기본은 이 컴퓨터입니다. 비우면 <code>http://localhost:8787</code>",
   runtime: "런타임",
   body: "바디: 사이드 패널",
 };
@@ -33,17 +35,20 @@ function localize(): void {
 function save(): void {
   const consent: Consent = { interactions: box("interactions").checked, tabs: box("tabs").checked, network: box("network").checked };
   const token = box("token").value.trim();
-  void chrome.storage.sync.set({ consent, token });
+  const runtimeUrl = box("runtimeUrl").value.trim();
+  void chrome.storage.sync.set({ consent, token, runtimeUrl });
 }
 
 async function load(): Promise<void> {
-  const v = await chrome.storage.sync.get(["consent", "token"]);
+  const v = await chrome.storage.sync.get(["consent", "token", "runtimeUrl"]);
   const c: Consent = { ...DEFAULT_CONSENT, ...((v.consent as Partial<Consent> | undefined) ?? {}) };
   for (const id of ids) box(id).checked = c[id];
   box("token").value = typeof v.token === "string" ? v.token : "";
+  box("runtimeUrl").value = typeof v.runtimeUrl === "string" ? v.runtimeUrl : "";
 }
 
 localize();
 for (const id of ids) box(id).addEventListener("change", save);
 box("token").addEventListener("change", save);
+box("runtimeUrl").addEventListener("change", save);
 void load();

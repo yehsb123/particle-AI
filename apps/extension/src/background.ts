@@ -21,7 +21,8 @@ import {
   type Consent,
 } from "./shape";
 
-const RUNTIME = "http://localhost:8787";
+const DEFAULT_RUNTIME = "http://localhost:8787";
+let runtimeUrl = DEFAULT_RUNTIME;
 const SESSION = "ext";
 
 const NONE: Consent = { interactions: false, tabs: false, network: false };
@@ -31,18 +32,20 @@ let token = "";
 function applySettings(v: Record<string, unknown>): void {
   consent = { ...DEFAULT_CONSENT, ...((v.consent as Partial<Consent> | undefined) ?? {}) };
   token = typeof v.token === "string" ? v.token : "";
+  const u = typeof v.runtimeUrl === "string" ? v.runtimeUrl.trim() : "";
+  runtimeUrl = /^https?:\/\//.test(u) ? u.replace(/\/$/, "") : DEFAULT_RUNTIME;
 }
 
 /** Resolves once consent has been read — every sender awaits this. */
 const ready: Promise<void> = chrome.storage.sync
-  .get(["consent", "token"])
+  .get(["consent", "token", "runtimeUrl"])
   .then((v) => applySettings(v))
   .catch(() => applySettings({})) // storage unavailable → defaults (fail closed for network), never a stuck promise
   .then(() => announce());
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "sync" || !(changes.consent || changes.token)) return;
-  void chrome.storage.sync.get(["consent", "token"]).then((v) => {
+  if (area !== "sync" || !(changes.consent || changes.token || changes.runtimeUrl)) return;
+  void chrome.storage.sync.get(["consent", "token", "runtimeUrl"]).then((v) => {
     applySettings(v);
     announce();
   });
@@ -60,7 +63,7 @@ function send(event: ReturnType<typeof matterEvent>): Promise<void> {
     try {
       const headers: Record<string, string> = { "content-type": "application/json" };
       if (token) headers["x-particle-token"] = token;
-      await fetch(`${RUNTIME}/api/events`, {
+      await fetch(`${runtimeUrl}/api/events`, {
         method: "POST",
         headers,
         body: JSON.stringify(event),
@@ -128,7 +131,8 @@ chrome.webRequest.onCompleted.addListener((d) => {
     await ready;
     if (!consent.network) return;
     const host = hostOf(d.url);
-    if (isSelfHost(host) || d.type === "image" || d.type === "font" || d.type === "stylesheet") return;
+    // never observe ourselves — including a custom runtime host (it may not be localhost)
+    if (isSelfHost(host) || host === hostOf(runtimeUrl) || d.type === "image" || d.type === "font" || d.type === "stylesheet") return;
     const shape = { host, status: d.statusCode, ms: t0 ? observedAt - t0 : undefined };
     const why = shaper.admit(shape, observedAt);
     if (!why) return;
@@ -141,7 +145,7 @@ chrome.webRequest.onErrorOccurred.addListener((d) => {
     await ready;
     if (!consent.network || isTransientError(d.error)) return;
     const host = hostOf(d.url);
-    if (isSelfHost(host)) return;
+    if (isSelfHost(host) || host === hostOf(runtimeUrl)) return;
     const shape = { host, error: true };
     if (!shaper.admit(shape, Date.now())) return;
     void send(matterEvent(SESSION, "sensor", "network.request", "warning", { ...shape, why: "failure" }));
