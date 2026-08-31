@@ -248,3 +248,14 @@ describe("runtime redo", () => {
     expect(JSON.stringify(runtime.getUI("rd1"))).toContain("Runtime incident");
   });
 });
+
+describe("runtime reversal audit", () => {
+  it("undo and redo leave audit records (every autonomous UI change is auditable)", async () => {
+    await app.inject({ method: "POST", url: "/api/sim/au1/http-500" });
+    await app.inject({ method: "POST", url: "/api/morph/au1/undo", payload: {} });
+    await app.inject({ method: "POST", url: "/api/morph/au1/redo" });
+    const kinds = runtime.audit.list("au1").map((a) => a.kind);
+    expect(kinds).toContain("morph_undone");
+    expect(kinds).toContain("morph_redone");
+  });
+});

@@ -217,9 +217,11 @@ export function Workspace() {
       pushLog(`${spec.type} · ${spec.severity} → server`, "event");
       setPresence("evaluating");
       const c = client.current;
-      // a click is behavior in EVERY mode: the semantic action key goes first (repeats → "stuck")
+      // a click is behavior in EVERY mode: the semantic action key goes first (repeats → "stuck").
+      // If the behavior key fails on a blip, the sim event must STILL fire (behavior lost > sim lost).
       void c
         .emit({ id: `u${++counter.current}-${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.action", severity: "debug", payload: { key: spec.key } })
+        .catch(() => null)
         .then((r) => {
           if (r?.learned) setLearned(r.learned);
           return c.emitSim(spec.key);
@@ -234,7 +236,11 @@ export function Workspace() {
           setPatternSugs((p) => [...p, ...resp.patternSuggestions!.filter((x) => !p.some((y) => y.key === x.key))]);
         }
         if (resp?.learned) setLearned(resp.learned);
-      });
+      })
+        .catch(() => {
+          pushLog("server unreachable — event not sent", "blocked");
+          setPresence("observing");
+        });
       return;
     }
     // Concept v2: a click is behavior. Emit the semantic action first (repeats → "stuck"),
@@ -265,6 +271,7 @@ export function Workspace() {
       pushLog("undo → server", "undo");
       return;
     }
+    const before = core.current.historyDepth(SESSION);
     const bp = core.current.undo(SESSION, { componentId });
     if (!bp) return;
     // what was just learned outlives this tab (P4): preferences only — never events or content
@@ -272,16 +279,23 @@ export function Workspace() {
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
     setCanRedo(core.current.canRedo(SESSION));
-    setMorphs((m) => m.slice(0, -1));
-    pushLog("undo — reverted last morph", "undo");
+    // a targeted dismissal PUSHES a history entry (the strip must grow), a plain undo pops it
+    const after = core.current.historyDepth(SESSION);
+    setMorphs((m) =>
+      after < before ? m.slice(0, -1) : [...m, { id: `dismiss${Date.now()}`, intent: "dismiss", at: new Date().toLocaleTimeString() }],
+    );
+    pushLog(after < before ? "undo — reverted last morph" : "dismissed the card (undoable)", "undo");
   }, [mode, pushLog]);
 
   const redo = useCallback(() => {
     if (mode === "connected" && client.current) {
-      void client.current.redo();
-      pushLog("redo → server", "morph");
+      void client.current
+        .redo()
+        .then((ok) => pushLog(ok ? "redo → server" : "nothing to redo (server)", ok ? "morph" : "note"))
+        .catch(() => pushLog("server unreachable — redo not sent", "blocked"));
       return;
     }
+    const redoMeta = core.current.peekRedo(SESSION);
     const bp = core.current.redo(SESSION);
     if (!bp) return;
     // a redo hands a learned dismissal back — persist the corrected memory too
@@ -289,7 +303,7 @@ export function Workspace() {
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
     setCanRedo(core.current.canRedo(SESSION));
-    setMorphs((m) => [...m, { id: `redo${Date.now()}`, intent: "redo", at: new Date().toLocaleTimeString() }]);
+    setMorphs((m) => [...m, { id: `redo${Date.now()}`, intent: redoMeta?.intent ?? "morph", at: new Date().toLocaleTimeString() }]);
     pushLog("redo — reapplied the undone morph", "morph");
   }, [mode, pushLog]);
 
@@ -301,6 +315,7 @@ export function Workspace() {
     for (let k = morphs.length - 1; k >= i; k--) {
       const next = core.current.undo(SESSION, { learn: false }); // a "go back" gesture is not a dismissal
       if (!next) break;
+      setCanRedo(core.current.canRedo(SESSION));
       bp = next; steps++;
     }
     if (bp) setBlueprint(bp);
@@ -321,6 +336,8 @@ export function Workspace() {
         setDebug((d) => ({ ...d, worldState: m.worldState }));
       } else if (m.kind === "ai_presence_changed") {
         setPresence(m.state as Presence);
+      } else if (m.kind === "pattern_suggestions") {
+        setPatternSugs((p) => [...p, ...m.suggestions.filter((x) => !p.some((y) => y.key === x.key))]);
       } else if (m.kind === "learned") {
         setLearned(m.learned);
       } else if (m.kind === "decision_created") {
@@ -455,7 +472,9 @@ export function Workspace() {
           // re-offers a template the person already saw.
           const stored = JSON.parse(prefs) as { preferences?: { key: string; weight: number }[]; patterns?: { key: string; suggested?: boolean }[] };
           const parsedPrefs = {
-            preferences: stored.preferences,
+            // dismissed:* only — replay re-reinforces morph:* counters, importing them too would
+            // compound the weights on every reload
+            preferences: (stored.preferences ?? []).filter((pr) => typeof pr.key === "string" && pr.key.startsWith("dismissed:")),
             patterns: (stored.patterns ?? [])
               .filter((pt) => pt.suggested === true && typeof pt.key === "string")
               .map((pt) => ({ key: pt.key, count: 1, firstSeen: "", lastSeen: "", suggested: true })),

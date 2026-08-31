@@ -351,16 +351,17 @@ describe("RuntimeCore — undo attribution & hydrate", () => {
     expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
     expect(prefs.weightOf("dismissed:surface_incident:runtime_error")).toBe(0);
     expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
-    // that targeted dismissal is itself undoable — and undoing it teaches nothing
+    // that targeted dismissal is itself undoable — and undoing it REFUNDS the lesson
+    // (mind-changing loops must never accumulate toward suppression — fifth review, f-1)
     core.undo("s");
     expect(findById(core.getBlueprint("s").root, "context")).toBeDefined();
-    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
     // an id we never introduced is refused rather than guessed
     expect(core.undo("s", { componentId: "nope" })).toBeNull();
     // multi-step "go back" gestures do not teach anything
     core.undo("s", { learn: false });
     core.undo("s", { learn: false });
-    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
     expect(prefs.weightOf("dismissed:surface_incident:runtime_error")).toBe(0);
   });
 
@@ -524,5 +525,40 @@ describe("RuntimeCore — redo", () => {
     expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
     core.redo("s");
     expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
+  });
+});
+
+describe("RuntimeCore — fifth review fixes", () => {
+  it("unknown session ids never create sessions via undo/redo/canUndo/canRedo", () => {
+    const core = createRuntimeCore(makeClock());
+    expect(core.canUndo("ghost")).toBe(false);
+    expect(core.canRedo("ghost")).toBe(false);
+    expect(core.undo("ghost")).toBeNull();
+    expect(core.redo("ghost")).toBeNull();
+    expect(core.hasSession("ghost")).toBe(false);
+  });
+
+  it("a dismissal is refundable: dismiss → undo hands the lesson back; redo re-teaches (no suppression from mind-changing)", async () => {
+    const core = createRuntimeCore(makeClock());
+    const act = (n: number) => ({
+      id: `a${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key: "rerun-tests" },
+    });
+    const prefs = core.memoryFor("s").preferences;
+    for (let i = 1; i <= 3; i++) await core.ingest(act(i)); // context card
+    await core.ingest(ev("development.server_error", "critical", "e1")); // incident on top
+    for (let cycle = 0; cycle < 2; cycle++) {
+      core.undo("s", { componentId: "context" }); // targeted dismissal (+1)
+      expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+      core.undo("s"); // undo the dismissal — the card returns AND the lesson is handed back
+      expect(findById(core.getBlueprint("s").root, "context")).toBeDefined();
+      expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
+    }
+    // two full mind-changing cycles never reached DISMISS_THRESHOLD
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
+    // redoing the undone dismissal teaches again
+    core.redo("s");
+    expect(findById(core.getBlueprint("s").root, "context")).toBeUndefined();
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
   });
 });

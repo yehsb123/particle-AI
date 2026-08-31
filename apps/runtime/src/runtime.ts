@@ -12,7 +12,8 @@ export type RuntimeMessage =
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
   | { kind: "ai_presence_changed"; sessionId: string; state: string }
   | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] }
-  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } };
+  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } }
+  | { kind: "pattern_suggestions"; sessionId: string; suggestions: { key: string; count: number }[] };
 
 export type RuntimeListener = (msg: RuntimeMessage) => void;
 
@@ -80,6 +81,11 @@ export class SessionRuntime {
     if (result.morph.applied) this.cancelReconcile(event.sessionId);
     else if (result.retryAfterMs !== undefined) this.scheduleReconcile(event.sessionId, result.retryAfterMs);
     if (result.learned) this.emit({ kind: "learned", sessionId: event.sessionId, learned: result.learned });
+    // suggestions must reach a WS-attached body too — otherwise a headless emitter's threshold
+    // crossing marks them `suggested` (offered once, ever) without any human having seen them
+    if (result.patternSuggestions.length) {
+      this.emit({ kind: "pattern_suggestions", sessionId: event.sessionId, suggestions: result.patternSuggestions.map((p) => ({ key: p.key, count: p.count })) });
+    }
 
     // Structured trace + log for the developer inspector / observability.
     this.traces.append({
@@ -151,27 +157,31 @@ export class SessionRuntime {
   undo(sessionId: string, opts: { componentId?: string; learn?: boolean } = {}): UIBlueprint | null {
     const bp = this.core.undo(sessionId, opts);
     if (bp) {
+      this.audit.append({ id: `aud-undo-${Date.now()}`, at: this.now(), sessionId, kind: "morph_undone", detail: { componentId: opts.componentId ?? null, learn: opts.learn ?? true } });
       this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
-      // undo is feedback — what was just learned AND the reverted body must survive a restart
-      // (otherwise resume would resurrect the dismissed card). Best-effort.
-      const at = this.now();
-      void Promise.all([
-        this.snapshotStore?.save({ sessionId, kind: "ui", at, data: bp }),
-        this.snapshotStore?.save({ sessionId, kind: "memory", at, data: this.core.exportMemory(sessionId) }),
-      ]).catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
+      this.persistReversal(sessionId, bp);
     }
     return bp;
+  }
+
+  /**
+   * Reversals persist MEMORY first, then UI: if the process dies in between, resume shows the
+   * old card but keeps the corrected lesson — the harmless side of the race. Best-effort.
+   */
+  private persistReversal(sessionId: string, bp: UIBlueprint): void {
+    const at = this.now();
+    void (async () => {
+      await this.snapshotStore?.save({ sessionId, kind: "memory", at, data: this.core.exportMemory(sessionId) });
+      await this.snapshotStore?.save({ sessionId, kind: "ui", at, data: bp });
+    })().catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
   }
 
   redo(sessionId: string): UIBlueprint | null {
     const bp = this.core.redo(sessionId);
     if (bp) {
+      this.audit.append({ id: `aud-redo-${Date.now()}`, at: this.now(), sessionId, kind: "morph_redone", detail: {} });
       this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
-      const at = this.now();
-      void Promise.all([
-        this.snapshotStore?.save({ sessionId, kind: "ui", at, data: bp }),
-        this.snapshotStore?.save({ sessionId, kind: "memory", at, data: this.core.exportMemory(sessionId) }),
-      ]).catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
+      this.persistReversal(sessionId, bp);
     }
     return bp;
   }

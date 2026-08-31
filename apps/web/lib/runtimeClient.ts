@@ -14,7 +14,8 @@ export type ServerMessage =
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
   | { kind: "ai_presence_changed"; sessionId: string; state: string }
   | { kind: "decision_created"; sessionId: string; audit: { id: string; kind: string; detail: Record<string, unknown> }[] }
-  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } };
+  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } }
+  | { kind: "pattern_suggestions"; sessionId: string; suggestions: { key: string; count: number }[] };
 
 /**
  * Shared secret (optional): from the page URL (`?token=` — how the extension side panel passes it)
@@ -112,8 +113,10 @@ export class RuntimeClient {
     });
   }
 
-  async redo(): Promise<void> {
-    await fetch(`${this.httpBase}/api/morph/${this.sessionId}/redo`, { method: "POST", headers: auth() });
+  async redo(): Promise<boolean> {
+    const res = await fetch(`${this.httpBase}/api/morph/${this.sessionId}/redo`, { method: "POST", headers: auth() });
+    const body = (await res.json().catch(() => null)) as { redone?: boolean } | null;
+    return body?.redone === true;
   }
 
   async approve(approvalId: string): Promise<void> {

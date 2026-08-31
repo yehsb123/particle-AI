@@ -92,9 +92,9 @@ type SessionState = {
   blueprint: UIBlueprint;
   history: MorphHistory;
   /** what each entry in `history` undid (parallel stack) — lets undo teach a preference */
-  morphMeta: { intent: string; variant?: string; componentIds: string[] }[];
+  morphMeta: { intent: string; variant?: string; componentIds: string[]; refund?: string }[];
   /** undone morphs waiting to be re-applied; cleared by any NEW action (morph or dismissal) */
-  redoStack: { patch: UIPatch; meta?: { intent: string; variant?: string; componentIds: string[] }; unlearn?: string }[];
+  redoStack: { patch: UIPatch; meta: { intent: string; variant?: string; componentIds: string[]; refund?: string }; unlearn?: string; relearn?: string }[];
   lastMorphAt?: number;
   lastMajorMorphAt?: number;
   presence: PresenceState;
@@ -223,10 +223,18 @@ export class RuntimeCore {
     }
   }
   canUndo(sessionId: string): boolean {
-    return this.session(sessionId).history.canUndo;
+    return this.sessions.get(sessionId)?.history.canUndo ?? false; // read-only: never creates
   }
   canRedo(sessionId: string): boolean {
-    return this.session(sessionId).redoStack.length > 0;
+    return (this.sessions.get(sessionId)?.redoStack.length ?? 0) > 0; // read-only: never creates
+  }
+  historyDepth(sessionId: string): number {
+    return this.sessions.get(sessionId)?.history.depth ?? 0;
+  }
+  /** The morph a redo would re-apply (for labeling) — top of the stack, never popped. */
+  peekRedo(sessionId: string): { intent: string; variant?: string } | null {
+    const e = this.sessions.get(sessionId)?.redoStack.at(-1);
+    return e ? { intent: e.meta.intent, variant: e.meta.variant } : null;
   }
 
   /**
@@ -234,21 +242,27 @@ export class RuntimeCore {
    * handed back (the person changed their mind) — weights never go below zero.
    */
   redo(sessionId: string): UIBlueprint | null {
-    const s = this.session(sessionId);
-    const entry = s.redoStack[s.redoStack.length - 1];
-    if (!entry) return null;
-    let applied: ReturnType<typeof applyPatch>;
-    try {
-      applied = applyPatch(s.blueprint, entry.patch, this.deps.clock.iso());
-    } catch {
-      s.redoStack.pop(); // stale (the tree changed underneath) — drop it quietly
-      return null;
+    const s = this.sessions.get(sessionId); // an unknown id must not create (and evict) sessions
+    if (!s) return null;
+    let entry: SessionState["redoStack"][number] | undefined;
+    let applied: ReturnType<typeof applyPatch> | undefined;
+    // drain stale entries (the tree changed underneath them) in ONE call — a click either
+    // redoes something or truthfully leaves canRedo false, never a string of silent no-ops
+    while ((entry = s.redoStack[s.redoStack.length - 1])) {
+      try {
+        applied = applyPatch(s.blueprint, entry.patch, this.deps.clock.iso());
+        break;
+      } catch {
+        s.redoStack.pop();
+      }
     }
+    if (!entry || !applied) return null;
     s.redoStack.pop();
     s.history.push(applied.inverse);
-    s.morphMeta.push(entry.meta ?? { intent: "redo", componentIds: [] });
+    s.morphMeta.push(entry.meta);
     while (s.morphMeta.length > s.history.depth) s.morphMeta.shift();
     if (entry.unlearn) s.memory.preferences.reinforce(entry.unlearn, -1);
+    if (entry.relearn) s.memory.preferences.reinforce(entry.relearn); // a redone dismissal teaches again
     s.blueprint = applied.next;
     s.lastMorphAt = undefined;
     s.lastMajorMorphAt = undefined;
@@ -517,7 +531,8 @@ export class RuntimeCore {
    *   that component, the undo still happens but is NOT counted as a dismissal of it.
    */
   undo(sessionId: string, opts: { learn?: boolean; componentId?: string } = {}): UIBlueprint | null {
-    const s = this.session(sessionId);
+    const s = this.sessions.get(sessionId); // an unknown id must not create (and evict) sessions
+    if (!s) return null;
     const inverse = s.history.peek();
     if (!inverse) return null;
     const top = s.morphMeta[s.morphMeta.length - 1];
@@ -541,10 +556,11 @@ export class RuntimeCore {
       }
       const { next, inverse: inv } = applied;
       s.history.push(inv);
-      s.morphMeta.push({ intent: "dismiss", variant: opts.componentId, componentIds: [opts.componentId] });
+      const taught = (opts.learn ?? true) ? `dismissed:${owner.intent}:${owner.variant ?? ""}` : undefined;
+      s.morphMeta.push({ intent: "dismiss", variant: opts.componentId, componentIds: [opts.componentId], refund: taught });
       while (s.morphMeta.length > s.history.depth) s.morphMeta.shift();
       s.redoStack = []; // a dismissal is a new action — nothing older may be redone over it
-      if (opts.learn ?? true) s.memory.preferences.reinforce(`dismissed:${owner.intent}:${owner.variant ?? ""}`);
+      if (taught) s.memory.preferences.reinforce(taught);
       s.blueprint = next;
       s.lastMorphAt = undefined;
       s.lastMajorMorphAt = undefined;
@@ -557,8 +573,15 @@ export class RuntimeCore {
     const learn = (opts.learn ?? true) && meta?.intent !== "dismiss" && (!opts.componentId || !!meta?.componentIds.includes(opts.componentId));
     const unlearn = meta && learn ? `dismissed:${meta.intent}:${meta.variant ?? ""}` : undefined;
     if (unlearn) s.memory.preferences.reinforce(unlearn);
-    s.redoStack.push({ patch: redoPatch, meta, unlearn });
-    if (s.redoStack.length > 50) s.redoStack.shift();
+    // undoing a DISMISSAL brings the card back — the lesson it taught is handed back too,
+    // and redoing that dismissal re-teaches it (symmetry: no weight from mind-changing loops)
+    const relearn = meta?.intent === "dismiss" ? meta.refund : undefined;
+    if (relearn) s.memory.preferences.reinforce(relearn, -1);
+    if (meta) {
+      // no meta = pairing invariant broken — offering no redo beats guessing (junk keys)
+      s.redoStack.push({ patch: redoPatch, meta, unlearn, relearn });
+      if (s.redoStack.length > 50) s.redoStack.shift();
+    }
     s.blueprint = next;
     // Undo is a deliberate user action — clear morph timing so a re-morph isn't rate-limited.
     s.lastMorphAt = undefined;
