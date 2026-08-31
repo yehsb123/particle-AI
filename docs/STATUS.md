@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Fifth review (core sound; 8 edge fixes)** (2026-08-31): the review traced the undo/redo
+  learning ledger and stack pairing as CORRECT, and found the edges: dismissals are now
+  refundable (undoing a dismissal hands the lesson back, redoing re-teaches — mind-changing
+  loops never accumulate toward suppression); undo/redo/canRedo never create sessions (the new
+  endpoint inherited the eviction hole); redo drains stale entries in one truthful call; the
+  junk-key meta fallback is gone; connected emitSim tolerates a behavior-key blip without
+  dropping the sim and its final catch tells the truth; connected redo reports
+  redone/no-op/unreachable; the history strip pairs with the real stack (a targeted dismissal
+  GROWS it) and redo chips keep their real intent; web restore imports `dismissed:*` preferences
+  only (morph:* counters would compound each reload); reversals leave `morph_undone`/`morph_redone`
+  audit records and persist memory before UI; `pattern_suggestions` now travel over WS so a
+  headless emitter's threshold crossing is seen before being marked suggested. Store blockers:
+  runtime URL configurable (options), `docs/PRIVACY.md`, host-permission decision documented.
+  runtime-core 33, runtime 20; 15 E2E green.
 - **Redo** (2026-08-31): reversibility goes both ways. `RuntimeCore.redo` re-applies the most
   recently undone morph (stale entries dropped quietly); any NEW morph or dismissal invalidates
   the redo stack; a dismissal the undo taught is handed back on redo (weights clamp at zero).
