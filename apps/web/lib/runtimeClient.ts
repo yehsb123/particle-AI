@@ -112,6 +112,10 @@ export class RuntimeClient {
     });
   }
 
+  async redo(): Promise<void> {
+    await fetch(`${this.httpBase}/api/morph/${this.sessionId}/redo`, { method: "POST", headers: auth() });
+  }
+
   async approve(approvalId: string): Promise<void> {
     await fetch(`${this.httpBase}/api/approvals/${approvalId}/approve`, { method: "POST", headers: auth() });
   }

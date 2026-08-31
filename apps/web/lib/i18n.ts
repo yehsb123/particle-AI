@@ -10,6 +10,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   },
   controls: { en: "Controls", ko: "컨트롤" },
   undo: { en: "Undo last morph", ko: "마지막 변형 취소" },
+  redo: { en: "Redo morph", ko: "변형 다시 실행" },
   theme: { en: "Theme", ko: "테마" },
   devMode: { en: "Developer mode", ko: "개발자 모드" },
   runtime: { en: "Runtime", ko: "런타임" },

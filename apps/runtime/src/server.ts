@@ -127,6 +127,11 @@ export async function buildServer(): Promise<BuildResult> {
     return { undone: !!blueprint, blueprint };
   });
 
+  app.post<{ Params: { id: string } }>("/api/morph/:id/redo", async (req) => {
+    const blueprint = runtime.redo(req.params.id);
+    return { redone: !!blueprint, blueprint };
+  });
+
   app.post<{ Params: { id: string } }>("/api/sessions/:id/resume", async (req) => {
     const blueprint = await runtime.resume(req.params.id);
     return { resumed: !!blueprint, blueprint };

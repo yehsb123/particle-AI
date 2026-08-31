@@ -55,6 +55,7 @@ export function Workspace() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [inspector, setInspector] = useState<Inspector>({ capabilities: [], guardReasonCodes: [], dropped: [] });
   const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
   const [lang, setLang] = useState<Lang>("en");
   const [showCoach, setShowCoach] = useState(false);
@@ -103,6 +104,7 @@ export function Workspace() {
       setBlueprint(res.blueprint);
       setPresence(res.presence as Presence);
       setCanUndo(core.current.canUndo(SESSION));
+      setCanRedo(core.current.canRedo(SESSION));
       if (res.morph.applied) {
         setMorphs((m) => [...m, { id: res.morph.patch?.patchId ?? `m${m.length + 1}`, intent: res.decision?.uiPlan?.intent ?? "morph", at: new Date().toLocaleTimeString() }]);
       }
@@ -269,8 +271,26 @@ export function Workspace() {
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
     setBlueprint(bp);
     setCanUndo(core.current.canUndo(SESSION));
+    setCanRedo(core.current.canRedo(SESSION));
     setMorphs((m) => m.slice(0, -1));
     pushLog("undo — reverted last morph", "undo");
+  }, [mode, pushLog]);
+
+  const redo = useCallback(() => {
+    if (mode === "connected" && client.current) {
+      void client.current.redo();
+      pushLog("redo → server", "morph");
+      return;
+    }
+    const bp = core.current.redo(SESSION);
+    if (!bp) return;
+    // a redo hands a learned dismissal back — persist the corrected memory too
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
+    setBlueprint(bp);
+    setCanUndo(core.current.canUndo(SESSION));
+    setCanRedo(core.current.canRedo(SESSION));
+    setMorphs((m) => [...m, { id: `redo${Date.now()}`, intent: "redo", at: new Date().toLocaleTimeString() }]);
+    pushLog("redo — reapplied the undone morph", "morph");
   }, [mode, pushLog]);
 
   // Multi-step undo: revert every morph from the end back to (and including) index `i`.
@@ -732,6 +752,7 @@ export function Workspace() {
           <h3>{t("controls", lang)}</h3>
           <div className="simrow">
             <button className="btn" onClick={() => undo()} disabled={!canUndo}>{t("undo", lang)}</button>
+            <button className="btn" onClick={redo} disabled={mode === "local" && !canRedo}>{t("redo", lang)}</button>
             <button className="btn muted" onClick={() => { try { localStorage.removeItem(EVENTS_KEY); localStorage.removeItem(PREFS_KEY); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
             <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
             <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>

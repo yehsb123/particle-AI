@@ -494,3 +494,35 @@ describe("RuntimeCore — patterns survive a restart (P4, templates across sessi
     expect(out.patternSuggestions.filter((p) => all.patterns.some((q) => q.key === p.key && q.suggested))).toEqual([]);
   });
 });
+
+describe("RuntimeCore — redo", () => {
+  it("redo re-applies the undone morph, hands a learned dismissal back, and is invalidated by new morphs", async () => {
+    const core = createRuntimeCore(makeClock());
+    const act = (n: number) => ({
+      id: `a${n}`, sessionId: "s", timestamp: "2026-08-31T00:00:00Z",
+      source: "user" as const, type: "user.action", severity: "info" as const, payload: { key: "rerun-tests" },
+    });
+    expect(core.canRedo("s")).toBe(false);
+    for (let i = 1; i <= 3; i++) await core.ingest(act(i)); // stuck → context card
+    core.undo("s", { componentId: "context" }); // learns dismissed:augment:stuck = 1
+    const prefs = core.memoryFor("s").preferences;
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
+    expect(core.canRedo("s")).toBe(true);
+    // redo: the card returns AND the lesson is handed back (they changed their mind)
+    expect(core.redo("s")).not.toBeNull();
+    expect(findById(core.getBlueprint("s").root, "context")).toBeDefined();
+    expect(prefs.weightOf("dismissed:augment:stuck")).toBe(0);
+    expect(core.canRedo("s")).toBe(false);
+    // undo again, then a NEW morph invalidates the redo
+    core.undo("s");
+    expect(core.canRedo("s")).toBe(true);
+    await core.ingest(ev("development.server_error", "critical", "e1"));
+    expect(core.canRedo("s")).toBe(false);
+    expect(core.redo("s")).toBeNull();
+    // plain undo/redo round-trip on the incident
+    core.undo("s");
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
+    core.redo("s");
+    expect(findById(core.getBlueprint("s").root, "incident")).toBeDefined();
+  });
+});

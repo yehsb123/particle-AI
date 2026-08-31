@@ -236,3 +236,15 @@ describe("runtime restart — pattern memory", () => {
     expect(reOffered).toEqual([]); // counting continued; nothing already seen was offered again
   });
 });
+
+describe("runtime redo", () => {
+  it("undo then redo restores the incident over REST", async () => {
+    await app.inject({ method: "POST", url: "/api/sim/rd1/http-500" });
+    expect(JSON.stringify(runtime.getUI("rd1"))).toContain("Runtime incident");
+    await app.inject({ method: "POST", url: "/api/morph/rd1/undo", payload: {} });
+    expect(JSON.stringify(runtime.getUI("rd1"))).not.toContain("Runtime incident");
+    const res = await app.inject({ method: "POST", url: "/api/morph/rd1/redo" });
+    expect(res.json().redone).toBe(true);
+    expect(JSON.stringify(runtime.getUI("rd1"))).toContain("Runtime incident");
+  });
+});

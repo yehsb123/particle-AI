@@ -163,6 +163,19 @@ export class SessionRuntime {
     return bp;
   }
 
+  redo(sessionId: string): UIBlueprint | null {
+    const bp = this.core.redo(sessionId);
+    if (bp) {
+      this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
+      const at = this.now();
+      void Promise.all([
+        this.snapshotStore?.save({ sessionId, kind: "ui", at, data: bp }),
+        this.snapshotStore?.save({ sessionId, kind: "memory", at, data: this.core.exportMemory(sessionId) }),
+      ]).catch((err: unknown) => this.log.warn("snapshot_save_failed", { sessionId, error: (err as Error).message }));
+    }
+    return bp;
+  }
+
   /**
    * A morph held purely on timing (cooldown / dwell) must not leave the body out of step with the
    * world forever — e.g. a build that fails again 1 s after recovering, with no further output.

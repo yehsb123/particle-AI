@@ -38,6 +38,12 @@ test.describe("Particle AI — autonomous incident morph", () => {
     await page.getByRole("button", { name: "Undo last morph" }).click();
     await expect(page.getByText("Runtime incident")).toHaveCount(0);
 
+    // 4.1 ...and redo brings it back, then undo once more (full reversibility both ways)
+    await page.getByRole("button", { name: "Redo morph" }).click();
+    await expect(page.getByText("Runtime incident")).toBeVisible();
+    await page.getByRole("button", { name: "Undo last morph" }).click();
+    await expect(page.getByText("Runtime incident")).toHaveCount(0);
+
     // 4.5 The AI presence is inspectable (spec §23): click it, see why the UI changed.
     await page.getByRole("button", { name: /^AI ·/ }).click();
     await expect(page.getByText("What is the AI doing?")).toBeVisible();

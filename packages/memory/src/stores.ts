@@ -44,7 +44,7 @@ export class EpisodicMemory {
 export class PreferenceMemory {
   private weights = new Map<string, number>();
   reinforce(key: string, delta = 1): number {
-    const next = (this.weights.get(key) ?? 0) + delta;
+    const next = Math.max(0, (this.weights.get(key) ?? 0) + delta); // never negative (redo hands a dismissal back)
     this.weights.set(key, next);
     return next;
   }
