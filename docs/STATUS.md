@@ -170,6 +170,11 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Suggestions offered once, ever — web too** (2026-08-31): the web persists memory whenever a
+  suggestion surfaces, and its restore imports the patterns as suggested MARKS only (count 1 —
+  the log replay re-observes the real counts, the sticky flag prevents any re-offer).
+  `pattern.spec` reloads and repeats the flow: the banner stays gone. Server restarts were already
+  covered (runtime 18). runtime-core 30, memory 7.
 - **Connected behavioral parity** (2026-08-31): sim clicks now carry their behavior key to the
   SERVER too (`RuntimeClient.emit`), so a server session reads repeats as "stuck", learns from
   dismissals (undo attribution over REST) and notifies the withheld morph — `connected-learn.spec`
