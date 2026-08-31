@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the morning.
-Every commit is green (typecheck 0 · 175+ unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
+Every commit is green (typecheck 0 · 180+ unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
@@ -58,13 +58,20 @@ Every commit is green (typecheck 0 · 175+ unit/integration tests · 15 Playwrig
 - `f739d2b` runtime test: a restarted server (fresh SessionRuntime over the shared snapshot store, resumed) never re-offers an already-seen template suggestion (18 tests)
 - `30cd2ba` web: pattern suggestions are offered once, EVER — the suggested marks survive reloads
 - `d582a98` docs: STATUS — suggestions offered once ever (web reload + server restart)
+- `305cc92` docs: overnight report refreshed through the morning commits (P4 fully closed)
+- `a2f4dc9` Redo: reversibility goes both ways — the undone morph can be re-applied, and a learned dismissal is handed back
+- `83c32b6` docs: STATUS — redo entry
+- `b11df20` docs: QUICKSTART mentions Redo (en/ko) — reversibility both ways in the walkthrough
+- `368f222` store blockers: configurable runtime URL (options -> storage.sync -> background; never observes the runtime host, custom or not); PRIVACY.md; host_permissions decision documented
+- `c4fef60` Fifth review fixes: refundable dismissals, no session creation via undo/redo, honest connected chains, replay-safe preference import
+- `495f2c1` docs: STATUS — fifth review fixes + store blockers
 
 ## The short version
 
-- **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, store icons/screenshots, real-Chromium E2E (Korean options page included)
-- **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions, startup health probe — live-verified against the runtime
-- **P4 complete**: learning from dismissals AND pattern→template memory — persisted across web reloads and server restarts; suggestions are offered once, ever; inspectable in the presence popover
-- Honest sensing indicator; switching intent; network_failure layout; reconcile ticks with a visible countdown (browser-proven); ordered sensor sends; connected mode behaviorally equivalent
-- Access control: origin allow-list, loopback bind, optional token wired end to end
-- 4 adversarial review passes (35+ defects fixed) + a docs-vs-implementation audit (all claims verified)
+- **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, store icons/screenshots/privacy policy, configurable runtime URL, real-Chromium E2E
+- **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions, health probe — live-verified
+- **P4 complete**: dismissal learning AND pattern→template memory, persisted across reloads/restarts; suggestions offered once ever; dismissals refundable (mind-changing never accumulates); all inspectable in the presence popover
+- Undo/redo both ways with a correct learning ledger; reconcile ticks with a visible countdown; honest sensing indicator; switching intent; connected mode behaviorally equivalent; ordered sensor sends
+- Access control: origin allow-list, loopback bind, optional token end to end; no endpoint creates sessions on reads
+- 5 adversarial review passes (43+ defects found & fixed) + a docs-vs-implementation audit (all claims verified)
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
