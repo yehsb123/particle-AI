@@ -31,4 +31,18 @@ test("pattern suggestion banner appears after repeated flows and can be dismisse
     await page.getByRole("button", { name: "Maybe later" }).first().click();
   }
   await expect(page.getByText("Pattern noticed")).toHaveCount(0);
+
+  // offered once, EVER: after a reload (log replayed, suggested marks imported) the same flow
+  // repeating does not bring the banner back
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator('.app[data-restored="1"]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Pattern noticed")).toHaveCount(0); // replay itself re-offers nothing
+  await expect(async () => {
+    await page.getByRole("button", { name: "HTTP 500" }).click();
+    await expect(page.getByText("Runtime incident")).toBeVisible({ timeout: 1200 });
+  }).toPass({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Service recovered" }).click();
+  await expect(page.getByText("Runtime incident")).toHaveCount(0);
+  await expect(page.getByText("Pattern noticed")).toHaveCount(0);
 });

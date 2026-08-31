@@ -68,7 +68,7 @@ export function Workspace() {
   const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
   const [restored, setRestored] = useState(false);
   const reconcileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const importedPrefs = useRef<{ preferences?: { key: string; weight: number }[] } | null>(null);
+  const importedPrefs = useRef<{ preferences?: { key: string; weight: number }[]; patterns?: { key: string; count: number; firstSeen: string; lastSeen: string; suggested: boolean }[] } | null>(null);
   // Honest indicator: this page's own in-app sensors + whatever other sensors REPORTED to this
   // session (extension / agent announce their consented layers via sensor.layers_changed).
   const sensingLine = useMemo(() => {
@@ -114,6 +114,8 @@ export function Workspace() {
             .filter((s) => !p.some((x) => x.key === s.key))
             .map((s) => ({ key: s.key, count: s.count })),
         ]);
+        // a suggestion is offered ONCE, ever — persist the suggested flag so a reload can't re-offer
+        try { localStorage.setItem(PREFS_KEY, JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
       }
       if (res.learned) setLearned(res.learned);
       setInspector({
@@ -427,9 +429,17 @@ export function Workspace() {
       try {
         const prefs = localStorage.getItem(PREFS_KEY);
         if (prefs) {
-          // preferences ONLY: the event-log replay below re-observes the patterns, so importing
-          // them too would double-count (runtime-core.importMemory doc)
-          const parsedPrefs = { preferences: (JSON.parse(prefs) as { preferences?: { key: string; weight: number }[] }).preferences };
+          // preferences come back whole. Patterns come back as suggested MARKS only (count 1):
+          // the event-log replay below re-observes the real counts, and importing those too would
+          // double-count — but the sticky `suggested` flag must survive so a reload never
+          // re-offers a template the person already saw.
+          const stored = JSON.parse(prefs) as { preferences?: { key: string; weight: number }[]; patterns?: { key: string; suggested?: boolean }[] };
+          const parsedPrefs = {
+            preferences: stored.preferences,
+            patterns: (stored.patterns ?? [])
+              .filter((pt) => pt.suggested === true && typeof pt.key === "string")
+              .map((pt) => ({ key: pt.key, count: 1, firstSeen: "", lastSeen: "", suggested: true })),
+          };
           importedPrefs.current = parsedPrefs;
           core.current.importMemory(SESSION, parsedPrefs);
         }
