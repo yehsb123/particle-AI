@@ -170,6 +170,11 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Redo** (2026-08-31): reversibility goes both ways. `RuntimeCore.redo` re-applies the most
+  recently undone morph (stale entries dropped quietly); any NEW morph or dismissal invalidates
+  the redo stack; a dismissal the undo taught is handed back on redo (weights clamp at zero).
+  Wired over REST (`/api/morph/:id/redo`) with UI/memory snapshots, a Redo button (en/ko), and
+  `incident.spec` round-trips undo→redo→undo in the browser. runtime-core 31, runtime 19.
 - **Suggestions offered once, ever — web too** (2026-08-31): the web persists memory whenever a
   suggestion surfaces, and its restore imports the patterns as suggested MARKS only (count 1 —
   the log replay re-observes the real counts, the sticky flag prevents any re-offer).
