@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
-Everything below was built, tested and pushed autonomously during the night. Every commit is green
-(typecheck 0 · 170+ unit/integration tests · 14 Playwright E2E tests across 13 specs · CI).
+Everything below was built, tested and pushed autonomously overnight and through the morning.
+Every commit is green (typecheck 0 · 175+ unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
@@ -51,13 +51,20 @@ Everything below was built, tested and pushed autonomously during the night. Eve
 - `e6a5028` docs: embed the dark side-panel screenshot in both READMEs; pitch footer links (GitHub / QUICKSTART / live demo)
 - `0d6dae3` world-model: reconcile ticks stay out of the novelty window (recentEvents) — system bookkeeping must not dilute repetitive-event decay; pure reduce, replay determinism unchanged (world-model 10, runtime-core 29, runtime 17 green)
 - `3c621d5` e2e: learn.spec proves the lesson is inspectable without developer mode — presence popover names the withheld kind (won't auto-offer: augment:stuck ×2)
+- `2e15dae` docs: refresh the overnight report with the morning maintenance commits
+- `5b763f3` connected mode is behaviorally equivalent: sim clicks carry their behavior key to the server (RuntimeClient.emit), so server sessions read repeats as stuck, learn from dismissals and notify the withheld morph — proven by connected-learn.spec (fresh server session per run)
+- `5bb9861` docs: connected behavioral parity entry; spec counts 15 tests / 14 specs (full regression green)
+- `28be3d4` P4: pattern->template memory persists across restarts — suggestions are offered once, ever
+- `f739d2b` runtime test: a restarted server (fresh SessionRuntime over the shared snapshot store, resumed) never re-offers an already-seen template suggestion (18 tests)
+- `30cd2ba` web: pattern suggestions are offered once, EVER — the suggested marks survive reloads
+- `d582a98` docs: STATUS — suggestions offered once ever (web reload + server restart)
 
 ## The short version
 
 - **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, store icons/screenshots, real-Chromium E2E (Korean options page included)
 - **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions, startup health probe — live-verified against the runtime
-- **P4** learning from dismissals + persistence across reloads/restarts, inspectable in the presence popover
-- Honest sensing indicator; switching intent; network_failure layout; reconcile ticks with a visible countdown (browser-proven); ordered sensor sends
+- **P4 complete**: learning from dismissals AND pattern→template memory — persisted across web reloads and server restarts; suggestions are offered once, ever; inspectable in the presence popover
+- Honest sensing indicator; switching intent; network_failure layout; reconcile ticks with a visible countdown (browser-proven); ordered sensor sends; connected mode behaviorally equivalent
 - Access control: origin allow-list, loopback bind, optional token wired end to end
 - 4 adversarial review passes (35+ defects fixed) + a docs-vs-implementation audit (all claims verified)
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
