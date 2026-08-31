@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildServer } from "./server";
 import { SessionRuntime, type RuntimeMessage } from "./runtime";
+import { InMemorySnapshotStore } from "@particle/persistence";
 
 let app: FastifyInstance;
 let runtime: SessionRuntime;
@@ -206,5 +207,32 @@ describe("runtime reconcile timer", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("runtime restart — pattern memory", () => {
+  it("a restarted server never re-offers a template suggestion the person already saw", async () => {
+    const now = () => new Date().toISOString();
+    const snaps = new InMemorySnapshotStore(); // the durable store shared across "restarts"
+    const mk = (id: string, type: string, sev: string) => ({
+      id, sessionId: "pm1", timestamp: now(), source: "development", type, severity: sev, payload: {},
+    });
+
+    const rt1 = new SessionRuntime(now, undefined, snaps);
+    const offered: string[] = [];
+    for (let round = 0; round < 3; round++) {
+      const a = await rt1.ingest(mk(`e${round}`, "development.server_error", "critical"));
+      const b2 = await rt1.ingest(mk(`r${round}`, "development.server_recovered", "info"));
+      offered.push(...a.result.patternSuggestions.map((s) => s.key), ...b2.result.patternSuggestions.map((s) => s.key));
+    }
+    expect(offered.length).toBeGreaterThan(0); // the pattern crossed the threshold and was offered once
+
+    // "restart": a fresh runtime over the same snapshot store, resumed
+    const rt2 = new SessionRuntime(now, undefined, snaps);
+    await rt2.resume("pm1");
+    const again = await rt2.ingest(mk("x1", "development.server_error", "critical"));
+    const rec = await rt2.ingest(mk("x2", "development.server_recovered", "info"));
+    const reOffered = [...again.result.patternSuggestions, ...rec.result.patternSuggestions].map((s) => s.key).filter((k) => offered.includes(k));
+    expect(reOffered).toEqual([]); // counting continued; nothing already seen was offered again
   });
 });
