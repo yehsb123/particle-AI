@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
-Everything below was built, tested and pushed autonomously overnight and through the morning.
-Every commit is green (typecheck 0 · 180+ unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
+Everything below was built, tested and pushed autonomously overnight and through the day.
+Every commit is green (typecheck 0 · 185+ unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
@@ -65,13 +65,17 @@ Every commit is green (typecheck 0 · 180+ unit/integration tests · 15 Playwrig
 - `368f222` store blockers: configurable runtime URL (options -> storage.sync -> background; never observes the runtime host, custom or not); PRIVACY.md; host_permissions decision documented
 - `c4fef60` Fifth review fixes: refundable dismissals, no session creation via undo/redo, honest connected chains, replay-safe preference import
 - `495f2c1` docs: STATUS — fifth review fixes + store blockers
+- `7d50f98` docs: overnight report refreshed through the fifth-review fixes
+- `04ffca4` Multi-session view v1: the connected body lists what this computer senses
+- `88903ba` sessions view: other sessions link to their own body (?session=); STATUS documents the multi-session view + Korean-first repo description
 
 ## The short version
 
 - **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, store icons/screenshots/privacy policy, configurable runtime URL, real-Chromium E2E
 - **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions, health probe — live-verified
-- **P4 complete**: dismissal learning AND pattern→template memory, persisted across reloads/restarts; suggestions offered once ever; dismissals refundable (mind-changing never accumulates); all inspectable in the presence popover
-- Undo/redo both ways with a correct learning ledger; reconcile ticks with a visible countdown; honest sensing indicator; switching intent; connected mode behaviorally equivalent; ordered sensor sends
-- Access control: origin allow-list, loopback bind, optional token end to end; no endpoint creates sessions on reads
-- 5 adversarial review passes (43+ defects found & fixed) + a docs-vs-implementation audit (all claims verified)
+- **P4 complete**: dismissal learning AND pattern→template memory, persisted across reloads/restarts; suggestions offered once ever; dismissals refundable; all inspectable in the presence popover
+- **Multi-session view**: the connected body lists every session this computer senses (intent · problems · layers), each linking to its own body
+- Undo/redo both ways with a correct learning ledger; reconcile ticks with a visible countdown; honest sensing indicator; connected mode behaviorally equivalent; ordered sensor sends
+- Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
+- 5 adversarial review passes (43+ defects found & fixed) + a docs-vs-implementation audit; Korean-first repo description
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
