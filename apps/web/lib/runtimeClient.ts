@@ -131,6 +131,12 @@ export class RuntimeClient {
     await fetch(`${this.httpBase}/api/autonomy/${level}`, { method: "POST", headers: auth() });
   }
 
+  async sessions(): Promise<{ sessionId: string; intent?: string; problems: number; layers: string[] }[]> {
+    const res = await fetch(`${this.httpBase}/api/sessions`, { headers: auth() });
+    const body = (await res.json().catch(() => null)) as { sessions?: { sessionId: string; intent?: string; problems: number; layers: string[] }[] } | null;
+    return body?.sessions ?? [];
+  }
+
   async getUI(): Promise<UIBlueprint> {
     const res = await fetch(`${this.httpBase}/api/sessions/${this.sessionId}/ui`, { headers: auth() });
     return (await res.json()) as UIBlueprint;

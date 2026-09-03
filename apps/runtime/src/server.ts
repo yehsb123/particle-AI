@@ -84,6 +84,9 @@ export async function buildServer(): Promise<BuildResult> {
     }
   });
 
+  // multi-session view: what THIS runtime currently senses, per session (shape only, read-only)
+  app.get("/api/sessions", async () => ({ sessions: runtime.core.listSessions() }));
+
   app.get<{ Params: { id: string } }>("/api/sessions/:id/state", async (req) => runtime.peekWorld(req.params.id));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/events", async (req) => ({ events: runtime.store.listBySession(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.peekUI(req.params.id));

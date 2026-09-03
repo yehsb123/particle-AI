@@ -67,6 +67,7 @@ export function Workspace() {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
   const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
+  const [otherSessions, setOtherSessions] = useState<{ sessionId: string; intent?: string; problems: number; layers: string[] }[]>([]);
   const [restored, setRestored] = useState(false);
   const reconcileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importedPrefs = useRef<{ preferences?: { key: string; weight: number }[]; patterns?: { key: string; count: number; firstSeen: string; lastSeen: string; suggested: boolean }[] } | null>(null);
@@ -370,6 +371,26 @@ export function Workspace() {
       pushLog("switched to local runtime", "note");
     }
   }, [mode, handleServerMessage, pushLog]);
+
+  // Multi-session view: while connected, poll the runtime's shape-level session summaries.
+  useEffect(() => {
+    if (mode !== "connected") {
+      setOtherSessions([]);
+      return;
+    }
+    let alive = true;
+    const tick = () => {
+      void client.current?.sessions().then((list) => {
+        if (alive) setOtherSessions(list);
+      }).catch(() => undefined);
+    };
+    tick();
+    const t = setInterval(tick, 8_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [mode]);
 
   // Embedded body (extension side panel opens /?connect=1&session=ext): connect to the runtime once.
   const toggleModeRef = useRef(toggleMode);
@@ -781,6 +802,27 @@ export function Workspace() {
           </div>
           {mode === "connected" ? (
             <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{t("connectedNote", lang)}</p>
+          ) : null}
+          {mode === "connected" && otherSessions.length > 0 ? (
+            <div style={{ marginTop: 10 }} data-testid="sessions-view">
+              <div className="k muted" style={{ fontSize: 12 }}>{t("sessionsTitle", lang)}</div>
+              <div className="stack" style={{ gap: 6, marginTop: 6 }}>
+                {otherSessions.map((s) => (
+                  <div key={s.sessionId} className="card" style={{ padding: "8px 10px", fontSize: 12 }}>
+                    <span style={{ fontFamily: "var(--mono)" }}>{s.sessionId}</span>
+                    {s.sessionId === SESSION ? " ●" : ""}
+                    <span className="muted">
+                      {" · "}
+                      {s.intent ? t(`intent_${s.intent}`, lang) : "—"}
+                      {s.problems > 0 ? ` · ${s.problems} ${t("sessionsProblems", lang)}` : ""}
+                    </span>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {s.layers.length ? s.layers.map((l) => t(`layer_${l}`, lang)).join(" · ") : t("sessionsNoLayers", lang)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : null}
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">{t("mode", lang)}</span><span>{tr(blueprint.mode, lang)}</span>

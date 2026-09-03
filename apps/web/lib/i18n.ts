@@ -133,6 +133,9 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_output: { en: "test/build output", ko: "테스트/빌드 출력" },
   layer_git: { en: "git branch", ko: "git 브랜치" },
   sensingNone: { en: "nothing reported yet", ko: "아직 보고된 센서 없음" },
+  sessionsTitle: { en: "Sensed on this computer", ko: "이 컴퓨터에서 감지 중" },
+  sessionsProblems: { en: "open", ko: "열림" },
+  sessionsNoLayers: { en: "no layers reported", ko: "보고된 레이어 없음" },
   // templates for generated sentences (params are identifiers/numbers only)
   tpl_problems_open: { en: "{n} open problem(s): {list}.", ko: "열린 문제 {n}건: {list}." },
   tpl_calm_files: { en: "Nothing broke while you were away. Recent files: {files}.", ko: "자리를 비운 동안 깨진 것은 없습니다. 최근 파일: {files}." },

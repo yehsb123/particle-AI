@@ -27,4 +27,8 @@ test("connected mode morphs from server ui_patch frames", async ({ page, request
   await expect(page.getByText("Approval required")).toBeVisible({ timeout: 10_000 });
   await page.getByRole("button", { name: "Approve" }).first().click();
   await expect(page.getByText("Approval required")).toHaveCount(0);
+
+  // multi-session view: the rail lists what this runtime senses, this session included
+  await expect(page.getByTestId("sessions-view")).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByText("Sensed on this computer")).toBeVisible();
 });

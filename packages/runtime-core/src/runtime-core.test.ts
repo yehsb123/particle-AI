@@ -562,3 +562,20 @@ describe("RuntimeCore — fifth review fixes", () => {
     expect(prefs.weightOf("dismissed:augment:stuck")).toBe(1);
   });
 });
+
+describe("RuntimeCore — session summaries", () => {
+  it("lists live sessions with intent, open problems, and reported layers — without creating any", async () => {
+    const core = createRuntimeCore(makeClock());
+    await core.ingest(ev("development.server_error", "critical", "e1")); // session "s"
+    await core.ingest({
+      id: "l1", sessionId: "ext1", timestamp: "2026-08-31T00:00:00Z", source: "sensor",
+      type: "sensor.layers_changed", severity: "debug", payload: { sensor: "extension", layers: ["tabs", "interactions"] },
+    });
+    const list = core.listSessions();
+    expect(list.map((x) => x.sessionId).sort()).toEqual(["ext1", "s"]);
+    expect(list.find((x) => x.sessionId === "s")?.problems).toBe(1);
+    expect(list.find((x) => x.sessionId === "ext1")?.layers.sort()).toEqual(["interactions", "tabs"]);
+    core.peekWorld("ghost");
+    expect(core.listSessions()).toHaveLength(2); // peeks never create
+  });
+});

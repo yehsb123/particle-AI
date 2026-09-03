@@ -259,3 +259,14 @@ describe("runtime reversal audit", () => {
     expect(kinds).toContain("morph_redone");
   });
 });
+
+describe("runtime session list", () => {
+  it("lists live sessions with shape-level summaries and creates none", async () => {
+    await app.inject({ method: "POST", url: "/api/sim/ls1/http-500" });
+    await app.inject({ method: "GET", url: "/api/sessions/ghost-ls/state" }); // peek — must not create
+    const res = await app.inject({ method: "GET", url: "/api/sessions" });
+    const sessions = res.json().sessions as { sessionId: string; problems: number }[];
+    expect(sessions.some((s) => s.sessionId === "ls1" && s.problems === 1)).toBe(true);
+    expect(sessions.some((s) => s.sessionId === "ghost-ls")).toBe(false);
+  });
+});

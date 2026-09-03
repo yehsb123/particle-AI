@@ -200,6 +200,19 @@ export class RuntimeCore {
   hasSession(sessionId: string): boolean {
     return this.sessions.has(sessionId);
   }
+
+  /**
+   * Shape-level summary of every live session (for the multi-session view): id, current intent,
+   * open problem count, and the layers each sensor reported. Read-only; never creates sessions.
+   */
+  listSessions(): { sessionId: string; intent?: string; problems: number; layers: string[] }[] {
+    return [...this.sessions.entries()].map(([sessionId, s]) => ({
+      sessionId,
+      intent: s.world.inferredIntent?.label,
+      problems: s.world.activeProblems.length,
+      layers: [...new Set(Object.values(s.world.sensing ?? {}).flat())],
+    }));
+  }
   /** Read without creating: an unknown id yields a fresh default and leaves the LRU untouched. */
   peekWorld(sessionId: string): WorldState {
     return this.sessions.get(sessionId)?.world ?? emptyWorldState(sessionId, this.deps.clock.iso());
