@@ -1,7 +1,15 @@
 import { z } from "zod";
 
 /** ISO-8601 timestamp string. We pass time in explicitly (never Date.now() in pure code). */
-export const IsoTimestamp = z.string().min(1);
+/**
+ * A timestamp the runtime can turn back into a clock. Replay derives its clock from these, so a
+ * value `Date.parse` cannot read would make every guard comparison false and quietly drop the
+ * cooldowns. The format is checked here rather than trusted.
+ */
+export const IsoTimestamp = z
+  .string()
+  .min(1)
+  .refine((s) => Number.isFinite(Date.parse(s)), { message: "not a readable timestamp" });
 export type IsoTimestamp = z.infer<typeof IsoTimestamp>;
 
 export const Confidence = z.number().min(0).max(1);

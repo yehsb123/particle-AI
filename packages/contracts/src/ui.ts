@@ -94,7 +94,9 @@ export function firstDuplicateId(root: UIComponent): string | undefined {
 
 export const UIBlueprint = z
   .object({
-    schemaVersion: z.string().min(1),
+    // pinned: a blueprint written by another build must be rejected at the gate in front of the
+    // renderer, not rendered under this build's assumptions (re-derive it from the event log instead)
+    schemaVersion: z.literal(UI_SCHEMA_VERSION),
     workspaceId: z.string().min(1),
     goal: z.string().optional(),
     mode: z.string().min(1),

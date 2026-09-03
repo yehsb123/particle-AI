@@ -24,7 +24,8 @@ export const UIMorphPlan = z.object({
   intent: UIMorphIntent,
   targetMode: z.string().min(1),
   confidence: Confidence,
-  reasonSummary: z.string(),
+  // never empty: a decision nobody can read is not auditable, and the body shows this as "why"
+  reasonSummary: z.string().min(1),
   /** which incident layout to surface, e.g. "runtime_error" | "build_failure" | "test_failure" */
   variant: z.string().optional(),
 });
@@ -62,6 +63,7 @@ export const RuntimeDecision = z.object({
   uiPlan: UIMorphPlan.optional(),
   actionPlan: ActionPlan.optional(),
   autonomyRequirement: AutonomyRequirement,
-  reasonSummary: z.string(),
+  // never empty: a decision nobody can read is not auditable, and the body shows this as "why"
+  reasonSummary: z.string().min(1),
 });
 export type RuntimeDecision = z.infer<typeof RuntimeDecision>;
