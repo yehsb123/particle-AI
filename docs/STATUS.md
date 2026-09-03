@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 191 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 200 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,12 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Renderer unit tests** (2026-09-03): the renderer had only indirect (E2E) coverage. 9 tests now
+  render real blueprints and patches to static markup: the development workspace keeps its unsaved
+  editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
+  components never throw and never produce NaN, an unknown component type degrades to a labelled
+  container with its children, 60-level nesting renders, every content string goes through `tr()`,
+  and bound templates fill through `tpl()` with a text fallback. 200 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
