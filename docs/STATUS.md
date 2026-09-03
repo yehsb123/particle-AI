@@ -170,6 +170,10 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
+  (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
+  (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
+  all 21 tests on the durable path. CI already does this on every push; now confirmed on Windows.
 - **Audit facts (round 3)**: `pnpm test:e2e` through turbo runs the real Playwright suite (15 passed,
   1 SHOTS-gated skip); `.env.example` defaults match the code (`DM_PORT` 8787, `DM_HOST` 127.0.0.1,
   `DM_ALLOWED_ORIGINS` the two body origins); QUICKSTART step 3 matches the built `dist/`
