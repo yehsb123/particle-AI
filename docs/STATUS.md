@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 313 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 331 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,14 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Third real bug: a destructive MCP tool could pass as a read** (2026-09-03). The risk heuristic
+  matched substrings with a case-insensitive class, so `listen` and `getter` counted as reads and —
+  the dangerous one — `fetch_and_delete_logs` counted as a read, which at adaptive autonomy means it
+  runs by itself. Tool names are now split into words (delimiters and camelCase humps): a mutating
+  word anywhere keeps a read verb from making the tool auto-runnable, an unmistakably destructive
+  word makes it destructive (which never auto-runs at any level) and is not overturned by a server's
+  read-only hint, while a caller's own override still wins. 18 tests, mcp-adapter 22,
+  331 unit/integration total.
 - **Extension edges, and IPv6 loopback** (2026-09-03): probing the shaping helpers with the inputs
   a browser really hands over turned up a second small defect — `isSelfHost` knew only two spellings
   of this machine, so `::1` and `[::1]` read as a foreign host. It now covers the whole loopback
@@ -239,7 +247,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
   components never throw and never produce NaN, an unknown component type degrades to a labelled
   container with its children, 60-level nesting renders, every content string goes through `tr()`,
-  and bound templates fill through `tpl()` with a text fallback. 313 unit/integration tests.
+  and bound templates fill through `tpl()` with a text fallback. 331 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
