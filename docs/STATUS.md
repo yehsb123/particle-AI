@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 209 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 220 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,13 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Guard edge cases** (2026-09-03): the rules that keep the body calm are now pinned at their
+  boundaries — a whole-patch rejection below the plain confidence minimum, a PARTIAL patch between
+  the two thresholds (structural ops drop, cosmetic ones apply), the cooldown boundary to the
+  millisecond, dwell for major transformations only, and a critical event bypassing confidence,
+  cooldown and dwell while still never touching unsaved work (all five clobbering op kinds refused
+  from any ancestor). Focus protection holds only while typing and only along the focused path.
+  11 tests, morph-engine 25, 220 unit/integration total.
 - **Runtime client unit tests** (2026-09-03): connected mode's wire contract is now pinned without
   a browser — one endpoint per action with the expected method and body, undo carrying its
   attribution, redo reporting what the server actually did, malformed responses never throwing,
@@ -181,7 +188,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
   components never throw and never produce NaN, an unknown component type degrades to a labelled
   container with its children, 60-level nesting renders, every content string goes through `tr()`,
-  and bound templates fill through `tpl()` with a text fallback. 209 unit/integration tests.
+  and bound templates fill through `tpl()` with a text fallback. 220 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
