@@ -350,8 +350,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
     model output is discarded for the deterministic decision (a bad model can't corrupt state).
 - Tested: 11 tests (deterministic decision, mock structured output, router selection across
   tiers/privacy/health, fallback-to-deterministic on junk output). Typecheck clean.
-- Known limitations: real providers are implemented but unexercised without keys (mock path
-  is the tested one); prompts are minimal.
+- Known limitations: real providers are exercised against a fake API server on every push (adapters.contract.test.ts); the live Anthropic test additionally runs when a key is present; prompts are minimal.
 - Next: Phase 5 — Capability Matter (registry, execution, permissions, audit).
 
 ## Phase 5 — Capability Matter — ✅ done
