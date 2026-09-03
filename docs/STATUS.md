@@ -170,6 +170,15 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Provider HTTP contracts proven without keys** (2026-08-31): a fake Messages / chat-completions
+  server records what the Anthropic and OpenAI-compatible adapters send and answers like the
+  real services. Verified on every push: wire shape, `x-api-key`/`anthropic-version` and Bearer
+  headers, `json_object` mode, fenced-JSON extraction with prose ignored, usage mapping, and the
+  failure paths that feed the deterministic fallback — HTTP 500, no JSON in a structured answer,
+  latency-target timeout — plus the local-model path (no key, no Authorization, still healthy).
+  The live Anthropic test still runs when a key is present. FACT CHECK: the Postgres persistence
+  path is exercised by CI on every push (Postgres service + `DATABASE_URL`), not "pending".
+  intelligence 23 tests.
 - **Multi-session view v1** (2026-08-31): the connected body lists what THIS computer senses —
   every session on the runtime (web / side panel / desktop) with its intent, open problems and
   reported layers ("Sensed on this computer", en/ko, 8 s poll). `listSessions` is peek-based
@@ -391,5 +400,5 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   - Project subagents in `.claude/agents` (architecture/security/test/ui-morphology/runtime).
 - Tested: 77 unit/integration tests + Playwright E2E, all green. Typecheck clean.
 - Known limitations: durable Postgres backing is deferred (in-memory + deterministic replay
-  satisfy the "persisted & replayable" bar); real LLM providers are implemented but untested
-  without keys; the web app runs the loop client-side (the server offers the same loop too).
+  satisfy the "persisted & replayable" bar); real LLM providers' HTTP contracts are
+  tested against a fake server on every push (live test additionally when a key is present); the web app runs the loop client-side (the server offers the same loop too).
