@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 348 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 396 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Three faults in the smallest packages** (2026-09-03): probing storage and logging with the
+  inputs an operator and a consumer really supply found two faults and a near-miss. The log
+  level arrives as `DM_LOG_LEVEL`, a string nobody checked and cast straight to the level type,
+  so a typo, an empty value or plain `DEBUG` in capitals left every rank comparison undefined —
+  false — and a run asking for quiet printed every debug line for every ingested event. It is
+  now read case-insensitively with spaces trimmed, own keys only (`in` walks the prototype
+  chain, so `toString` and `__proto__` would have passed as levels). And a subscriber that threw
+  ended the event fan-out and failed the append, after the event was already in the log: ingest
+  reported failure for something it had recorded, and every handler behind the failing one never
+  saw the event. Each handler is now isolated, with an optional callback that hears about one
+  that threw, so event-core keeps no logging dependency. 48 tests across the three: level
+  normalising and the four floors, the trace ring's bounds and session filter, the event log's
+  order and eviction across interleaved sessions, source and severity validation, subscriber
+  isolation, and the save-order contract resume depends on when it walks a session's snapshots
+  backwards for the newest of each kind. observability 17, event-core 21, persistence 17,
+  396 unit/integration total.
 - **Three more gaps at the schema door** (2026-09-03): probing the contracts with malformed input
   showed three things being accepted that should not be. A timestamp `Date.parse` cannot read
   ("yesterday", an epoch string) passed, and since replay derives its clock from these, an
@@ -257,7 +273,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
   components never throw and never produce NaN, an unknown component type degrades to a labelled
   container with its children, 60-level nesting renders, every content string goes through `tr()`,
-  and bound templates fill through `tpl()` with a text fallback. 348 unit/integration tests.
+  and bound templates fill through `tpl()` with a text fallback. 200 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
