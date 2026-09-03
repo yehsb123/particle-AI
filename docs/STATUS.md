@@ -170,6 +170,11 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Multi-session view v1** (2026-08-31): the connected body lists what THIS computer senses —
+  every session on the runtime (web / side panel / desktop) with its intent, open problems and
+  reported layers ("Sensed on this computer", en/ko, 8 s poll). `listSessions` is peek-based
+  (never creates sessions — tested); other sessions link to their own body (`?session=`).
+  The GitHub repo description is now Korean-first bilingual. runtime-core 34, runtime 21.
 - **Fifth review (core sound; 8 edge fixes)** (2026-08-31): the review traced the undo/redo
   learning ledger and stack pairing as CORRECT, and found the edges: dismissals are now
   refundable (undoing a dismissal hands the lesson back, redoing re-teaches — mind-changing

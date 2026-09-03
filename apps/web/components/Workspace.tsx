@@ -809,8 +809,14 @@ export function Workspace() {
               <div className="stack" style={{ gap: 6, marginTop: 6 }}>
                 {otherSessions.map((s) => (
                   <div key={s.sessionId} className="card" style={{ padding: "8px 10px", fontSize: 12 }}>
-                    <span style={{ fontFamily: "var(--mono)" }}>{s.sessionId}</span>
-                    {s.sessionId === SESSION ? " ●" : ""}
+                    {s.sessionId === SESSION ? (
+                      <span style={{ fontFamily: "var(--mono)" }}>{s.sessionId} ●</span>
+                    ) : (
+                      // jump to that session's body (same runtime, different senses)
+                      <a href={`/?connect=1&session=${encodeURIComponent(s.sessionId)}`} style={{ fontFamily: "var(--mono)" }}>
+                        {s.sessionId}
+                      </a>
+                    )}
                     <span className="muted">
                       {" · "}
                       {s.intent ? t(`intent_${s.intent}`, lang) : "—"}
