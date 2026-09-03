@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "../../extension/dist");
 
 test("extension options page localizes to Korean and saves consent atomically", async () => {
-  test.setTimeout(60_000);
+  test.slow(); // launches its own Chromium with the extension loaded (see extension.spec)
   test.skip(!existsSync(resolve(DIST, "manifest.json")), "extension not built");
   const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), "pai-opt-")), {
     channel: "chromium",

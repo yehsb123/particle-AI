@@ -16,7 +16,11 @@ const DIST = resolve(dirname(fileURLToPath(import.meta.url)), "../../extension/d
 const RUNTIME = "http://localhost:8787";
 
 test("extension: navigation → shape events in the runtime; side panel body auto-connects", async () => {
-  test.setTimeout(60_000); // extension boot + live runtime round-trips can be slow under load
+  // This spec launches its own Chromium with the extension loaded. Alone it finishes in ~4 s, but
+  // inside the full suite the launch competes with the browsers the other specs are still closing,
+  // and on Windows that has crossed 60 s. The budget is generous on purpose; the steps below name
+  // the phase, so a genuine hang still reads clearly in the report.
+  test.slow();
   test.skip(!existsSync(resolve(DIST, "manifest.json")), "extension not built (pnpm --filter @particle/extension build)");
   const up = await fetch(`${RUNTIME}/api/brain`).then((r) => r.ok).catch(() => false);
   test.skip(!up, "runtime not running on :8787");
