@@ -44,6 +44,33 @@ function findParentAndIndex(
   return undefined;
 }
 
+/**
+ * The first id in `incoming` that the tree already uses, ignoring anything inside `excluded`
+ * (the subtree being replaced, whose ids are about to disappear).
+ *
+ * Duplicate ids are forbidden by the blueprint schema for a reason: every lookup here is by id
+ * and takes the first match, so a second node answering to the same id makes the tree
+ * ambiguous. It cost the user real work — an `add` reusing an id produced a blueprint the
+ * renderer's own gate rejects, and its inverse `remove` then deleted whichever copy came first,
+ * which is the original with its children while the newcomer stayed.
+ */
+function firstCollision(root: UIComponent, incoming: UIComponent, excluded?: UIComponent): string | undefined {
+  const taken = subtreeIds(root);
+  if (excluded) for (const id of subtreeIds(excluded)) taken.delete(id);
+  for (const id of subtreeIds(incoming)) if (taken.has(id)) return id;
+  return undefined;
+}
+
+/**
+ * Drop a `children` array this patch just emptied, so "no children" has one spelling.
+ * Without it a move-out or a remove leaves `children: []` behind, and undo comes back to a
+ * tree that renders identically but no longer equals the one it started from — which is the
+ * comparison replay and snapshot checks rely on.
+ */
+function pruneIfEmptied(parent: UIComponent): void {
+  if (parent.children && parent.children.length === 0) delete parent.children;
+}
+
 function setProp(node: UIComponent, key: string, value: unknown): unknown {
   const props = (node.props ??= {});
   const prev = props[key];
@@ -83,6 +110,8 @@ export function applyPatch(
       case "add": {
         const parent = findNode(root, op.parentId);
         if (!parent) throw new MorphApplyError(`add: parent ${op.parentId} not found`);
+        const clash = firstCollision(root, op.component);
+        if (clash) throw new MorphApplyError(`add: id ${clash} is already in the tree`);
         parent.children ??= [];
         const index = op.index ?? parent.children.length;
         parent.children.splice(index, 0, clone(op.component));
@@ -94,6 +123,7 @@ export function applyPatch(
         const loc = findParentAndIndex(root, op.targetId);
         if (!loc) throw new MorphApplyError(`remove: ${op.targetId} not found`);
         const [removed] = loc.parent.children!.splice(loc.index, 1);
+        pruneIfEmptied(loc.parent);
         inverseOps.push({
           op: "add",
           parentId: loc.parent.id,
@@ -114,6 +144,9 @@ export function applyPatch(
         const loc = findParentAndIndex(root, op.targetId);
         if (!loc) throw new MorphApplyError(`replace: ${op.targetId} not found`);
         const old = loc.parent.children![loc.index]!;
+        // Reusing ids from the subtree being replaced is fine — they are leaving with it.
+        const clash = firstCollision(root, op.component, old);
+        if (clash) throw new MorphApplyError(`replace: id ${clash} is already in the tree`);
         loc.parent.children![loc.index] = clone(op.component);
         inverseOps.push({
           op: "replace",
@@ -134,6 +167,7 @@ export function applyPatch(
           throw new MorphApplyError(`move: ${op.newParentId} is inside the moved subtree (cycle)`);
         }
         const [moved] = from.parent.children!.splice(from.index, 1);
+        pruneIfEmptied(from.parent);
         target.children ??= [];
         const index = op.index ?? target.children.length;
         target.children.splice(index, 0, moved!);

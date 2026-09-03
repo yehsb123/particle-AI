@@ -27,10 +27,12 @@ import {
 import { evaluatePlan, ApprovalStore, type PermissionEvaluation } from "@particle/permission-engine";
 import {
   applyPatch,
+  MorphApplyError,
   guardPatch,
   MorphHistory,
   DEFAULT_MORPH_POLICY,
   type MorphPolicy,
+  type ApplyResult,
 } from "@particle/morph-engine";
 import { developmentBlueprint, planMorph } from "@particle/ui-registry";
 import { MemorySystem, type PatternCandidate, type Preference } from "@particle/memory";
@@ -448,8 +450,21 @@ export class RuntimeCore {
         }
       }
 
+      // A patch can pass the guard and still be impossible against this tree: a target that
+      // moved, an id the tree already uses. Refuse it the way the guard would rather than
+      // letting it out of ingest — an unusable body is worse than an unchanged one.
+      let applied: ApplyResult | null = null;
+      let applyError: string | undefined;
       if (guard.allowed) {
-        const { next, inverse } = applyPatch(s.blueprint, guard.patch, this.deps.clock.iso());
+        try {
+          applied = applyPatch(s.blueprint, guard.patch, this.deps.clock.iso());
+        } catch (err) {
+          applyError = err instanceof MorphApplyError ? err.message : `apply failed: ${String(err)}`;
+        }
+      }
+
+      if (applied) {
+        const { next, inverse } = applied;
         s.history.push(inverse);
         s.morphMeta.push({
           intent,
@@ -480,6 +495,16 @@ export class RuntimeCore {
         // system-internal ticks (reconcile) are not the person's behavior — never a pattern
         if (event.source !== "system") s.memory.patterns.observe(`${event.type}->${intent}`, iso);
         patternSuggestions = s.memory.patterns.takeSuggestions();
+      } else if (applyError !== undefined) {
+        morph.guardReasonCodes = [...morph.guardReasonCodes, "structurally_impossible"];
+        morph.dropped = [...morph.dropped, `patch:${applyError}`];
+        audit.push(
+          this.record(event.sessionId, "morph_blocked", {
+            intent,
+            reasonCodes: ["structurally_impossible"],
+            detail: applyError,
+          }),
+        );
       } else {
         audit.push(this.record(event.sessionId, "morph_blocked", { intent, reasonCodes: guard.reasonCodes }));
       }
