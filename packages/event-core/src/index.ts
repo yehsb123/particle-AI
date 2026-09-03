@@ -12,8 +12,15 @@ export class EventStore {
   private bySession = new Map<string, MatterEvent[]>();
   private handlers = new Set<EventHandler>();
 
-  /** Bounded to avoid unbounded growth on a long-lived process (oldest evicted first). */
-  constructor(private readonly limit = 10_000) {}
+  /**
+   * Bounded to avoid unbounded growth on a long-lived process (oldest evicted first).
+   * `onSubscriberError` hears about a handler that threw; the log itself never fails because
+   * of one, and event-core stays free of a logging dependency.
+   */
+  constructor(
+    private readonly limit = 10_000,
+    private readonly onSubscriberError?: (err: unknown, event: MatterEvent) => void,
+  ) {}
 
   append(input: unknown): MatterEvent {
     const event = MatterEvent.parse(input);
@@ -29,7 +36,15 @@ export class EventStore {
         if (sList.length === 0) this.bySession.delete(oldest.sessionId);
       }
     }
-    for (const h of this.handlers) h(event);
+    // Each handler is on its own. One that throws must not swallow the event for the
+    // handlers behind it, and must not fail an append that already happened.
+    for (const h of this.handlers) {
+      try {
+        h(event);
+      } catch (err) {
+        this.onSubscriberError?.(err, event);
+      }
+    }
     return event;
   }
 

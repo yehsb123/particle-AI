@@ -1,13 +1,26 @@
 export type LogLevel = "debug" | "info" | "warn" | "error";
 const RANK: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
+/**
+ * The level usually arrives from DM_LOG_LEVEL, which is a string nobody has checked. An
+ * unrecognised one used to leave every comparison undefined, so a run asking for quiet got
+ * every debug line instead. Case and stray spaces are forgiven; anything else falls back.
+ */
+export function normalizeLevel(level: unknown, fallback: LogLevel = "info"): LogLevel {
+  const key = typeof level === "string" ? level.trim().toLowerCase() : "";
+  // `in` walks the prototype chain, so "toString" and "__proto__" would pass as levels and
+  // put the floor at a function. Only the four own keys count.
+  return Object.hasOwn(RANK, key) ? (key as LogLevel) : fallback;
+}
+
 export type LogFields = Record<string, unknown>;
 export type Sink = (line: { level: LogLevel; msg: string; fields?: LogFields }) => void;
 
 /** Minimal structured logger. Every runtime decision links event/decision/patch ids. */
-export function createLogger(minLevel: LogLevel = "info", sink?: Sink) {
+export function createLogger(minLevel: LogLevel | string = "info", sink?: Sink) {
+  const floor = normalizeLevel(minLevel);
   const emit = (level: LogLevel, msg: string, fields?: LogFields) => {
-    if (RANK[level] < RANK[minLevel]) return;
+    if (RANK[level] < RANK[floor]) return;
     if (sink) sink({ level, msg, fields });
     // default sink: structured console line
     else console[level === "debug" ? "log" : level](JSON.stringify({ level, msg, ...fields }));
