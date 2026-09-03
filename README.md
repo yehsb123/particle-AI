@@ -97,7 +97,7 @@ side panel on any site.
 
 ```bash
 pnpm --filter @particle/extension build   # -> apps/extension/dist
-pnpm runtime && pnpm web                  # runtime :8787, body :3000
+pnpm dev                                  # runtime :8787 + body :3000 (or `pnpm runtime` / `pnpm web` in two terminals)
 ```
 
 `chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`.

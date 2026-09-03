@@ -170,6 +170,11 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Audit facts (turbo paths)** (2026-08-31): `pnpm test` through turbo = 21 tasks, 191 tests
+  passed (identical to `pnpm -r`); `pnpm build` through turbo produces a fresh web `.next` and the
+  extension `dist`, and the E2E suite passes on that build. Docs fix: the README extension section
+  said `pnpm runtime && pnpm web` — the first command never exits, so the second never ran; now
+  `pnpm dev` (or two terminals).
 - **Usability bug found by the audit: `pnpm dev` dropped every env var** (2026-08-31). Turbo 2's
   strict env mode strips undeclared variables, so `DM_PORT`, `DATABASE_URL`, `ANTHROPIC_API_KEY`,
   the ingest token and `NEXT_PUBLIC_*` never reached the apps when started through the root

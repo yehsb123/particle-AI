@@ -91,7 +91,7 @@ Particle AI는 한 페이지가 아니라 **브라우저 전체에 씌우는 레
 
 ```bash
 pnpm --filter @particle/extension build   # -> apps/extension/dist
-pnpm runtime && pnpm web                  # 런타임 :8787, 바디 :3000
+pnpm dev                                  # 런타임 :8787 + 바디 :3000 (또는 터미널 두 개에서 `pnpm runtime` / `pnpm web`)
 ```
 
 1. `chrome://extensions` → 개발자 모드 → **압축해제된 확장 프로그램 로드** → `apps/extension/dist`

@@ -68,14 +68,21 @@ Every commit is green (typecheck 0 · 191 unit/integration tests · 15 Playwrigh
 - `7d50f98` docs: overnight report refreshed through the fifth-review fixes
 - `04ffca4` Multi-session view v1: the connected body lists what this computer senses
 - `88903ba` sessions view: other sessions link to their own body (?session=); STATUS documents the multi-session view + Korean-first repo description
+- `e77e81e` docs: overnight report refreshed (multi-session view, session links, Korean description)
+- `c3702ee` intelligence: provider HTTP contract tests without real keys (fake Messages / chat-completions server)
+- `5cc7523` docs: STATUS — remove the last stale 'providers unexercised without keys' claim (contract tests run on every push)
+- `48350e1` decision-engine: integration test over the REAL Anthropic adapter against a fake API — valid model decision used as-is; schema-invalid, HTTP failure and prose answers all fall back deterministically with reason codes
+- `b1c45fd` docs: STATUS — real-provider end-to-end fallback proof + usability audit facts (env vars, scripts)
+- `3cc7f64` fix: root pnpm dev/test/build dropped every env var (turbo strict env) — globalPassThroughEnv for DM_*/DATABASE_URL/provider keys/NEXT_PUBLIC_*/PORT; web scripts take PORT from env
 
 ## The short version
 
 - **P2** browser extension (MV3): consent-gated sensors, traffic-shape incidents, side panel body, store icons/screenshots/privacy policy, configurable runtime URL, real-Chromium E2E
 - **P3** desktop agent: file saves, git branch via .git/HEAD, piped test/build transitions, health probe — live-verified
-- **P4 complete**: dismissal learning AND pattern→template memory, persisted across reloads/restarts; suggestions offered once ever; dismissals refundable; all inspectable in the presence popover
-- **Multi-session view**: the connected body lists every session this computer senses (intent · problems · layers), each linking to its own body
+- **P4 complete**: dismissal learning AND pattern→template memory, persisted across reloads/restarts; suggestions offered once ever; dismissals refundable; inspectable in the presence popover
+- **Multi-session view**: the connected body lists every session this computer senses, each linking to its own body
 - Undo/redo both ways with a correct learning ledger; reconcile ticks with a visible countdown; honest sensing indicator; connected mode behaviorally equivalent; ordered sensor sends
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
-- 5 adversarial review passes (43+ defects found & fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
+- 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
