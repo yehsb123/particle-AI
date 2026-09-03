@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 243 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 257 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,14 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Significance scoring pinned** (2026-09-03): the reflex in front of every deliberation is now
+  fixed by arithmetic, not by feel — the weighted sum verified term by term and clamped to 0..1,
+  novelty decaying 1 → 0.75 → 0.5 → 0.25 → 0, an inclusive threshold, critical events and problem
+  openings always deliberating however repetitive, a closer counting only while a problem is open,
+  and each behaviour or traffic signal forcing deliberation on its own while being ignored one step
+  below its threshold. The two specs that launch their own Chromium are marked slow: alone they take
+  4 s, but inside the suite the extension-loading launch has crossed 60 s on Windows, which is what
+  the recurring flake was. 14 tests, significance-engine 19, 257 unit/integration total.
 - **World-model bounds** (2026-09-03): the state a never-ending sensor stream feeds is now pinned
   at its limits — 50 events, 8 recent entities and keys (re-opening moves an entry instead of
   duplicating it), 50 touched files, 5 failing hosts newest-first while the counter still sees all,
@@ -201,7 +209,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
   components never throw and never produce NaN, an unknown component type degrades to a labelled
   container with its children, 60-level nesting renders, every content string goes through `tr()`,
-  and bound templates fill through `tpl()` with a text fallback. 243 unit/integration tests.
+  and bound templates fill through `tpl()` with a text fallback. 257 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
