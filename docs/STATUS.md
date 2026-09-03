@@ -170,6 +170,10 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Audit facts (round 3)**: `pnpm test:e2e` through turbo runs the real Playwright suite (15 passed,
+  1 SHOTS-gated skip); `.env.example` defaults match the code (`DM_PORT` 8787, `DM_HOST` 127.0.0.1,
+  `DM_ALLOWED_ORIGINS` the two body origins); QUICKSTART step 3 matches the built `dist/`
+  (manifest, icons, side panel, options). No further discrepancies found.
 - **Audit facts (turbo paths)** (2026-08-31): `pnpm test` through turbo = 21 tasks, 191 tests
   passed (identical to `pnpm -r`); `pnpm build` through turbo produces a fresh web `.next` and the
   extension `dist`, and the E2E suite passes on that build. Docs fix: the README extension section
