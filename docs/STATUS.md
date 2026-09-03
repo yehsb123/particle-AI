@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 286 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 294 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,14 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Real bug: an app log read as a test failure** (2026-09-03). Piping a run through the agent also
+  pipes the application's own logging, and lines like "GET /users/42 failed with 500" or "3 failed
+  login attempts" were classified as test failures — an integration test that logs a 500 opened a
+  phantom incident. The bare "<n> failed / failing / passed" forms now have to begin the line, which
+  is what every runner's summary does and a log line never does. 8 regression tests cover prose, log
+  lines, stack frames and code staying silent while vitest, jest, mocha and playwright summaries
+  still classify; verified live (two noisy lines produced no events, only the real transitions).
+  agent 19, 294 unit/integration total.
 - **Intent priority ladder** (2026-09-03): only one label can win, so the order is now fixed by
   test — with every condition true at once, returning beats idle beats stuck beats debugging beats
   switching beats exploring beats focused. Someone who just came back gets a re-entry summary
@@ -222,7 +230,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
   components never throw and never produce NaN, an unknown component type degrades to a labelled
   container with its children, 60-level nesting renders, every content string goes through `tr()`,
-  and bound templates fill through `tpl()` with a text fallback. 286 unit/integration tests.
+  and bound templates fill through `tpl()` with a text fallback. 294 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
