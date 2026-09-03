@@ -21,17 +21,51 @@ export type McpAdapterOptions = {
   riskFor?: (tool: McpToolDescriptor) => RiskLevel | undefined;
 };
 
-// Matches read verbs delimited by ._- / boundaries AND camelCase (getWeather, listResources).
-const READ_HINTS = /(^|[._-])(get|list|read|search|fetch|query|describe|inspect)([._-]|[A-Z]|$)/i;
+/**
+ * A tool name split into lowercase words: delimiters and camelCase humps both count, so
+ * `getWeather`, `get_weather`, `GET_ALL` and `x.get.y` all yield a `get` word, while `getter`
+ * and `listen` stay single words that mean nothing to us.
+ */
+export function nameWords(name: string): string[] {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .flatMap((part) => part.split(" "))
+    .map((w) => w.toLowerCase())
+    .filter(Boolean);
+}
 
-/** Classify an MCP tool's risk from annotations, an override, or a name heuristic. */
+const READ_WORDS = new Set(["get", "list", "read", "search", "fetch", "query", "describe", "inspect", "find", "show", "status"]);
+/** Words that mean the tool changes something outside the runtime. */
+const MUTATION_WORDS = new Set([
+  "write", "update", "create", "insert", "upsert", "set", "patch", "put", "post", "send", "exec",
+  "execute", "run", "spawn", "start", "stop", "restart", "reset", "kill", "install", "uninstall",
+  "deploy", "publish", "grant", "revoke", "move", "rename", "copy", "add", "remove", "edit", "apply",
+]);
+/** Words that mean the tool destroys something. Tight on purpose — no room for doubt. */
+const DESTRUCTIVE_WORDS = new Set(["delete", "destroy", "drop", "wipe", "purge", "truncate", "format", "erase"]);
+
+/**
+ * Classify an MCP tool's risk. A caller's own override wins over everything; after that the
+ * name decides when it says something unambiguous, because a mistake here is a capability that
+ * runs without asking. A destructive word beats a server's read-only hint (a server calling
+ * `delete_all` read-only is either wrong or lying, and the cost of believing it is data loss),
+ * and a mutating word anywhere in the name keeps a read verb from making it auto-runnable —
+ * `fetch_and_delete_logs` is not a read. Anything we cannot read confidently is an external
+ * effect, which needs approval below full autonomy.
+ */
 export function inferRisk(tool: McpToolDescriptor, opts: McpAdapterOptions = {}): RiskLevel {
   const override = opts.riskFor?.(tool);
   if (override) return override;
-  if (tool.annotations?.destructiveHint) return "destructive";
+
+  const words = nameWords(tool.name);
+  const destructiveName = words.some((w) => DESTRUCTIVE_WORDS.has(w));
+  if (tool.annotations?.destructiveHint || destructiveName) return "destructive";
   if (tool.annotations?.readOnlyHint) return "read";
-  if (READ_HINTS.test(tool.name)) return "read";
-  // Unknown external tools are treated as external effects by default (safer).
+
+  const mutates = words.some((w) => MUTATION_WORDS.has(w));
+  if (!mutates && words.some((w) => READ_WORDS.has(w))) return "read";
+  // Anything else is treated as an external effect — the safer default.
   return "external_effect";
 }
 
