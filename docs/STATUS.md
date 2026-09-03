@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 130+ unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 191 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,14 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Usability bug found by the audit: `pnpm dev` dropped every env var** (2026-08-31). Turbo 2's
+  strict env mode strips undeclared variables, so `DM_PORT`, `DATABASE_URL`, `ANTHROPIC_API_KEY`,
+  the ingest token and `NEXT_PUBLIC_*` never reached the apps when started through the root
+  `pnpm dev`/`pnpm test`/`pnpm build` (the direct `pnpm web`/`pnpm runtime` paths bypass turbo,
+  which is why nothing showed earlier). Fixed with `globalPassThroughEnv` (`DM_*`, `DATABASE_URL`,
+  provider keys, `NEXT_PUBLIC_*`, `PORT`, `SHOTS`, `CI`) + `NEXT_PUBLIC_*` as build `env`; the web
+  scripts no longer hard-code `-p 3000` so `PORT` works. Verified live: `DM_PORT=8790 PORT=3010
+  pnpm dev` answers on both ports in 4 s. CI was never affected (it runs `pnpm -r`, not turbo).
 - **Real-provider path, end to end, without keys** (2026-08-31): `decision-engine` now routes to
   the actual `AnthropicProvider` against a fake Messages API: a schema-valid model decision is used
   as-is; a schema-INVALID one (bad intent / autonomy), an HTTP 503, and a prose answer with no JSON

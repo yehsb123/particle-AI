@@ -78,9 +78,12 @@ Reliability guardrails make this safe:
 
 ```bash
 pnpm install
-pnpm test          # run the unit tests
-pnpm web           # open http://localhost:3000
+pnpm test          # all unit/integration suites (~2 min)
+pnpm dev           # web (3000) + runtime (8787) together — or `pnpm web` / `pnpm runtime` separately
 ```
+
+Ports and settings come from env (`PORT`, `DM_PORT`, …) and are passed through turbo, so
+`DM_PORT=8790 PORT=3010 pnpm dev` works. See `.env.example` for every variable.
 
 No API key is required — the runtime uses a deterministic mock provider by default.
 To enable a real provider, copy `.env.example` to `.env` and fill in a key.
