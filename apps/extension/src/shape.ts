@@ -146,7 +146,12 @@ export function consentLayers(c: Consent): string[] {
   return out;
 }
 
-/** Whether a hostname belongs to the local runtime/body itself (we never observe ourselves). */
+/**
+ * Whether a hostname belongs to the runtime or the body itself — we never observe ourselves.
+ * Covers the whole loopback family, including the IPv6 form a browser may hand us in brackets
+ * and the 127.0.0.0/8 range, not just the two spellings people usually type.
+ */
 export function isSelfHost(host: string): boolean {
-  return host === "localhost" || host === "127.0.0.1";
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
+  return h === "localhost" || h === "::1" || h === "0:0:0:0:0:0:0:1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
 }
