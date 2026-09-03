@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 396 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 452 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,25 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **An id the tree already uses is refused, and undo comes back exactly** (2026-09-03): an
+  `add` reusing a live id went straight through. The tree then held two nodes answering to one
+  id — forbidden by the blueprint schema for a reason, since every lookup in the morph engine
+  takes the first match — and the result no longer passed the gate in front of the renderer.
+  The inverse was worse: it removes by id, so undo deleted whichever copy came first, which
+  for an appended duplicate is the original. A probe showed the person's real card and its
+  child gone and the newcomer left in place. `applyPatch` now refuses an add or a replace that
+  introduces an id the tree already holds (reusing ids from the subtree a replace is replacing
+  is still fine — they leave with it), and because a patch can pass the guard and still be
+  impossible against the tree it is aimed at — most plausibly after a resume, where `hydrate`
+  takes a blueprint another build wrote — ingest catches it, records `morph_blocked` with a
+  `structurally_impossible` reason code, and leaves the session untouched. Separately, a remove
+  or move-out used to leave `children: []` behind, so undo returned a tree that rendered the
+  same but no longer equalled the one it started from; emptied arrays are dropped now, while an
+  array that arrived empty is left alone. 56 tests: every operation applied and undone with the
+  result checked against the renderer's gate both ways, the message for every missing target,
+  cycle and root protections, prop ops restoring the whole node, the parse gate's refusals and
+  their paths, and the runtime still answering after a refusal with nothing half-applied.
+  morph-engine 57, ui-protocol 24, runtime-core 38, 452 unit/integration total.
 - **Three faults in the smallest packages** (2026-09-03): probing storage and logging with the
   inputs an operator and a consumer really supply found two faults and a near-miss. The log
   level arrives as `DM_LOG_LEVEL`, a string nobody checked and cast straight to the level type,
