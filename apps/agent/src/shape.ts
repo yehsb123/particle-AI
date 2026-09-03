@@ -86,9 +86,18 @@ export function classifyLine(line: string): Outcome | null {
   // build — checked first: "error TS2345" lines are compiler, not test, failures
   if (/error TS\d+/.test(l) || /Failed to compile/i.test(l) || /Build failed/i.test(l) || /Found \d+ errors?/i.test(l)) return "build_fail";
   if (/Compiled successfully/i.test(l) || /✓ Compiled/.test(l) || /Build completed/i.test(l) || /\bbuilt in \d+/.test(l) || /Build succeeded/i.test(l)) return "build_ok";
-  // tests — totals lines
-  if (/\bTests?:?\s+\d+\s+failed/i.test(l) || /^\s*FAIL\b/.test(l) || /\d+\s+failing\b/.test(l) || /\d+ failed\b/.test(l)) return "test_fail";
-  if (/\bTests?:?\s+\d+\s+passed/i.test(l) || /\d+\s+passing\b/.test(l) || /^\s*\d+ passed\b/.test(l)) return "test_pass";
+  // tests — SUMMARY lines only. The bare "<n> failed / failing" forms must begin the line:
+  // an app log piped through the agent says things like "GET /users/42 failed with 500" or
+  // "3 failed login attempts", and neither is a test run changing state.
+  if (
+    /\bTests?:?\s+\d+\s+failed/i.test(l) ||
+    /^\s*FAIL\b/.test(l) ||
+    /^\s*\d+\s+failing\b/.test(l) ||
+    /^\s*\d+\s+failed\b/.test(l)
+  ) {
+    return "test_fail";
+  }
+  if (/\bTests?:?\s+\d+\s+passed/i.test(l) || /^\s*\d+\s+passing\b/.test(l) || /^\s*\d+\s+passed\b/.test(l)) return "test_pass";
   return null;
 }
 
