@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 257 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 267 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,12 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Capability failure paths** (2026-09-03): the AI's hands run unattended, so misbehaviour is now
+  pinned — a thrown error, a rejected promise, a non-Error throw and a missing capability all become
+  an audited `ok:false` run with its own id; a plan keeps going in order past a failed step; inputs
+  pass through untouched; built-ins answer with no world state instead of throwing, memory stays per
+  store instance, and every built-in declares a risk so nothing slips past the permission engine.
+  10 tests, capability-core 15, 267 unit/integration total.
 - **Significance scoring pinned** (2026-09-03): the reflex in front of every deliberation is now
   fixed by arithmetic, not by feel — the weighted sum verified term by term and clamped to 0..1,
   novelty decaying 1 → 0.75 → 0.5 → 0.25 → 0, an inclusive threshold, critical events and problem
@@ -209,7 +215,7 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   editor, all five incident kinds and the three behaviour cards render, wrong-typed props on eight
   components never throw and never produce NaN, an unknown component type degrades to a labelled
   container with its children, 60-level nesting renders, every content string goes through `tr()`,
-  and bound templates fill through `tpl()` with a text fallback. 257 unit/integration tests.
+  and bound templates fill through `tpl()` with a text fallback. 267 unit/integration tests.
 - **Postgres path verified locally too** (2026-08-31): with a real `postgres:16` container
   (`dm-pg-test`, :5433) and `DATABASE_URL` set, `@particle/persistence` runs its pg integration test
   (4 passed, 0 skipped — events + snapshots persisted and read back) and `@particle/runtime` passes
