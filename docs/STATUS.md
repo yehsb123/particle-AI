@@ -170,6 +170,13 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Real-provider path, end to end, without keys** (2026-08-31): `decision-engine` now routes to
+  the actual `AnthropicProvider` against a fake Messages API: a schema-valid model decision is used
+  as-is; a schema-INVALID one (bad intent / autonomy), an HTTP 503, and a prose answer with no JSON
+  all fall back to the deterministic decision with a reason code — the "invalid model output can
+  never corrupt the runtime" guarantee proven on the real adapter, not a stub. Usability audit
+  facts: all 15 documented env vars are read by code (no dead variables); root scripts
+  (`pnpm web/runtime/agent/test:e2e`) resolve; `pnpm agent` runs from the repo root.
 - **Provider HTTP contracts proven without keys** (2026-08-31): a fake Messages / chat-completions
   server records what the Anthropic and OpenAI-compatible adapters send and answers like the
   real services. Verified on every push: wire shape, `x-api-key`/`anthropic-version` and Bearer
