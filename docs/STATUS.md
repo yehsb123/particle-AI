@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 720 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 737 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A snapshot is parsed before it is believed, and the score is always a number** (2026-09-04):
+  resume hands a stored snapshot straight into the session, and a snapshot was written by whichever
+  build was running then. One missing field was enough to break that session for good — a world
+  without its `recentEvents` threw inside the significance reflex, which runs on every event, so
+  every ingest after the resume failed. `hydrate` parses both halves now, refuses what does not
+  survive while keeping what the session had, and reports which halves it took so resume can say
+  nothing was restored rather than hand back a fresh body and call it a restoration. Significance
+  could also produce a score that was not a number: a novelty window of zero makes the decay 0/0,
+  and NaN spreads from there into the trace the inspector shows, the audit and every connected
+  client while the deliberation decision quietly ignores it. 32 tests — the score real and within
+  nought and one under every configuration a host might pass, interest falling as an event repeats,
+  repeats counted per kind, a recovery for something never broken weighed far lower than a real
+  one, and hydrate refusing a world missing a field with the session still ingesting afterwards.
+  significance-engine 34, runtime-core 65, 737 unit/integration total.
 - **The message from a page is rebuilt at the boundary, not forwarded** (2026-09-04): the
   extension's shaping file says a review of it is a review of what can possibly leave the page, and
   that was not quite true — interaction, idle and visibility messages went from the content script
