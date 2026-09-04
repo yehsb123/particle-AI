@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 560 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 581 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A database or a client having a bad day cannot stop the body reshaping** (2026-09-04): two
+  things the server does not control could take an ingest down. The durable append was awaited
+  bare — the event is already in the in-memory log by then, so a database that is not answering
+  threw, aborted the ingest and left the two logs disagreeing: stored in one, never processed, no
+  world state, no audit, no morph. Three lines below, snapshot writes are explicitly best-effort
+  with the note that a database failure must not abort ingest or diverge clients from the server;
+  the event log had the same exposure and the opposite handling, and is best-effort now too, loud
+  in the log. And a listener that threw ended the broadcast and failed the ingest that fed it —
+  broadcasting happens after the state has changed, so the caller saw an error for work that was
+  done and every client behind the failing one never heard. Each listener is on its own now.
+  21 tests: reshaping with the durable log down and with snapshots failing, malformed events still
+  refused, every listener told when one throws, the message order a client needs, snapshots only
+  when something changed, traces and audit per session, and resume bringing back body and world
+  while offering no undo that would target a tree from before the restart.
+  runtime app 63, 581 unit/integration total.
 - **A file save says where the file sits in the watched root, or nothing** (2026-09-04): the agent
   promises a path relative to the directory someone chose, never the absolute location on disk, and
   on Windows that had a hole — `path.relative` between two drives hands back the absolute target,
