@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { EpisodicMemory, PatternDetector, PreferenceMemory, WorkingMemory, MAX_PATTERNS } from "./index";
+import { EpisodicMemory, PatternDetector, PreferenceMemory, WorkingMemory, MAX_PATTERNS, MAX_PREFERENCES } from "./index";
 import type { PatternCandidate, Preference } from "./types";
 
 /**
@@ -128,6 +128,38 @@ describe("PreferenceMemory — weights that never go negative", () => {
       "not a preference",
     ] as unknown as Preference[]);
     expect(p.entries()).toEqual([{ key: "ok", weight: 2 }]);
+  });
+
+  it("stops growing at a ceiling, keeping what was reinforced most", () => {
+    // a preference key carries the morph variant, which the model chooses freely, so this table
+    // would otherwise grow for as long as the session lives — in memory, in every snapshot, and
+    // in the browser's own storage
+    const p = new PreferenceMemory();
+    p.reinforce("dismissed:augment:stuck", 20);
+    for (let i = 0; i < MAX_PREFERENCES + 200; i += 1) p.reinforce(`dismissed:augment:v${i}`);
+    expect(p.entries()).toHaveLength(MAX_PREFERENCES);
+    expect(p.weightOf("dismissed:augment:stuck")).toBe(20); // what the person actually taught us
+  });
+
+  it("keeps reinforcing a preference it already knows at the ceiling", () => {
+    const p = new PreferenceMemory();
+    for (let i = 0; i < MAX_PREFERENCES; i += 1) p.reinforce(`k${i}`);
+    expect(p.reinforce("k0", 5)).toBe(6);
+    expect(p.entries()).toHaveLength(MAX_PREFERENCES);
+  });
+
+  it("does not let a snapshot push it past the ceiling", () => {
+    const p = new PreferenceMemory();
+    p.load(Array.from({ length: MAX_PREFERENCES + 300 }, (_, i) => ({ key: `k${i}`, weight: 1 })));
+    expect(p.entries()).toHaveLength(MAX_PREFERENCES);
+  });
+
+  it("still takes a snapshot's word on a preference it already has, at the ceiling", () => {
+    const p = new PreferenceMemory();
+    for (let i = 0; i < MAX_PREFERENCES; i += 1) p.reinforce(`k${i}`);
+    p.load([{ key: "k0", weight: 9 }, { key: "brand-new", weight: 9 }]);
+    expect(p.weightOf("k0")).toBe(9);
+    expect(p.weightOf("brand-new")).toBe(0);
   });
 
   it("survives an empty snapshot", () => {

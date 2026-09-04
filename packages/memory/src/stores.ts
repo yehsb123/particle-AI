@@ -42,10 +42,32 @@ export class EpisodicMemory {
   }
 }
 
+/**
+ * How many preferences one session keeps. A key is built from a morph intent and its variant,
+ * and a variant is a free string the model chooses, so this table would otherwise grow for as
+ * long as the session lives — in memory, in every snapshot, and in the browser's own storage.
+ */
+export const MAX_PREFERENCES = 500;
+
 /** Count-weighted preferences reinforced over time. */
 export class PreferenceMemory {
   private weights = new Map<string, number>();
+
+  /** Forget the least reinforced preference; ties go to the one learned longest ago. */
+  private evictLightest(): void {
+    let lightestKey: string | undefined;
+    let lightest = Number.POSITIVE_INFINITY;
+    for (const [key, weight] of this.weights) {
+      if (weight < lightest) {
+        lightest = weight;
+        lightestKey = key;
+      }
+    }
+    if (lightestKey !== undefined) this.weights.delete(lightestKey);
+  }
+
   reinforce(key: string, delta = 1): number {
+    if (!this.weights.has(key) && this.weights.size >= MAX_PREFERENCES) this.evictLightest();
     const next = Math.max(0, (this.weights.get(key) ?? 0) + delta); // never negative (redo hands a dismissal back)
     this.weights.set(key, next);
     return next;
@@ -67,6 +89,7 @@ export class PreferenceMemory {
   load(prefs: Preference[]): void {
     for (const p of prefs) {
       if (typeof p?.key !== "string" || !Number.isFinite(p.weight)) continue;
+      if (!this.weights.has(p.key) && this.weights.size >= MAX_PREFERENCES) continue; // a snapshot cannot grow it past the ceiling
       this.weights.set(p.key, Math.max(this.weights.get(p.key) ?? 0, p.weight));
     }
   }
