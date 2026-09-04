@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 607 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 622 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **One posted event could leave a session permanently broken** (2026-09-04): an event's `type` is
+  any string a client sends, and the table of things that open a problem was indexed with it
+  directly. A single event of type `toString` opened a problem with no kind, no summary and no
+  severity — a world state that fails its own schema, sitting in the belief every later decision is
+  made against — and nothing could ever close it, since no recovery matches an undefined kind. That
+  session would have looked permanently broken: an incident on screen, intent inference reading
+  trouble that was not there, and the same state written to a snapshot and restored on resume. Own
+  keys only now, on both the opening and the closing table. Checked everywhere else the shape
+  appears: the provider tier lookup would have returned a function as a tier, and the extension's
+  options page could have put a function's source into the page through `innerHTML`; both fixed.
+  **A sweep for the `in` operator over our own source now comes back empty** — the five earlier
+  ones are gone and no new ones crept in. 15 tests: each kind of trouble opening exactly one
+  problem, closing the matching one and leaving the others, a recovery for something never broken
+  doing nothing, open → close → open again, the process marked failed and healthy alongside, and
+  the whole hostile family of type strings opening nothing, disturbing nothing, leaving every
+  problem closable and the world state valid. world-model 36, 622 unit/integration total.
 - **A lookup table is a table, not a prototype chain** (2026-09-04): every string on screen goes
   through `tr()`, `t()` or `fillTemplate()`, and the model chooses many of them — a component's
   text is whatever the blueprint says. All three looked keys up in a plain object without checking
