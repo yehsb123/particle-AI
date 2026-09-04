@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 967 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 977 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A prop of the wrong kind must not take the interface down** (2026-09-04): the renderer is the
+  last thing between validated data and the screen, and validated only covers the shape of the
+  tree — a component's props are whatever the model put there, and a data binding drops a
+  capability's output straight into one. A table whose rows came back as a list containing null, a
+  timeline of entries that are not entries, a tree of nodes that are not nodes and inspector
+  entries missing half their fields all threw, and a thrown error here blanks the whole body rather
+  than the one card with bad data. Six of the thirty-three types threw on some shape and thirteen
+  more put "[object Object]" on screen where a title or label was not a string; two rendered lists
+  without keys. Text from a prop is text or nothing now, arrays are read entry by entry keeping
+  whatever is usable, and a row that is not a row shows as one cell beside the rows that are fine.
+  10 tests across all thirty-three types and six sets of hostile props: none throwing, none leaking
+  an object or NaN or undefined, none warning about keys, markup escaped everywhere, and every
+  shape that used to take the body down still showing the values that were good.
+  web unit 87, 977 unit/integration total.
 - **The history strip says what each step did, in the reader's language** (2026-09-04): the morph
   history is the record of everything the runtime has done to the interface, and every chip is
   something a person can click to undo back to. It printed the intent itself with its underscore

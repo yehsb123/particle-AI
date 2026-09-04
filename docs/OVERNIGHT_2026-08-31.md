@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 967 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
+Every commit is green (typecheck 0 · 977 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
