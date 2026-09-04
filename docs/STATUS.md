@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1051 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1062 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Every sensor and layer the indicator can name has words for it** (2026-09-04): the indicator is
+  the runtime's honesty about what it can see, and the one place a person looks to find out what is
+  being observed about them. A name with no phrase appeared there as the lookup key itself, and one
+  such name existed — the world model records a sensor that did not say what it is as "unknown", so
+  a report without a sensor name put `sensor_unknown` on that line. Which sensors and layers exist
+  was also spread across three packages with nothing holding them together: the extension decides
+  its layer names, the agent decides its own, the body writes the words. The vocabulary now lives
+  in the contracts where all three can see it, each sensor is tested to report only layers in it,
+  and the body is tested to have English and Korean words for every entry — with an unwritten name
+  still shown readably, since saying that some sensor is watching beats saying nothing is. 11 tests,
+  and the contracts as a devDependency in the two sensors so their tests can read the shared list;
+  neither imports it at runtime, so both stay standalone. 1062 unit/integration total.
 - **A card that fills itself in is checked against the capability it names** (2026-09-04): a card
   showing live data declares a binding — a capability id and a field on that capability's output —
   and the two halves live in different packages. Nothing would have noticed if a capability stopped
