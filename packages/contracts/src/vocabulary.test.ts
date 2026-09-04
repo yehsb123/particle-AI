@@ -76,7 +76,7 @@ describe("what a capability answers with", () => {
 });
 
 describe("an approval is a record of a person's answer", () => {
-  const request = { id: "appr-1", capabilityId: "security.update_dependency", risk: "external_effect", reason: "updates a vulnerable dependency", createdAt: T, status: "pending" };
+  const request = { id: "appr-1", sessionId: "s", capabilityId: "security.update_dependency", risk: "external_effect", reason: "updates a vulnerable dependency", createdAt: T, status: "pending" };
 
   it("accepts the three states an approval can be in, and nothing else", () => {
     for (const status of ["pending", "approved", "rejected"]) {
@@ -87,7 +87,11 @@ describe("an approval is a record of a person's answer", () => {
     }
   });
 
-  it("insists on knowing what was asked, when, and at what risk", () => {
+  it("insists on knowing what was asked, when, at what risk, and in which session", () => {
+    // an approval belongs to one workspace: without that, the only way to tell whose it was
+    // was to read its id, and an id prefix matched more sessions than the one that asked
+    expect(accepts(ApprovalRequest, { ...request, sessionId: "" })).toBe(false);
+    expect(accepts(ApprovalRequest, { ...request, sessionId: undefined })).toBe(false);
     expect(accepts(ApprovalRequest, { ...request, capabilityId: "" })).toBe(false);
     expect(accepts(ApprovalRequest, { ...request, createdAt: "soon" })).toBe(false);
     expect(accepts(ApprovalRequest, { ...request, risk: "spicy" })).toBe(false);

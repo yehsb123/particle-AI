@@ -23,7 +23,7 @@ export class ApprovalStore {
     if (oldest !== undefined) this.items.delete(oldest);
   }
 
-  create(input: { id: string; capabilityId: string; risk: RiskLevel; reason: string; createdAt: string }): ApprovalRequest {
+  create(input: { id: string; sessionId: string; capabilityId: string; risk: RiskLevel; reason: string; createdAt: string }): ApprovalRequest {
     const req: ApprovalRequest = { ...input, status: "pending" };
     if (!this.items.has(req.id)) {
       while (this.items.size >= MAX_APPROVALS) this.evictOldest();

@@ -42,6 +42,8 @@ export type ApprovalStatus = z.infer<typeof ApprovalStatus>;
 
 export const ApprovalRequest = z.object({
   id: z.string().min(1),
+  /** the session this was asked in — an approval belongs to one workspace, never to a prefix */
+  sessionId: z.string().min(1),
   capabilityId: z.string().min(1),
   risk: RiskLevel,
   reason: z.string(),

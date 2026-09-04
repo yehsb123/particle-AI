@@ -213,3 +213,41 @@ describe("what a failure tells the caller", () => {
     expect(JSON.parse((await app.inject({ method: "GET", url: "/api/sessions" })).body).sessions).toEqual([]);
   });
 });
+
+describe("approvals belong to the session that asked", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    delete process.env.DM_INGEST_TOKEN;
+    app = (await buildServer()).app;
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it("shows a session only its own approvals, however the ids are spelled", async () => {
+    // ids read appr-<session>-<decision>-<capability>, so matching on that prefix let a session
+    // called "a" see every approval of a session called "a-b" — what the runtime had proposed to
+    // do in another workspace, and the id needed to answer for it
+    const incident = (sessionId: string, id: string) => ({
+      id, sessionId, timestamp: new Date().toISOString(), source: "development" as const,
+      type: "security.vulnerability_detected", severity: "critical" as const, payload: {},
+    });
+    await app.inject({ method: "POST", url: "/api/events", payload: incident("acl", "v1") });
+    await app.inject({ method: "POST", url: "/api/events", payload: incident("acl-other", "v2") });
+
+    const mine = JSON.parse((await app.inject({ method: "GET", url: "/api/sessions/acl/approvals" })).body).approvals;
+    const theirs = JSON.parse((await app.inject({ method: "GET", url: "/api/sessions/acl-other/approvals" })).body).approvals;
+
+    expect(mine.length).toBeGreaterThan(0);
+    expect(theirs.length).toBeGreaterThan(0);
+    expect(mine.every((a: { sessionId: string }) => a.sessionId === "acl")).toBe(true);
+    expect(theirs.every((a: { sessionId: string }) => a.sessionId === "acl-other")).toBe(true);
+    expect(JSON.stringify(mine)).not.toContain("acl-other");
+  });
+
+  it("has nothing to show for a session that never asked for anything", async () => {
+    expect(JSON.parse((await app.inject({ method: "GET", url: "/api/sessions/never-asked/approvals" })).body).approvals).toEqual([]);
+  });
+
+});

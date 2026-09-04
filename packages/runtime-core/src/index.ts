@@ -226,6 +226,16 @@ export class RuntimeCore {
       layers: [...new Set(Object.values(s.world.sensing ?? {}).flat())],
     }));
   }
+  /**
+   * Approvals asked in one session. Matching on the id's prefix used to be close enough — an id
+   * reads `appr-<session>-<decision>-<capability>` — but a session called "a" then matched every
+   * approval of a session called "a-b", showing one workspace what the runtime had proposed in
+   * another. The record says which session it belongs to; that is what is read.
+   */
+  approvalsFor(sessionId: string): ApprovalRequest[] {
+    return this.approvals.list().filter((a) => a.sessionId === sessionId);
+  }
+
   /** Read without creating: an unknown id yields a fresh default and leaves the LRU untouched. */
   peekWorld(sessionId: string): WorldState {
     return this.sessions.get(sessionId)?.world ?? emptyWorldState(sessionId, this.deps.clock.iso());
@@ -394,6 +404,7 @@ export class RuntimeCore {
       if (this.approvals.get(id)) continue;
       const req = this.approvals.create({
         id,
+        sessionId: event.sessionId,
         capabilityId: item.capabilityId,
         risk: item.risk,
         reason: `${item.risk} capability requires approval at autonomy level ${this.autonomyLevel}`,

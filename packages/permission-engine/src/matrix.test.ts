@@ -94,7 +94,7 @@ describe("evaluatePlan — the split the runtime acts on", () => {
 });
 
 describe("ApprovalStore — pending decisions", () => {
-  const req = (id: string) => ({ id, capabilityId: "security.update_dependency", risk: "external_effect" as RiskLevel, reason: "r", createdAt: "2026-09-03T00:00:00Z" });
+  const req = (id: string) => ({ id, sessionId: "s", capabilityId: "security.update_dependency", risk: "external_effect" as RiskLevel, reason: "r", createdAt: "2026-09-03T00:00:00Z" });
 
   it("starts pending, then records the human decision without losing the request", () => {
     const store = new ApprovalStore();

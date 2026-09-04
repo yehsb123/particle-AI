@@ -42,10 +42,10 @@ describe("evaluatePlan", () => {
 describe("ApprovalStore", () => {
   it("creates, approves and rejects", () => {
     const store = new ApprovalStore();
-    const req = store.create({ id: "a1", capabilityId: "x", risk: "external_effect", reason: "r", createdAt: "2026-01-01T00:00:00Z" });
+    const req = store.create({ id: "a1", sessionId: "s", capabilityId: "x", risk: "external_effect", reason: "r", createdAt: "2026-01-01T00:00:00Z" });
     expect(req.status).toBe("pending");
     expect(store.approve("a1")?.status).toBe("approved");
-    const r2 = store.create({ id: "a2", capabilityId: "y", risk: "destructive", reason: "r", createdAt: "2026-01-01T00:00:00Z" });
+    const r2 = store.create({ id: "a2", sessionId: "s", capabilityId: "y", risk: "destructive", reason: "r", createdAt: "2026-01-01T00:00:00Z" });
     expect(store.reject(r2.id)?.status).toBe("rejected");
   });
 });

@@ -8,8 +8,9 @@ import { ApprovalStore, MAX_APPROVALS } from "./approvals";
  * turn a refusal into consent, impossible to rewrite one from outside, and impossible for a
  * long-running process to drop a question nobody has answered yet just because it got busy.
  */
-const req = (id: string, over: Partial<{ capabilityId: string; risk: RiskLevel; reason: string; createdAt: string }> = {}) => ({
+const req = (id: string, over: Partial<{ sessionId: string; capabilityId: string; risk: RiskLevel; reason: string; createdAt: string }> = {}) => ({
   id,
+  sessionId: "s",
   capabilityId: "security.update_dependency",
   risk: "external_effect" as RiskLevel,
   reason: "updates a vulnerable dependency",

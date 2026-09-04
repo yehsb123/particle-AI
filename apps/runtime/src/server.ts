@@ -111,8 +111,7 @@ export async function buildServer(): Promise<BuildResult> {
   app.get<{ Params: { id: string } }>("/api/sessions/:id/decisions", async (req) => ({ audit: runtime.audit.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/traces", async (req) => ({ traces: runtime.traces.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/approvals", async (req) => ({
-    // approval ids are `appr-<sessionId>-<decisionId>-<capabilityId>` — never show another session's
-    approvals: runtime.approvals.list().filter((a) => a.id.startsWith(`appr-${req.params.id}-`)),
+    approvals: runtime.core.approvalsFor(req.params.id), // by the session on the record, not by its id
   }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/snapshots", async (req) => ({ snapshots: await persistence.snapshots.list(req.params.id) }));
 
