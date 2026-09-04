@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 827 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 829 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A session sees its own approvals, and knowing that does not mean reading an id**
+  (2026-09-04): the endpoint listing what is waiting for consent said in its own comment that it
+  never shows another session's — and it did. An approval id reads
+  `appr-<session>-<decision>-<capability>`, the listing matched on that prefix, and session ids
+  come from the URL, so a session called `a` matched every approval of a session called `a-b` and
+  saw what the runtime had proposed to do in that other workspace along with the id needed to
+  answer for it. Same shape as the MCP id collision fixed the same day: an identifier built by
+  joining parts with a separator those parts can contain, then taken apart again by guessing. An
+  approval now carries the session it was asked in — required in the contract, since one that
+  cannot say whose it is has lost what makes it answerable — and the listing reads that. 4 tests:
+  two sessions whose ids differ only by where the dash falls each seeing exactly their own, a
+  session that never asked seeing nothing, and the contract refusing an approval with no session.
+  runtime app 65, 829 unit/integration total.
 - **A capability id belongs to exactly one tool, and a bad MCP server breaks nothing**
   (2026-09-04): a capability id was the server id and the tool name joined with a dot, and a dot is
   ordinary in both — server `a.b` with a tool `c` and server `a` with a tool `b.c` produced the same
