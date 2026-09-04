@@ -108,6 +108,8 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   presenceLearned: { en: "learned from you", ko: "학습한 것" },
   prefDismissed: { en: "won't auto-offer", ko: "자동 표시 안 함" },
   held_structural_confidence_below_min: { en: "not confident enough for a structural change", ko: "구조 변경을 할 만큼 확신이 없음" },
+  held_learned_preference: { en: "you have dismissed this kind of card before — not offering it again", ko: "이런 카드를 전에 닫으셔서 — 다시 제안하지 않음" },
+  held_structurally_impossible: { en: "the change did not fit the screen as it is now — nothing was half-applied", ko: "지금 화면 구조와 맞지 않아 — 반쯤 적용된 것은 없음" },
   // intent (Concept v2)
   intentTitle: { en: "intent", ko: "의도" },
   intent_exploring: { en: "exploring", ko: "탐색 중" },

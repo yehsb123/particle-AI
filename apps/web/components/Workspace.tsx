@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createReplayClock } from "../lib/replayClock";
+import { describeHold } from "../lib/hold";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -751,7 +752,7 @@ export function Workspace() {
           <div className="held" role="status">
             <span className="badge warn"><span className="dot" />{t("heldTitle", lang)}</span>
             <span>
-              {held.codes.map((c) => t(`held_${c}`, lang)).filter((x) => !x.startsWith("held_")).join(" · ") || held.codes.join(", ")}
+              {describeHold(held.codes, lang)}
               {held.retryMs !== undefined ? <b> · {fillTemplate(t("heldRetry", lang), { s: Math.ceil(held.retryMs / 1000) })}</b> : null}
             </span>
             <button className="btn muted" style={{ padding: "2px 10px" }} onClick={() => setHeld(null)}>✕</button>

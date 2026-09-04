@@ -74,6 +74,23 @@ export const UIComponent: z.ZodType<UIComponent> = z.lazy(() =>
   }),
 );
 
+/**
+ * Every reason the runtime can give for not reshaping the body. The body shows these to the
+ * person in their own language, so the list lives here rather than in whichever module happens
+ * to raise one: a reason nobody has words for reaches the screen as a bare identifier.
+ */
+export const MORPH_HOLD_REASONS = [
+  "confidence_below_min",
+  "structural_confidence_below_min",
+  "cooldown_active",
+  "major_dwell_active",
+  "protects_focus",
+  "protects_unsaved_state",
+  "learned_preference",
+  "structurally_impossible",
+] as const;
+export type MorphHoldReason = (typeof MORPH_HOLD_REASONS)[number];
+
 export const UI_SCHEMA_VERSION = "1.0.0";
 
 function collectComponentIds(node: UIComponent, acc: string[] = []): string[] {

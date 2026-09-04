@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { UIBlueprint, UIPatch, UIPatchOperation } from "@particle/contracts";
-import { UI_SCHEMA_VERSION } from "@particle/contracts";
+import { UI_SCHEMA_VERSION, MORPH_HOLD_REASONS } from "@particle/contracts";
 import { guardPatch } from "./guard";
 import { DEFAULT_MORPH_POLICY } from "./policy";
 
@@ -156,5 +156,26 @@ describe("guard — pure and predictable", () => {
 
   it("an empty patch is not allowed (nothing to apply)", () => {
     expect(guard(patch()).allowed).toBe(false);
+  });
+});
+
+describe("every reason the guard gives is one the body has words for", () => {
+  it("only ever answers with a canonical hold reason", () => {
+    // the body turns these into a sentence in the reader's language, so a code outside the
+    // canonical list would reach the screen as a bare identifier
+    const seen = new Set<string>();
+    const collect = (r: { reasonCodes: string[]; dropped: { reason: string }[] }) => {
+      r.reasonCodes.forEach((c) => seen.add(c));
+      r.dropped.forEach((d) => seen.add(d.reason));
+    };
+
+    collect(guard(patch({ op: "highlight", targetId: "status" }), { confidence: 0.1 }));
+    collect(guard(patch({ op: "highlight", targetId: "status" }), { now: 1_000, lastMorphAt: 900 }));
+    collect(guard(patch({ op: "add", parentId: "root", index: 3, component: { id: "new", type: "Card", props: {} } }), { now: 1_000, lastMajorMorphAt: 900 }));
+    collect(guard(patch({ op: "remove", targetId: "editor" })));
+    collect(guard(patch({ op: "replace", targetId: "status", component: { id: "status", type: "Badge" } }), { attention: { typing: true, focusedComponentId: "status" } }));
+
+    expect(seen.size).toBeGreaterThan(2);
+    for (const code of seen) expect(MORPH_HOLD_REASONS as readonly string[], code).toContain(code);
   });
 });

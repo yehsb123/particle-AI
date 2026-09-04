@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createRuntimeCore } from "./factory";
 import { findById } from "@particle/ui-protocol";
-import type { MatterEvent, UIComponent } from "@particle/contracts";
+import { MORPH_HOLD_REASONS, type MatterEvent, type UIComponent } from "@particle/contracts";
 
 /**
  * A patch can pass the morph guard and still be impossible against the tree it is aimed at —
@@ -48,6 +48,17 @@ describe("a morph the tree cannot hold", () => {
     expect(findById(core.getBlueprint("s").root, "incident")).toBeUndefined();
     expect(findById(core.getBlueprint("s").root, "incident-grid")).toBeDefined();
     expect(core.getBlueprint("s").root).toEqual(stale);
+  });
+
+  it("gives a reason the body has words for", async () => {
+    // the body turns these codes into a sentence in the reader's language; a code that is not in
+    // the canonical list reaches the screen as a bare identifier
+    const core = createRuntimeCore(makeClock());
+    core.hydrate("s", { blueprint: { ...core.getBlueprint("s"), root: staleBlueprint(core.getBlueprint("s").root) } });
+    const inc = await core.ingest(ev("development.server_error", "critical", "e1"));
+    for (const code of inc.morph.guardReasonCodes) {
+      expect(MORPH_HOLD_REASONS as readonly string[], code).toContain(code);
+    }
   });
 
   it("keeps taking events afterwards", async () => {
