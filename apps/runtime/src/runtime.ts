@@ -72,7 +72,17 @@ export class SessionRuntime {
   async ingest(input: unknown): Promise<{ event: MatterEvent; result: IngestResult }> {
     const event = MatterEventSchema.parse(input);
     this.store.append(event);
-    if (this.eventLog) await this.eventLog.append(event); // durable append when configured
+    // Durable append is best-effort, exactly like the snapshots further down: the event is
+    // already in the in-memory log, so letting a database outage throw here would abort the
+    // ingest and leave the two logs disagreeing — the body would stop reshaping because
+    // storage hiccuped. The failure is loud in the log instead.
+    if (this.eventLog) {
+      try {
+        await this.eventLog.append(event);
+      } catch (err) {
+        this.log.warn("event_append_failed", { sessionId: event.sessionId, eventId: event.id, error: (err as Error).message });
+      }
+    }
     const result = await this.core.ingest(event);
 
     for (const rec of result.audit) this.audit.append(rec);
@@ -241,7 +251,19 @@ export class SessionRuntime {
     return () => this.listeners.delete(listener);
   }
 
+  /**
+   * Every listener hears it, whatever the others do. A broadcast happens after the state has
+   * already changed, so a client that throws must not take the ingest down with it — the caller
+   * would see an error for work that was done, and the clients behind the failing one would
+   * never hear about it at all.
+   */
   private emit(msg: RuntimeMessage): void {
-    for (const l of this.listeners) l(msg);
+    for (const l of this.listeners) {
+      try {
+        l(msg);
+      } catch (err) {
+        this.log.warn("listener_failed", { kind: msg.kind, sessionId: msg.sessionId, error: (err as Error).message });
+      }
+    }
   }
 }
