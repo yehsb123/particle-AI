@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 581 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 607 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A lookup table is a table, not a prototype chain** (2026-09-04): every string on screen goes
+  through `tr()`, `t()` or `fillTemplate()`, and the model chooses many of them — a component's
+  text is whatever the blueprint says. All three looked keys up in a plain object without checking
+  whose key it was. `tr()` is typed as returning a string and, for text like "toString" or
+  "constructor", returned a FUNCTION off the prototype; React refuses to render a function, so a
+  component whose text happened to be one of those words took the whole Korean screen down.
+  `fillTemplate` had it in the other direction: `{toString}` rendered the source of a native
+  function into a sentence someone reads, when the point of that function is that an unfilled slot
+  stays visible — a param present but undefined now leaves the slot visible too. This is the same
+  mistake as the log level, the component registry and the capability bindings: **`in` walks the
+  prototype chain; key checks use `Object.hasOwn`**. 26 tests: the lookups returning an unknown key
+  unchanged as a string in both languages, falsy values still printing, text without slots
+  untouched; and the developer inspector saying so when there is nothing to show, offering its tabs
+  in both languages, rounding significance to whole percent, naming the guard reason when a morph
+  was refused, marking a reflex answer, and escaping an event type that looks like markup.
+  web unit 49, 607 unit/integration total.
 - **A database or a client having a bad day cannot stop the body reshaping** (2026-09-04): two
   things the server does not control could take an ingest down. The durable append was awaited
   bare — the event is already in the in-memory log by then, so a database that is not answering
