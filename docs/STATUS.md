@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 908 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 915 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A plan waiting for consent goes when the question does** (2026-09-04): a capability the runtime
+  may not run on its own waits in two places — the approval record a person will answer, and the
+  plan itself, which capability with which input, held until they do. The approval store was given
+  a ceiling and forgets the oldest answered questions at it; the plans were not, so they
+  accumulated for the life of the process, each still holding its input, long after the question it
+  waited on was forgotten. Seven hundred unanswered questions left seven hundred plans that could
+  never run again. They go with the question now. **Sixth unbounded collection this campaign, and
+  the sweep behind it found the rest already bounded**: the event log, the audit trail, the trace
+  ring, sessions, the morph history, the reconcile timers. 7 tests: a capability offered and run
+  once consent is given, run only once however many times the answer arrives, not run after a
+  refusal, an id nobody issued answered with nothing, the plans staying in step through seven
+  hundred unanswered questions, and each session's waiting question staying its own.
+  runtime-core 86, 915 unit/integration total.
 - **What someone taught the runtime has a ceiling too** (2026-09-04): a preference key carries the
   morph intent and its variant, and a variant is a free string the model chooses, so nothing capped
   that table — it grew for as long as a session lived, in memory, in every snapshot written on
