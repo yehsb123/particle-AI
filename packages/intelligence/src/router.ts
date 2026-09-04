@@ -31,10 +31,17 @@ export class IntelligenceRouter {
   private readonly providers: IntelligenceProvider[];
 
   constructor(providers: IntelligenceProvider[]) {
-    // Ensure a mock is always present as the final fallback.
-    this.providers = providers.some((p) => p.id === "mock")
+    // The last resort has to be a brain that actually answers, so this looks for the real
+    // MockProvider rather than anything calling itself "mock" — otherwise a caller passing an
+    // unhealthy provider under that id would leave the router with no working fallback at all.
+    this.providers = providers.some((p) => p instanceof MockProvider)
       ? providers
       : [...providers, new MockProvider()];
+  }
+
+  /** The always-healthy deterministic brain, guaranteed present by the constructor. */
+  private get fallback(): IntelligenceProvider {
+    return this.providers.find((p) => p instanceof MockProvider)!;
   }
 
   async route(request: IntelligenceRequest): Promise<RouteResult> {
@@ -48,7 +55,7 @@ export class IntelligenceRouter {
 
     let chosen: IntelligenceProvider;
     if (healthy.length === 0) {
-      chosen = this.providers.find((p) => p.id === "mock")!;
+      chosen = this.fallback;
       reasonCodes.push("fallback_mock_no_healthy_provider");
     } else if (request.privacy) {
       chosen = pickByTier(healthy, "min_local_preferred");
