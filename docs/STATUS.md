@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 810 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 827 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A capability id belongs to exactly one tool, and a bad MCP server breaks nothing**
+  (2026-09-04): a capability id was the server id and the tool name joined with a dot, and a dot is
+  ordinary in both — server `a.b` with a tool `c` and server `a` with a tool `b.c` produced the same
+  id, so one capability quietly shadowed the other in the registry along with its risk, which is
+  what decides whether it may run without asking. The segments are escaped now: ordinary names read
+  exactly as before, unusual ones can no longer collide. Discovery also took a server at its word —
+  one that could not be reached threw straight through it, one answering with something other than
+  a list threw a type error, and a single tool described without a name took down discovery for
+  every other server. Keeping MCP out of the core includes keeping its failures out: a misbehaving
+  server now contributes nothing and breaks nothing, malformed tools are skipped, and one server
+  contributes at most two hundred tools. A tool that failed by throwing something that was not an
+  error also produced a failure with no reason at all. 17 tests covering all of it.
+  mcp-adapter 39, 827 unit/integration total.
 - **The send queue is a thing with a name, and it has tests** (2026-09-04): both sensors send what
   they observe one at a time, because a transition only means something in order — a recovery
   arriving before the failure it recovers from reads as a runtime that never broke. Both had the
