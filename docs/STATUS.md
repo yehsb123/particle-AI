@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 477 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 522 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Bindings read a capability's own fields; the registry answers for its own types** (2026-09-04):
+  a data binding is written by the model — it names the capability field to read and the prop to
+  write — and both halves were trusted. `capability:c:toString` handed back a function off the
+  prototype and put it in props where the renderer expected data; only own fields count now, and a
+  capability that answered with something other than a record binds nothing. A prop named
+  `__proto__`, `constructor` or `prototype` is refused outright: it survives a spread unchanged but
+  sets an object's prototype under assign, and none of them is a prop a component wants. The
+  registry had the same shape of hole — `isKnownComponent` used `in`, so "toString" answered yes
+  and `isContainer` then returned undefined where it promises a boolean. 45 tests: every session
+  read answering for an unknown id without keeping it (the cheapest GET must not evict live
+  sessions), the LRU sparing what is still in use, hydrate dropping an undo history that described
+  a different tree, a snapshot never lowering what this run learned, concurrent ingests taking
+  turns, and planMorph knowing when to do nothing — one context card at a time, a layout per
+  problem kind, the recurrence count. runtime-core 63, ui-registry 25, 522 unit/integration total.
 - **The pattern table stays bounded, and hands out copies** (2026-09-04): the pattern detector
   capped itself at 500 when restoring a snapshot but not while observing. A pattern key is built
   from the event type, and an event type is whatever a sensor sends, so a long-lived session grew
