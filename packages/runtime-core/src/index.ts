@@ -24,7 +24,7 @@ import {
   CapabilityRegistry,
   type ExecutionOutcome,
 } from "@particle/capability-core";
-import { evaluatePlan, ApprovalStore, type PermissionEvaluation } from "@particle/permission-engine";
+import { evaluatePlan, ApprovalStore, MAX_APPROVALS, type PermissionEvaluation } from "@particle/permission-engine";
 import {
   applyPatch,
   MorphApplyError,
@@ -411,6 +411,14 @@ export class RuntimeCore {
         createdAt: this.deps.clock.iso(),
       });
       this.pendingExecutions.set(id, { capabilityId: item.capabilityId, input: inputById.get(item.capabilityId), sessionId: event.sessionId });
+      // The approval store forgets answered questions at its ceiling. A plan still waiting on one
+      // that is gone can never run again, so it goes with it rather than sitting here holding its
+      // input for the life of the process.
+      if (this.pendingExecutions.size > MAX_APPROVALS) {
+        for (const key of [...this.pendingExecutions.keys()]) {
+          if (!this.approvals.get(key)) this.pendingExecutions.delete(key);
+        }
+      }
       pendingApprovals.push(req);
       audit.push(this.record(event.sessionId, "approval_required", { approvalId: id, capabilityId: item.capabilityId, risk: item.risk }));
     }
