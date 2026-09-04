@@ -27,6 +27,8 @@ test.describe("Particle AI — autonomous incident morph", () => {
     await expect(page.getByText("development.revert_diff", { exact: true })).toBeVisible();
     // and it says why it is asking — the card used to name the capability and nothing else
     await expect(page.getByText("riskier than this autonomy level runs on its own")).toBeVisible();
+    // the risk is named, not spelled out as the identifier it is stored as
+    await expect(page.getByText("external effects", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Approve" }).click();
     await expect(page.getByText("Approval required")).toHaveCount(0);
 

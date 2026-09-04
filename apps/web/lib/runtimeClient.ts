@@ -1,4 +1,4 @@
-import { UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
+import { ApprovalRequest as ApprovalRequestSchema, UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
 import type { ApprovalRequest, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type SimResponse = {
@@ -71,6 +71,59 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
   }
 }
 
+/** Caps on what one answer may carry, so a server cannot hand the body an unbounded list. */
+const MAX_APPROVALS_PER_ANSWER = 50;
+const MAX_REASON_CODES = 20;
+const MAX_SUGGESTIONS = 20;
+
+/**
+ * What the server said about an event, kept only where it is what it claims to be.
+ *
+ * This answer used to be cast. Everything downstream then assumed it: the approval card read a
+ * risk and a list of missing permissions straight out of it and put them through helpers that
+ * format a name, and a name that was not a string threw inside the render — which in React takes
+ * the whole body down, not one card. A field that is not what it claims is dropped, and the rest
+ * of the answer is still used: an older or newer server should cost the person one card, never
+ * the interface.
+ */
+export function parseSimResponse(data: unknown): SimResponse | null {
+  if (!isRecord(data)) return null;
+  const out: SimResponse = {};
+
+  if (typeof data.deliberated === "boolean") out.deliberated = data.deliberated;
+  if (typeof data.retryAfterMs === "number" && Number.isFinite(data.retryAfterMs)) out.retryAfterMs = data.retryAfterMs;
+
+  if (isRecord(data.morph)) {
+    out.morph = {
+      applied: data.morph.applied === true,
+      guardReasonCodes: Array.isArray(data.morph.guardReasonCodes)
+        ? data.morph.guardReasonCodes.filter((c): c is string => typeof c === "string").slice(0, MAX_REASON_CODES)
+        : [],
+    };
+  }
+
+  if (Array.isArray(data.pendingApprovals)) {
+    const approvals = [];
+    for (const raw of data.pendingApprovals.slice(0, MAX_APPROVALS_PER_ANSWER)) {
+      const parsed = ApprovalRequestSchema.safeParse(raw);
+      if (parsed.success) approvals.push(parsed.data);
+    }
+    if (approvals.length > 0) out.pendingApprovals = approvals;
+  }
+
+  if (Array.isArray(data.patternSuggestions)) {
+    out.patternSuggestions = data.patternSuggestions
+      .filter((s): s is { key: string; count: number } => isRecord(s) && typeof s.key === "string" && typeof s.count === "number")
+      .slice(0, MAX_SUGGESTIONS);
+  }
+
+  if (isRecord(data.learned) && typeof data.learned.suppressed === "string" && typeof data.learned.dismissals === "number") {
+    out.learned = { suppressed: data.learned.suppressed, dismissals: data.learned.dismissals };
+  }
+
+  return out;
+}
+
 export class RuntimeClient {
   private ws?: WebSocket;
   private manualClose = false;
@@ -132,6 +185,7 @@ export class RuntimeClient {
     this.ws = undefined;
   }
 
+
   /** Send a raw MatterEvent to the server (behavior keys, sensors) — same path the extension uses. */
   async emit(event: unknown): Promise<SimResponse | null> {
     const res = await fetch(`${this.httpBase}/api/events`, {
@@ -139,12 +193,12 @@ export class RuntimeClient {
       headers: auth({ "content-type": "application/json" }),
       body: JSON.stringify(event),
     });
-    return (await res.json().catch(() => null)) as SimResponse | null;
+    return parseSimResponse(await res.json().catch(() => null));
   }
 
   async emitSim(key: string): Promise<SimResponse | null> {
     const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST", headers: auth() });
-    return (await res.json().catch(() => null)) as SimResponse | null;
+    return parseSimResponse(await res.json().catch(() => null));
   }
 
   async undo(opts: { componentId?: string; learn?: boolean } = {}): Promise<void> {

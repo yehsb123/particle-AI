@@ -9,8 +9,10 @@ import { t, type Lang } from "./i18n";
  */
 export function describeHold(codes: readonly string[], lang: Lang): string {
   const said: string[] = [];
+  if (!Array.isArray(codes)) return "";
   for (const code of codes) {
-    if (!code) continue;
+    // a code that is not a string is not a reason; it must not take the body down on its way out
+    if (typeof code !== "string" || !code) continue;
     const phrase = t(`held_${code}`, lang);
     said.push(phrase === `held_${code}` ? code : phrase); // no words for it yet: say the code
   }

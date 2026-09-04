@@ -15,6 +15,7 @@
   "dependencies": {
     "@particle/contracts": "workspace:*",
     "@particle/morph-engine": "workspace:*",
+    "@particle/permission-engine": "workspace:*",
     "@particle/runtime-core": "workspace:*",
     "@particle/ui-protocol": "workspace:*",
     "@particle/ui-registry": "workspace:*",

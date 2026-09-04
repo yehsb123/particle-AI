@@ -33,12 +33,14 @@ export const SEVERITY_RANK: Record<Severity, number> = {
   critical: 4,
 };
 
-export const RiskLevel = z.enum([
-  "read",
-  "safe_write",
-  "external_effect",
-  "destructive",
-]);
+/**
+ * What a capability can do to the world outside the runtime, from least to most. The order is
+ * the order: the permission engine decides what runs on its own by how far down this list a
+ * capability sits, and the body names each of them to the person being asked to allow one.
+ */
+export const RISK_LEVELS = ["read", "safe_write", "external_effect", "destructive"] as const;
+
+export const RiskLevel = z.enum(RISK_LEVELS);
 export type RiskLevel = z.infer<typeof RiskLevel>;
 
 export const AutonomyLevel = z.union([

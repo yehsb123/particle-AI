@@ -22,9 +22,21 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   focus: { en: "focus", ko: "포커스" },
   autonomy: { en: "autonomy", ko: "자율성" },
   autonomyHint: {
-    en: "Higher levels let more capability risks run without asking. Change it, then emit HTTP 500: at L4 the remediation auto-runs; at L0/L1 even reads need consent.",
-    ko: "레벨이 높을수록 더 많은 위험 능력이 승인 없이 실행됩니다. 바꾼 뒤 HTTP 500을 눌러보세요: L4에선 조치가 자동 실행되고, L0·L1에선 읽기도 동의가 필요합니다.",
+    en: "Change it, then emit HTTP 500 and watch what the runtime does with the remediation.",
+    ko: "레벨을 바꾼 뒤 HTTP 500을 눌러, 런타임이 조치를 어떻게 처리하는지 보세요.",
   },
+  autonomyRunsNothing: {
+    en: "does not act on its own — it answers when you ask",
+    ko: "스스로 움직이지 않습니다. 직접 요청할 때만 답합니다",
+  },
+  autonomyRunsThese: {
+    en: "runs {risks} on its own; asks before anything more",
+    ko: "{risks}까지는 스스로 실행하고, 그보다 큰 일은 먼저 물어봅니다",
+  },
+  risk_read: { en: "reads", ko: "읽기" },
+  risk_safe_write: { en: "safe writes", ko: "안전한 쓰기" },
+  risk_external_effect: { en: "external effects", ko: "외부 효과" },
+  risk_destructive: { en: "destructive actions", ko: "파괴적 작업" },
   approvalTitle: { en: "Approval required", ko: "승인 필요" },
   approvalNote: {
     en: "The AI proposed a risky action. External effects never run without your consent.",

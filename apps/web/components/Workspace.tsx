@@ -6,6 +6,7 @@ import { describeHold } from "../lib/hold";
 import { describeMorphStep } from "../lib/morphStep";
 import { describeSensor, describeLayer } from "../lib/sensing";
 import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
+import { describeRisk, riskBadgeClass, describeAutonomy } from "../lib/risk";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -863,7 +864,9 @@ export function Workspace() {
               </select>
             </span>
           </div>
-          <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("autonomyHint", lang)}</p>
+          <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
+            L{autonomy} {describeAutonomy(autonomy, lang)}. {t("autonomyHint", lang)}
+          </p>
         </section>
 
         {patternSugs.length ? (
@@ -904,7 +907,7 @@ export function Workspace() {
                 <div key={a.id} className="card">
                   <div className="panel-title" style={{ marginBottom: 6 }}>
                     <span style={{ fontFamily: "var(--mono)", fontSize: 12.5 }}>{a.capabilityId}</span>
-                    <span className="badge crit"><span className="dot" />{a.risk}</span>
+                    <span className={riskBadgeClass(a.risk)}><span className="dot" />{describeRisk(a.risk, lang)}</span>
                   </div>
                   <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
                     {describeApprovalReason(a, lang)}

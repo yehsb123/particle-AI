@@ -16,6 +16,8 @@ export function describeLayer(name: string, lang: Lang): string {
 }
 
 function readable(key: string, name: string, lang: Lang): string {
+  // a name that is not a name has nothing to say, and saying it must not take the body down
+  if (typeof name !== "string" || !name) return "";
   const phrase = t(key, lang);
   return phrase === key ? name.replace(/[_-]/g, " ").trim() : phrase;
 }

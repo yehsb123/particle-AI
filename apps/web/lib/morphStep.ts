@@ -12,7 +12,7 @@ export const EXTRA_MORPH_STEPS = ["dismiss", "morph"] as const;
  * still falls back to that, since a readable identifier beats a blank chip.
  */
 export function describeMorphStep(intent: string, lang: Lang): string {
-  if (!intent) return "";
+  if (typeof intent !== "string" || !intent) return "";
   const phrase = t(`step_${intent}`, lang);
   return phrase === `step_${intent}` ? intent.replace(/_/g, " ").trim() : phrase;
 }

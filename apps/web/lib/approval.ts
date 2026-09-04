@@ -23,7 +23,8 @@ export function describeApprovalReason(
 /** The ungranted permissions worth naming, in the order they were declared, without repeats. */
 export function missingPermissionNames(approval: { missingPermissions?: readonly string[] }): string[] {
   const names: string[] = [];
-  for (const raw of approval.missingPermissions ?? []) {
+  if (!Array.isArray(approval.missingPermissions)) return names;
+  for (const raw of approval.missingPermissions) {
     const name = typeof raw === "string" ? raw.trim() : "";
     if (name && !names.includes(name)) names.push(name);
   }

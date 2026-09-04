@@ -123,6 +123,9 @@ importers:
       '@particle/morph-engine':
         specifier: workspace:*
         version: link:../../packages/morph-engine
+      '@particle/permission-engine':
+        specifier: workspace:*
+        version: link:../../packages/permission-engine
       '@particle/runtime-core':
         specifier: workspace:*
         version: link:../../packages/runtime-core
