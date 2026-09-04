@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 677 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 706 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The brain of last resort has to be one that answers** (2026-09-04): the router promises that
+  something always answers — a missing key, an unreachable host, a provider that does not do this
+  kind of work all end at the deterministic brain rather than at a stall. It kept that promise by
+  looking for a provider whose id is "mock", which is not the same as one that works: a caller
+  passing an unhealthy provider under that id left the router with nothing usable, and with nobody
+  healthy it would hand back the impostor. It looks for the real deterministic provider now, so the
+  guarantee holds whatever a caller passes. 29 tests — routing (deliberation to the most capable
+  healthy provider, reflex work to the cheapest that can do it, local preferred when the request is
+  private, an unwell provider skipped for a healthy lesser one, an unknown provider treated as
+  middle of the road), what is configured (tiers per provider, and never a key — only whether one
+  is there), and the undo stack behind every morph (newest first, looking not taking, the bound
+  costing the oldest steps and never the newest, running out reported honestly).
+  intelligence 44, morph-engine 66, 706 unit/integration total.
 - **A decision is final, a record is a copy, and the store has a ceiling** (2026-09-04): an approval
   is a person's answer to "may I do this?" and the only thing standing in front of an action that
   changes the world outside the runtime. Three things were wrong with how they were kept. A decided
