@@ -40,4 +40,9 @@ export class CapabilityRegistry {
   riskOf(id: string): RiskLevel | undefined {
     return this.caps.get(id)?.manifest.risk;
   }
+
+  /** What a capability says must be granted before it runs. Nothing built in declares any. */
+  permissionsOf(id: string): readonly string[] {
+    return this.caps.get(id)?.manifest.requiredPermissions ?? [];
+  }
 }

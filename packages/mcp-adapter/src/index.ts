@@ -80,6 +80,16 @@ export function idSegment(part: string): string {
   return String(part).replace(/[^A-Za-z0-9_-]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
 }
 
+/**
+ * The permission a server's tools need before they may run on their own. The runtime is handed
+ * these for the servers someone has actually allowed, so the name is built here rather than
+ * spelled out on both sides and left to drift apart. It escapes the same way an id does, so two
+ * servers cannot end up sharing one permission between them.
+ */
+export function mcpPermission(serverId: string): string {
+  return `mcp:${idSegment(serverId)}`;
+}
+
 /** How many tools one server may contribute. Far past any real server; a bound all the same. */
 export const MAX_TOOLS_PER_SERVER = 200;
 
@@ -102,7 +112,7 @@ export function mcpToolToCapability(
     risk: inferRisk(tool, opts),
     latencyClass: "slow",
     costClass: "medium",
-    requiredPermissions: [`mcp:${client.serverId}`],
+    requiredPermissions: [mcpPermission(client.serverId)],
   };
   return {
     manifest,

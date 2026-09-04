@@ -49,6 +49,12 @@ export type RuntimeCoreDeps = {
   policy?: MorphPolicy;
   significanceConfig?: SignificanceConfig;
   autonomyLevel?: AutonomyLevel;
+  /**
+   * Permissions someone has actually granted. A capability that declares one it does not have
+   * asks before it runs, however low its risk: wiring an MCP server in is what grants
+   * `mcpPermission(serverId)`, and until then its tools are somebody else's tools.
+   */
+  grantedPermissions?: readonly string[];
 };
 
 export type MorphOutcome = {
@@ -150,6 +156,7 @@ export class RuntimeCore {
   private sessions = new Map<string, SessionState>();
   private executor: CapabilityExecutor;
   private autonomyLevel: AutonomyLevel;
+  private readonly granted: ReadonlySet<string>;
   readonly approvals = new ApprovalStore();
   /** pending capability executions awaiting approval, keyed by approval id */
   private pendingExecutions = new Map<string, { capabilityId: string; input?: unknown; sessionId: string }>();
@@ -157,6 +164,7 @@ export class RuntimeCore {
   constructor(private readonly deps: RuntimeCoreDeps) {
     this.executor = new CapabilityExecutor(deps.registry, deps.clock.iso);
     this.autonomyLevel = deps.autonomyLevel ?? 2;
+    this.granted = new Set(deps.grantedPermissions ?? []);
   }
 
   /** Sessions are bounded (LRU): anything can name a new session id, nothing may exhaust memory. */
@@ -389,9 +397,13 @@ export class RuntimeCore {
     const items = decision.capabilityPlan.capabilities.map((c) => ({
       capabilityId: c.capabilityId,
       risk: this.deps.registry.riskOf(c.capabilityId) ?? ("external_effect" as const),
+      // what the capability itself says it needs, read from the registry rather than the plan:
+      // the plan is written by the model, the manifest by whoever registered the capability
+      requiredPermissions: this.deps.registry.permissionsOf(c.capabilityId),
     }));
     const inputById = new Map(decision.capabilityPlan.capabilities.map((c) => [c.capabilityId, c.input]));
-    const permission = evaluatePlan(items, this.autonomyLevel);
+    const permission = evaluatePlan(items, this.autonomyLevel, this.granted);
+    const verdictOf = new Map(permission.verdicts.map((v) => [v.capabilityId, v]));
     const capabilityRuns = await this.executor.executeMany(
       permission.authorized.map((i) => ({ capabilityId: i.capabilityId, input: inputById.get(i.capabilityId) })),
       { sessionId: event.sessionId, worldState: s.world, now: this.deps.clock.iso() },
@@ -402,12 +414,21 @@ export class RuntimeCore {
     for (const item of permission.needsApproval) {
       const id = `appr-${event.sessionId}-${decision.id}-${item.capabilityId}`;
       if (this.approvals.get(id)) continue;
+      // A person asked to approve something is owed the actual reason. Blaming the autonomy
+      // level for a capability that was stopped by an ungranted permission would be the wrong
+      // reason, and the one thing they need to know to decide.
+      const missingPermissions = verdictOf.get(item.capabilityId)?.missingPermissions ?? [];
       const req = this.approvals.create({
         id,
         sessionId: event.sessionId,
         capabilityId: item.capabilityId,
         risk: item.risk,
-        reason: `${item.risk} capability requires approval at autonomy level ${this.autonomyLevel}`,
+        reasonCode: missingPermissions.length > 0 ? "permission_not_granted" : "risk_above_autonomy",
+        missingPermissions,
+        reason:
+          missingPermissions.length > 0
+            ? `capability needs a permission that has not been granted: ${missingPermissions.join(", ")}`
+            : `${item.risk} capability requires approval at autonomy level ${this.autonomyLevel}`,
         createdAt: this.deps.clock.iso(),
       });
       this.pendingExecutions.set(id, { capabilityId: item.capabilityId, input: inputById.get(item.capabilityId), sessionId: event.sessionId });

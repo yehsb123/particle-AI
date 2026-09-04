@@ -30,6 +30,14 @@ const CHROME: Record<string, { en: string; ko: string }> = {
     en: "The AI proposed a risky action. External effects never run without your consent.",
     ko: "AI가 위험한 작업을 제안했습니다. 외부 효과는 동의 없이 절대 실행되지 않습니다.",
   },
+  approval_risk_above_autonomy: {
+    en: "riskier than this autonomy level runs on its own",
+    ko: "현재 자율성 레벨이 스스로 실행할 수 있는 범위를 넘습니다",
+  },
+  approval_permission_not_granted: {
+    en: "needs a permission nobody has granted yet",
+    ko: "아직 아무도 허가하지 않은 권한이 필요합니다",
+  },
   approve: { en: "Approve", ko: "승인" },
   reject: { en: "Reject", ko: "거절" },
   inspectorTitle: { en: "Inspector — why did the UI change?", ko: "인스펙터 — UI가 왜 바뀌었나?" },

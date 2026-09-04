@@ -25,6 +25,8 @@ test.describe("Particle AI — autonomous incident morph", () => {
     // the risky remediation is gated behind approval (external effect never auto-runs)
     await expect(page.getByText("Approval required")).toBeVisible();
     await expect(page.getByText("development.revert_diff", { exact: true })).toBeVisible();
+    // and it says why it is asking — the card used to name the capability and nothing else
+    await expect(page.getByText("riskier than this autonomy level runs on its own")).toBeVisible();
     await page.getByRole("button", { name: "Approve" }).click();
     await expect(page.getByText("Approval required")).toHaveCount(0);
 

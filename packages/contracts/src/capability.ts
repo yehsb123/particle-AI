@@ -40,6 +40,14 @@ export type CapabilityRun = z.infer<typeof CapabilityRun>;
 export const ApprovalStatus = z.enum(["pending", "approved", "rejected"]);
 export type ApprovalStatus = z.infer<typeof ApprovalStatus>;
 
+/**
+ * Why a capability is waiting on a person. The runtime states the reason as one of these and the
+ * body puts the words to it, so what the person reads is in their own language rather than
+ * whatever prose the runtime happened to build.
+ */
+export const APPROVAL_REASONS = ["risk_above_autonomy", "permission_not_granted"] as const;
+export type ApprovalReason = (typeof APPROVAL_REASONS)[number];
+
 export const ApprovalRequest = z.object({
   id: z.string().min(1),
   /** the session this was asked in — an approval belongs to one workspace, never to a prefix */
@@ -47,6 +55,10 @@ export const ApprovalRequest = z.object({
   capabilityId: z.string().min(1),
   risk: RiskLevel,
   reason: z.string(),
+  /** the same reason, as something the body can translate; older records carry only the prose */
+  reasonCode: z.enum(APPROVAL_REASONS).default("risk_above_autonomy"),
+  /** declared permissions nobody has granted, empty unless that is what stopped it */
+  missingPermissions: z.array(z.string()).default([]),
   createdAt: IsoTimestamp,
   status: ApprovalStatus,
 });

@@ -1,4 +1,4 @@
-import type { ApprovalRequest, RiskLevel } from "@particle/contracts";
+import type { ApprovalReason, ApprovalRequest, RiskLevel } from "@particle/contracts";
 
 /** In-memory store of approval requests for risky capabilities awaiting a human decision. */
 /**
@@ -23,8 +23,23 @@ export class ApprovalStore {
     if (oldest !== undefined) this.items.delete(oldest);
   }
 
-  create(input: { id: string; sessionId: string; capabilityId: string; risk: RiskLevel; reason: string; createdAt: string }): ApprovalRequest {
-    const req: ApprovalRequest = { ...input, status: "pending" };
+  create(input: {
+    id: string;
+    sessionId: string;
+    capabilityId: string;
+    risk: RiskLevel;
+    reason: string;
+    createdAt: string;
+    reasonCode?: ApprovalReason;
+    missingPermissions?: readonly string[];
+  }): ApprovalRequest {
+    const req: ApprovalRequest = {
+      ...input,
+      reasonCode: input.reasonCode ?? "risk_above_autonomy",
+      // a copy: what the store holds is not something the caller may keep editing afterwards
+      missingPermissions: [...(input.missingPermissions ?? [])],
+      status: "pending",
+    };
     if (!this.items.has(req.id)) {
       while (this.items.size >= MAX_APPROVALS) this.evictOldest();
     }

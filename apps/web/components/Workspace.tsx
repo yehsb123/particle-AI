@@ -5,6 +5,7 @@ import { createReplayClock } from "../lib/replayClock";
 import { describeHold } from "../lib/hold";
 import { describeMorphStep } from "../lib/morphStep";
 import { describeSensor, describeLayer } from "../lib/sensing";
+import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -905,6 +906,12 @@ export function Workspace() {
                     <span style={{ fontFamily: "var(--mono)", fontSize: 12.5 }}>{a.capabilityId}</span>
                     <span className="badge crit"><span className="dot" />{a.risk}</span>
                   </div>
+                  <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
+                    {describeApprovalReason(a, lang)}
+                    {missingPermissionNames(a).map((p) => (
+                      <span key={p} style={{ fontFamily: "var(--mono)", marginLeft: 6 }}>{p}</span>
+                    ))}
+                  </p>
                   <div className="simrow">
                     <button className="btn primary" onClick={() => void decideApproval(a, true)}>{t("approve", lang)}</button>
                     <button className="btn muted" onClick={() => void decideApproval(a, false)}>{t("reject", lang)}</button>
