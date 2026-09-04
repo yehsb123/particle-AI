@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createReplayClock } from "../lib/replayClock";
 import { describeHold } from "../lib/hold";
+import { describeMorphStep } from "../lib/morphStep";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -742,7 +743,7 @@ export function Workspace() {
             ) : (
               morphs.map((m, i) => (
                 <button key={`${m.id}-${i}`} className="chip" title={t("historyHint", lang)} onClick={() => undoTo(i)}>
-                  <span className="n">{i + 1}</span> {m.intent.replace("_", " ")} <span className="muted">{m.at}</span>
+                  <span className="n">{i + 1}</span> {describeMorphStep(m.intent, lang)} <span className="muted">{m.at}</span>
                 </button>
               ))
             )}

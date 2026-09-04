@@ -112,6 +112,13 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   held_structurally_impossible: { en: "the change did not fit the screen as it is now — nothing was half-applied", ko: "지금 화면 구조와 맞지 않아 — 반쯤 적용된 것은 없음" },
   // intent (Concept v2)
   intentTitle: { en: "intent", ko: "의도" },
+  // the morph history strip: what each step did, in words rather than an identifier
+  step_surface_incident: { en: "surfaced the incident", ko: "인시던트를 띄움" },
+  step_restore_normal: { en: "back to normal", ko: "평소 화면으로" },
+  step_augment: { en: "added context", ko: "컨텍스트 추가" },
+  step_none: { en: "no change", ko: "변경 없음" },
+  step_dismiss: { en: "dismissed a card", ko: "카드를 닫음" },
+  step_morph: { en: "changed the layout", ko: "레이아웃 변경" },
   intent_exploring: { en: "exploring", ko: "탐색 중" },
   intent_focused: { en: "focused", ko: "집중 중" },
   intent_stuck: { en: "stuck", ko: "막힘" },
