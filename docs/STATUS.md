@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 829 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 844 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **An id names one ability, and a broken capability is named as broken** (2026-09-04): registering
+  a capability under an id that was already taken replaced it silently, risk and all. An id is what
+  a decision plans, what the permission engine judges and what an approval answers for, so swapping
+  the ability underneath changes what a person consented to — and that matters more now that tools
+  discovered from an MCP server can claim ids, since a server can offer the same name twice. A
+  second claim is refused, and registering a batch reports which ids it could not take. The
+  executor also had two ways of blaming a capability for our own words: one that threw something
+  other than an Error produced a failed run with no reason at all, and one that returned nothing
+  put our type error ("cannot read properties of undefined reading ok") into the audit as though
+  the capability had said it. 15 tests over both. **Also checked after the approval listing: no
+  other place builds an id by joining parts and takes it apart again by guessing** — the remaining
+  prefix matches are paths, schemes and key namespaces. capability-core 56, 844 unit/integration.
 - **A session sees its own approvals, and knowing that does not mean reading an id**
   (2026-09-04): the endpoint listing what is waiting for consent said in its own comment that it
   never shows another session's — and it did. An approval id reads
