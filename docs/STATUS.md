@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 737 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 751 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The replay clock only ever moves forward** (2026-09-04): replay judges a log by the timestamps
+  in it, so the timing guards see the gaps they saw live instead of collapsing minutes into
+  microseconds. But a log is in the order the runtime received events, while each timestamp comes
+  from whichever machine sent it — the desktop agent and the browser extension keep their own
+  clocks, and one can land an earlier time after a later one. The replay clock followed each
+  timestamp wherever it went, backwards included, and a cooldown then measured negative elapsed
+  time and blocked a morph that had gone through live: a three-event log with one out-of-order
+  timestamp replayed to a different body than the run it was meant to reproduce. Live never had
+  this problem, since the server judges guards by its own forward-only clock; replay does the same
+  now, taking a timestamp only when it is readable and not older than the one before. 14 tests: the
+  same log giving the same world, body and audit trail twice over, a replay matching a live run,
+  the gaps preserved, a caller's own clock honoured, an out-of-order log no longer stalling, an
+  unreadable timestamp ignored rather than stopping the clock, and sessions in one log kept apart.
+  runtime-core 79, 751 unit/integration total.
 - **A snapshot is parsed before it is believed, and the score is always a number** (2026-09-04):
   resume hands a stored snapshot straight into the session, and a snapshot was written by whichever
   build was running then. One missing field was enough to break that session for good — a world
