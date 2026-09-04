@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 543 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 560 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A file save says where the file sits in the watched root, or nothing** (2026-09-04): the agent
+  promises a path relative to the directory someone chose, never the absolute location on disk, and
+  on Windows that had a hole — `path.relative` between two drives hands back the absolute target,
+  so a file on another drive left spelled `D:/somewhere/private.txt` and the ignore check, looking
+  only for a leading `..`, waved it through. Anything not plainly relative is refused now: a drive
+  letter, a leading slash, a UNC path, or a path that climbed out. Dot directories are ignored too,
+  not only dot files: the rule caught `.env` but not `.ssh/id_rsa`, `.aws/credentials` or
+  `.vscode/settings.json`, and the path alone says what someone was editing. 17 tests over the file
+  that decides what a save may say about a person — relative paths in, absolute and escaping paths
+  refused, build output and editor scratch skipped while ordinary source passes, the branch name
+  read out of HEAD with everything else yielding nothing, and the sent event carrying seven fields
+  and no eighth. agent 36, 560 unit/integration total.
 - **A failed ingest says whose fault it was, and nothing more** (2026-09-04): the ingest route
   caught everything and answered 400 with the error's own message. Right for a malformed event —
   the caller can fix that — and wrong twice for anything else: a storage outage is not a bad
