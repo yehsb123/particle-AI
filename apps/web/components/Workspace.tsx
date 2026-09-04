@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createReplayClock } from "../lib/replayClock";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -31,11 +32,11 @@ type Inspector = {
 const SESSION =
   typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("session") ?? "session-local" : "session-local";
 const AUTO_CONNECT = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("connect") === "1";
-// While restoring a saved log, "now" is the replayed event's own timestamp — otherwise the morph
-// guard would see minutes of history collapse into microseconds and block morphs it allowed live.
-const replayAt: { current: string | null } = { current: null };
-const nowIso = () => replayAt.current ?? new Date().toISOString();
-const nowMs = () => (replayAt.current ? Date.parse(replayAt.current) : Date.now());
+// While restoring a saved log, "now" is the replayed event's own timestamp, and it only ever
+// moves forward (see lib/replayClock).
+const replayClock = createReplayClock();
+const nowIso = () => replayClock.iso();
+const nowMs = () => replayClock.ms();
 // Storage is per session: the main tab and the extension side panel share an origin but not a log.
 const EVENTS_KEY = `dm_events:${SESSION}`;
 const PREFS_KEY = `dm_prefs:${SESSION}`;
@@ -524,11 +525,11 @@ export function Workspace() {
             const results: IngestResult[] = [];
             try {
               for (const ev of parsed) {
-                replayAt.current = ev.timestamp;
+                replayClock.advanceTo(ev.timestamp);
                 results.push(await core.current.ingest(ev));
               }
             } finally {
-              replayAt.current = null;
+              replayClock.release();
             }
             const last = results.at(-1);
             if (last) applyResult(last);
