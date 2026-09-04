@@ -44,6 +44,16 @@ function num(node: UIComponent, key: string, fallback: number): number {
   return Number.isFinite(v) ? v : fallback;
 }
 
+/**
+ * Text from a prop the model chose. A string, a number or a boolean reads as itself; anything
+ * else is not text and shows as nothing, rather than putting "[object Object]" on the screen.
+ */
+function text(v: unknown, fallback = ""): string {
+  if (v === undefined || v === null) return fallback;
+  const kind = typeof v;
+  return kind === "string" || kind === "number" || kind === "boolean" ? String(v) : fallback;
+}
+
 /** Array prop guaranteed to be an array — a malformed prop can never throw in .map/.join. */
 function arr<T>(node: UIComponent, key: string): T[] {
   const v = node.props?.[key];
@@ -64,7 +74,7 @@ function Children({ node }: { node: UIComponent }) {
 export function Render({ node }: { node: UIComponent }) {
   const ctx = useContext(Ctx);
   // Translate a content label (title/text/badge/label) — identity in English.
-  const L = (key: string, fb = ""): string => ctx.tr(String(prop(node, key, fb)));
+  const L = (key: string, fb = ""): string => ctx.tr(text(node.props?.[key], fb));
   const highlighted = prop(node, "__highlighted", false);
   const collapsed = prop(node, "__collapsed", false);
 
@@ -104,7 +114,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className={`panel${crit ? " crit" : ""}`}>
           <div className="panel-title">
             <span>{L("title", "")}</span>
-            {badge ? <span className="badge crit"><span className="dot" />{ctx.tr(badge)}</span> : null}
+            {badge ? <span className="badge crit"><span className="dot" />{ctx.tr(text(badge))}</span> : null}
           </div>
           <div className="collapsible stack"><Children node={node} /></div>
         </div>,
@@ -182,7 +192,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{L("title", "Files")}</span></div>
           <ul className="files collapsible">
-            {arr<string>(node, "items").map((f) => <li key={f}>{f}</li>)}
+            {arr<unknown>(node, "items").map((f, i) => <li key={i}>{text(f)}</li>)}
           </ul>
         </div>,
       );
@@ -209,7 +219,7 @@ export function Render({ node }: { node: UIComponent }) {
       return wrap(
         <div>
           <div className="panel-title"><span>{L("title", "Logs")}</span></div>
-          <pre className="logview" tabIndex={0}>{arr<string>(node, "lines").join("\n")}</pre>
+          <pre className="logview" tabIndex={0}>{arr<unknown>(node, "lines").map((l) => text(l)).join("\n")}</pre>
         </div>,
       );
     case "DiffViewer": {
@@ -234,8 +244,13 @@ export function Render({ node }: { node: UIComponent }) {
         <div>
           {prop<string | undefined>(node, "title", undefined) ? <div className="panel-title"><span>{L("title", "")}</span></div> : null}
           <table className="table">
-            <thead><tr>{columns.map((c) => <th key={c}>{ctx.tr(c)}</th>)}</tr></thead>
-            <tbody>{rows.map((r, i) => <tr key={i}>{r.map((cell, j) => <td key={j}>{ctx.tr(String(cell))}</td>)}</tr>)}</tbody>
+            <thead><tr>{columns.map((c, i) => <th key={i}>{ctx.tr(text(c))}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                // a row the model got wrong is still shown, as one cell — never thrown over
+                <tr key={i}>{(Array.isArray(r) ? r : [r]).map((cell, j) => <td key={j}>{ctx.tr(text(cell))}</td>)}</tr>
+              ))}
+            </tbody>
           </table>
         </div>,
       );
@@ -252,7 +267,7 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{L("title", "Activity")}</span></div>
           <div className="stack collapsible">
-            {arr<string>(node, "items").map((it, i) => <div key={i} className="muted" style={{ fontSize: 12.5 }}>{it}</div>)}
+            {arr<unknown>(node, "items").map((it, i) => <div key={i} className="muted" style={{ fontSize: 12.5 }}>{text(it)}</div>)}
           </div>
         </div>,
       );
@@ -273,8 +288,8 @@ export function Render({ node }: { node: UIComponent }) {
             {arr<TimelineItem>(node, "items").map((it, i) => (
               <div key={i} className="tl-item">
                 <span className="tl-dot" />
-                <span className="muted" style={{ minWidth: 64, fontFamily: "var(--mono)", fontSize: 11 }}>{it.time ?? ""}</span>
-                <span>{ctx.tr(it.label)}</span>
+                <span className="muted" style={{ minWidth: 64, fontFamily: "var(--mono)", fontSize: 11 }}>{text(it?.time)}</span>
+                <span>{ctx.tr(text(it?.label))}</span>
               </div>
             ))}
           </div>
@@ -299,8 +314,8 @@ export function Render({ node }: { node: UIComponent }) {
         <div className="panel">
           <div className="panel-title"><span>{L("title", "Inspector")}</span></div>
           <div className="kv collapsible">
-            {arr<{ k: string; v: string }>(node, "entries").map((e, i) => (
-              <React.Fragment key={i}><span className="k">{e.k}</span><span>{e.v}</span></React.Fragment>
+            {arr<{ k?: unknown; v?: unknown }>(node, "entries").map((e, i) => (
+              <React.Fragment key={i}><span className="k">{text(e?.k)}</span><span>{text(e?.v)}</span></React.Fragment>
             ))}
           </div>
           <div className="collapsible stack"><Children node={node} /></div>
@@ -358,8 +373,8 @@ function TreeNodes({ nodes, depth = 0 }: { nodes: TreeItem[]; depth?: number }) 
     <ul className="files" style={{ marginLeft: depth ? 14 : 0 }}>
       {nodes.map((n, i) => (
         <li key={i}>
-          {n.children?.length ? "▸ " : "· "}{n.label}
-          {n.children?.length ? <TreeNodes nodes={n.children} depth={depth + 1} /> : null}
+          {n?.children?.length ? "▸ " : "· "}{text(n?.label)}
+          {n?.children?.length ? <TreeNodes nodes={n.children} depth={depth + 1} /> : null}
         </li>
       ))}
     </ul>
