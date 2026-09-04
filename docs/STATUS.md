@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 990 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1003 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,16 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A snapshot missing a part it can do without is filled in, not refused** (2026-09-04): the world
+  state is what the runtime believes is going on, and the copies that come back from outside are
+  snapshots written by whichever build was running then. The schema had one part with an empty form
+  to fall back on and seven without — an accident of when each was added rather than a decision —
+  so an older snapshot restored or was thrown away depending on which field that build happened to
+  lack. The session and the moment are still required; everything else falls back to its empty
+  form, so a resume brings back the problems that were open and the interface that was showing. A
+  snapshot whose parts are there but are not what they claim is still refused whole. 12 tests, and
+  the runtime test that asserted the previous contract now proves both directions.
+  contracts 50, 1003 unit/integration total.
 - **A frame is checked before the body believes it** (2026-09-04): everything arriving over the
   socket was cast to a message and handed straight to the body, which acts on one immediately —
   replacing the interface, replacing its belief about what is happening. A cast is not a check, so
