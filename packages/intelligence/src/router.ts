@@ -13,7 +13,9 @@ const TIER_BY_ID: Record<string, ModelTier> = {
 };
 
 function tierOf(id: string): ModelTier {
-  return TIER_BY_ID[id] ?? "standard";
+  // own keys only: a provider id of "toString" would otherwise return a function as the tier,
+  // and every rank comparison against it is false
+  return Object.hasOwn(TIER_BY_ID, id) ? (TIER_BY_ID[id] ?? "standard") : "standard";
 }
 
 const TIER_RANK: Record<ModelTier, number> = { free: 0, local: 1, standard: 2, premium: 3 };

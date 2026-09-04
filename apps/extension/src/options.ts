@@ -27,7 +27,9 @@ function localize(): void {
   document.title = "Particle AI — 감지 동의";
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-i18n]"))) {
     const key = el.dataset.i18n ?? "";
-    if (KO[key]) el.innerHTML = KO[key]; // static strings from this file only — never user/page content
+    // static strings from this file only — never user/page content, and an own key only, so a
+    // data-i18n of "toString" cannot put a function's source into the page
+    if (Object.hasOwn(KO, key)) el.innerHTML = KO[key] ?? "";
   }
 }
 

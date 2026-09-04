@@ -60,7 +60,10 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
   }
 
   // Open a problem
-  const opener = PROBLEM_OPENERS[event.type];
+  // An event type is any string a client sends, and these are plain objects: without an own-key
+  // check, a type of "toString" hands back a function, opens a problem with no kind, no summary
+  // and no severity — a world state that fails its own schema — and nothing can ever close it.
+  const opener = Object.hasOwn(PROBLEM_OPENERS, event.type) ? PROBLEM_OPENERS[event.type] : undefined;
   if (opener) {
     const exists = next.activeProblems.some((p) => p.kind === opener.kind);
     if (!exists) {
@@ -80,7 +83,7 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
   }
 
   // Close a problem
-  const closerKind = PROBLEM_CLOSERS[event.type];
+  const closerKind = Object.hasOwn(PROBLEM_CLOSERS, event.type) ? PROBLEM_CLOSERS[event.type] : undefined;
   if (closerKind) {
     next.activeProblems = next.activeProblems.filter((p) => p.kind !== closerKind);
     if (closerKind === "runtime_error") {
