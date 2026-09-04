@@ -28,7 +28,9 @@ export class EpisodicMemory {
     this.episodes.push(episode);
     if (this.episodes.length > this.limit) this.episodes.shift();
   }
+  /** The newest `n` episodes, newest first. Asking for none gives none — `slice(-0)` is `slice(0)`, which is everything. */
   recent(n = 10): Episode[] {
+    if (n <= 0) return [];
     return this.episodes.slice(-n).reverse();
   }
   search(contextSubstring: string): Episode[] {
