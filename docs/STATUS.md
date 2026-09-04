@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 844 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 867 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A sensor name is a key, and some keys mean something to the language** (2026-09-04): the
+  honest-sensing indicator is built from a map keyed by each sensor's own name, and that name
+  arrives in an event payload. Assigning by key set the prototype instead of adding an entry when a
+  sensor called itself `__proto__`, so one posted event left the map reading as empty and the world
+  state failing its own schema — the belief every later decision is made against, broadcast to
+  every client and written to a snapshot. Entries are defined as own properties now, whatever the
+  name. **Seventh time a lookup keyed by outside input has caused trouble here, and the first on
+  the writing side rather than the reading side.** There are three sensors and nothing stopped a
+  client declaring three hundred; sixteen is the ceiling, and a known sensor can still update
+  itself at it. Durations were also taken as they came, so a payload could report someone idle for
+  minus five seconds. 23 tests: layers recorded and revoked per sensor, a sensor named after a
+  language feature surviving with the world still valid, traffic counted with one problem while any
+  host is failing and none once they all answer, the last few failing hosts kept most-recent-first,
+  and a client error or redirect not counted as failing. world-model 59, 867 unit/integration.
 - **An id names one ability, and a broken capability is named as broken** (2026-09-04): registering
   a capability under an id that was already taken replaced it silently, risk and all. An id is what
   a decision plans, what the permission engine judges and what an approval answers for, so swapping
