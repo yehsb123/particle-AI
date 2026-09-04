@@ -101,7 +101,7 @@ describe("ApprovalStore — pending decisions", () => {
     expect(store.create(req("a1")).status).toBe("pending");
     expect(store.approve("a1")?.status).toBe("approved");
     expect(store.get("a1")?.status).toBe("approved");
-    expect(store.reject("a1")?.status).toBe("rejected"); // a later decision overwrites
+    expect(store.reject("a1")).toBeUndefined(); // a decision is final — consent cannot be revised into refusal, or back
   });
 
   it("deletes a rejected request so the situation can be offered again", () => {
