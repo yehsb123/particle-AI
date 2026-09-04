@@ -63,7 +63,10 @@ export async function postJson(
       signal: controller.signal,
     });
     if (!res.ok) {
-      throw new Error(`${url} → HTTP ${res.status}: ${await res.text()}`);
+      // The message keeps the detail for whoever is debugging; `status` lets a caller classify
+      // the failure without putting our endpoint or the provider's response body into anything
+      // it shows a user.
+      throw Object.assign(new Error(`${url} → HTTP ${res.status}: ${await res.text()}`), { status: res.status });
     }
     return await res.json();
   } finally {

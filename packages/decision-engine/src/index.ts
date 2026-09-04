@@ -17,6 +17,23 @@ const DECISION_SYSTEM =
   "surface_incident|restore_normal|augment|none. reasonSummary must be concise and externally safe " +
   "(never chain-of-thought). Do not include any prose outside the JSON.";
 
+/**
+ * Why the runtime fell back, in a form that is safe to show and the same every time. The
+ * provider's own message goes nowhere near this: it carries our endpoint (host and port) and
+ * the provider's response body, and these codes are read in the inspector, written to the audit
+ * trail and broadcast to every connected client. A port number also made the code different on
+ * every run, which is the opposite of what a reason code is for.
+ */
+export function fallbackReason(err: unknown): string {
+  const e = err as { status?: unknown; name?: string; message?: string };
+  if (typeof e?.status === "number") return `http_${e.status}`;
+  if (e?.name === "AbortError" || e?.name === "TimeoutError") return "timeout";
+  const message = typeof e?.message === "string" ? e.message : "";
+  if (/no API key/i.test(message)) return "no_api_key";
+  if (/no JSON value found/i.test(message)) return "unparseable_output";
+  return "provider_error";
+}
+
 export type DecisionOutput = {
   decision: RuntimeDecision;
   route: ModelRouteDecision;
@@ -59,7 +76,7 @@ export class DecisionEngine {
     } catch (err) {
       decision = deterministicDecision(ctx);
       usedFallback = true;
-      route.reasonCodes.push(`fell_back_to_deterministic:${(err as Error).message.slice(0, 40)}`);
+      route.reasonCodes.push(`fell_back_to_deterministic:${fallbackReason(err)}`);
     }
 
     return { decision, route, providerId: provider.id, usedFallback };
