@@ -123,19 +123,33 @@ describe("hydrate and the history that belonged to the old tree", () => {
     expect(other.getWorld("h2").activeProblems).toEqual([]);
   });
 
-  it("refuses a snapshot that is not a world, and keeps what the session had", async () => {
-    // a snapshot was written by whichever build was running then; one missing field used to
-    // break every later ingest, since the significance reflex reads recentEvents directly
+  it("takes a snapshot missing a part it can do without, and fills it in", async () => {
+    // a snapshot was written by whichever build was running then, and a resume should bring back
+    // what it can understand — a missing part used to break every later ingest instead, since
+    // the significance reflex reads recentEvents directly
     const core = createRuntimeCore(makeClock());
     await core.ingest(ev("h4"));
-    const before = core.getWorld("h4");
-    const broken = { ...before } as Record<string, unknown>;
-    delete broken.recentEvents;
+    const older = { ...core.getWorld("h4") } as Record<string, unknown>;
+    delete older.recentEvents;
+    delete older.attention;
 
-    const taken = core.hydrate("h4", { world: broken as never });
-    expect(taken.world).toBe(false);
-    expect(core.getWorld("h4")).toEqual(before);
+    expect(core.hydrate("h4", { world: older as never }).world).toBe(true);
+    expect(core.getWorld("h4").recentEvents).toEqual([]);
+    expect(core.getWorld("h4").attention).toEqual({ typing: false });
+    expect(core.getWorld("h4").activeProblems).toHaveLength(1); // what it did carry survived
     await expect(core.ingest(ev("h4", "development.server_recovered", "info", "h5"))).resolves.toBeDefined();
+  });
+
+  it("refuses a snapshot that is not a world at all, and keeps what the session had", async () => {
+    const core = createRuntimeCore(makeClock());
+    await core.ingest(ev("h7"));
+    const before = core.getWorld("h7");
+
+    for (const broken of [{ ...before, activeProblems: "none" }, { ...before, sessionId: "" }, { ...before, updatedAt: "yesterday" }, {}]) {
+      expect(core.hydrate("h7", { world: broken as never }).world, JSON.stringify(broken).slice(0, 40)).toBe(false);
+    }
+    expect(core.getWorld("h7")).toEqual(before);
+    await expect(core.ingest(ev("h7", "development.server_recovered", "info", "h8"))).resolves.toBeDefined();
   });
 
   it("refuses a body that is not a blueprint, and says which halves it took", async () => {

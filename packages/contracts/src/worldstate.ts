@@ -98,18 +98,28 @@ export type AutonomyState = z.infer<typeof AutonomyState>;
  * What the runtime currently believes is happening. This is NOT conversation history — it
  * is a continuously-reduced snapshot that decisions read from and replay can reconstruct.
  */
+/**
+ * What the runtime believes is going on.
+ *
+ * A session and the moment it was last touched are the only things it cannot do without. Every
+ * other part has an empty form, and a state that arrives without one is filled in rather than
+ * refused — because the state that arrives is usually a snapshot, written by whichever build was
+ * running then, and a resume should bring back everything it can understand rather than nothing.
+ */
 export const WorldState = z.object({
   sessionId: z.string().min(1),
   updatedAt: IsoTimestamp,
   currentGoal: Goal.optional(),
-  activeContext: ActiveContext,
-  environment: z.object({
-    applications: z.array(z.string()).optional(),
-    files: z.array(z.string()).optional(),
-    processes: z.array(ProcessState).optional(),
-  }),
-  activeProblems: z.array(Problem),
-  recentEvents: z.array(MatterEvent),
+  activeContext: ActiveContext.default({}),
+  environment: z
+    .object({
+      applications: z.array(z.string()).optional(),
+      files: z.array(z.string()).optional(),
+      processes: z.array(ProcessState).optional(),
+    })
+    .default({}),
+  activeProblems: z.array(Problem).default([]),
+  recentEvents: z.array(MatterEvent).default([]),
   inferredIntent: IntentHypothesis.optional(),
   behavior: BehaviorState.default(EMPTY_BEHAVIOR),
   /**
@@ -118,8 +128,8 @@ export const WorldState = z.object({
    * so the "currently sensing: …" indicator is always true (Concept v2 privacy rule #3).
    */
   sensing: z.record(z.string(), z.array(z.string())).default({}),
-  attention: AttentionState,
-  autonomy: AutonomyState,
+  attention: AttentionState.default({ typing: false }),
+  autonomy: AutonomyState.default({ level: 2 }),
 });
 export type WorldState = z.infer<typeof WorldState>;
 
