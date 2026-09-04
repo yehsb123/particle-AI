@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 926 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 946 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A different root is a change, not the absence of one** (2026-09-04): `computeDiff` answers what
+  would turn one tree into another, and for two trees with different roots it answered with
+  nothing. Its walk pairs nodes by id — a new root has no partner, is never added because it has no
+  parent, and the old root is never removed because it is the root — so the caller got an empty
+  patch, which does not mean the trees match but that the question could not be answered, and
+  applying it left the old tree in place. A changed root is a single replace now. Found by the
+  sweep for exports nobody consumes that the stale event-type list prompted: **unused code drifts
+  quietly, and this one had been giving wrong answers with nothing to notice**. 20 tests, all
+  judged by applying the diff rather than counting operations — a child added or removed, siblings
+  reordered, a node reparented or moved into a new parent, props and types changed, subtrees
+  swapped, a tree emptied, a root replaced in both directions, each landing on the tree it was
+  asked about and passing the renderer's gate. morph-engine 86, 946 unit/integration total.
 - **Every button in the palette is pressed, and the list of known events is true again**
   (2026-09-04): the simulation palette is how anyone without a broken service of their own sees the
   runtime work, and each key is a button that nothing exercised — a key that stopped answering
