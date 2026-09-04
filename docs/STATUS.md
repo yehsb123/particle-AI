@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 522 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 543 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A failed ingest says whose fault it was, and nothing more** (2026-09-04): the ingest route
+  caught everything and answered 400 with the error's own message. Right for a malformed event —
+  the caller can fix that — and wrong twice for anything else: a storage outage is not a bad
+  request, and its message carries hostnames, ports and query text, which is what the central
+  error handler exists to keep in. Validation detail still returns with a 400; everything else is
+  a 500 that says nothing. The default 404 body echoed the requested path and named the framework,
+  so that is a plain `not found` now. 21 tests over the surface between the runtime and any page in
+  the browser: reads guarded as tightly as writes (the world state lists every host you visited),
+  a WebSocket upgrade refused from an unknown page where CORS would never have stopped it,
+  near-miss origins refused (another port, another scheme, a suffixed hostname, a trailing slash),
+  the token required everywhere but the health probe and accepted in the query only for the socket
+  where a browser cannot set headers, and origin checked before the token so a page that should
+  not be talking to us learns nothing about either. runtime app 42, 543 unit/integration total.
 - **Bindings read a capability's own fields; the registry answers for its own types** (2026-09-04):
   a data binding is written by the model — it names the capability field to read and the prop to
   write — and both halves were trusted. `capability:c:toString` handed back a function off the
