@@ -17,8 +17,9 @@ test("morph history strip lists morphs and supports multi-step undo", async ({ p
 
   const chips = page.locator(".history .chip");
   await expect(chips).toHaveCount(2);
-  await expect(chips.nth(0)).toContainText("surface incident");
-  await expect(chips.nth(1)).toContainText("restore normal");
+  // each chip says what that step did, rather than naming the intent behind it
+  await expect(chips.nth(0)).toContainText("surfaced the incident");
+  await expect(chips.nth(1)).toContainText("back to normal");
 
   // undo back to before step 1 → both morphs reverted, strip empty, no incident
   await chips.nth(0).click();
