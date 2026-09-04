@@ -166,7 +166,8 @@ const CHROME: Record<string, { en: string; ko: string }> = {
 };
 
 export function t(key: string, lang: Lang): string {
-  return CHROME[key]?.[lang] ?? key;
+  // own keys only — a lookup table is a table, not a prototype chain (see `tr` below)
+  return Object.hasOwn(CHROME, key) ? (CHROME[key]?.[lang] ?? key) : key;
 }
 
 /**
@@ -175,7 +176,14 @@ export function t(key: string, lang: Lang): string {
  * visible so a missing param is noticed, not hidden.
  */
 export function fillTemplate(tpl: string, params: Record<string, unknown> = {}): string {
-  return tpl.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m));
+  return tpl.replace(/\{(\w+)\}/g, (m, k: string) => {
+    // `in` walks the prototype chain, so {toString} used to render the source of a native
+    // function into a sentence someone reads. A param that is present but undefined has nothing
+    // to say either, and the slot staying visible is the point of this function.
+    if (!Object.hasOwn(params, k)) return m;
+    const v = params[k];
+    return v === undefined ? m : String(v);
+  });
 }
 
 /** Content strings that live inside blueprints (titles, badges, status). English → Korean. */
@@ -297,5 +305,8 @@ const CONTENT: Record<string, string> = {
 /** Translate a blueprint content string when in Korean; unknown strings (code, logs) pass through. */
 export function tr(text: string, lang: Lang): string {
   if (lang === "en") return text;
-  return CONTENT[text] ?? text;
+  // Every content string in a blueprint comes through here, and the model chooses those strings.
+  // `CONTENT[text]` walked the prototype chain, so a component whose text was "toString" got a
+  // FUNCTION back — which React refuses to render, taking the whole screen down with it.
+  return Object.hasOwn(CONTENT, text) ? (CONTENT[text] ?? text) : text;
 }
