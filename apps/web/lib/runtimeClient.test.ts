@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { RuntimeClient, type ServerMessage } from "./runtimeClient";
+import { UI_SCHEMA_VERSION } from "@particle/contracts";
+
+const realBlueprint = {
+  schemaVersion: UI_SCHEMA_VERSION,
+  workspaceId: "ws",
+  mode: "development",
+  root: { id: "root", type: "Stack", children: [] },
+  metadata: { generatedAt: "2026-09-04T00:00:00Z", decisionId: "d", confidence: 1 },
+};
 
 /**
  * The browser client is the whole connected-mode contract: which URL each action hits, what it
@@ -130,8 +139,9 @@ describe("RuntimeClient — socket lifecycle", () => {
 
     const sock = FakeSocket.instances[0]!;
     sock.onopen?.();
-    sock.onmessage?.({ data: JSON.stringify({ kind: "ui_patch", sessionId: "s1", blueprint: { root: { id: "r" } } }) });
+    sock.onmessage?.({ data: JSON.stringify({ kind: "ui_patch", sessionId: "s1", blueprint: realBlueprint }) });
     sock.onmessage?.({ data: "{not json" }); // a malformed frame must not kill the connection
+    sock.onmessage?.({ data: JSON.stringify({ kind: "ui_patch", sessionId: "s1", blueprint: { root: { id: "r" } } }) }); // not a blueprint — dropped
     sock.onmessage?.({ data: JSON.stringify({ kind: "learned", sessionId: "s1", learned: { suppressed: "augment:stuck", dismissals: 2 } }) });
 
     expect(seen.map((m) => m.kind)).toEqual(["ui_patch", "learned"]);

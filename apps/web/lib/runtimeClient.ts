@@ -1,3 +1,4 @@
+import { UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
 import type { ApprovalRequest, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type SimResponse = {
@@ -30,6 +31,46 @@ function auth(extra: Record<string, string> = {}): Record<string, string> {
 }
 
 /** Browser client for the Particle AI runtime server (REST + WebSocket). */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * A frame off the socket, checked before the body believes it.
+ *
+ * Everything that parsed as JSON used to be handed straight up as a ServerMessage — a cast, not a
+ * check — so a number or a null reached a handler that reads `.kind` off it, a ui_patch could
+ * carry no blueprint at all, and a frame addressed to another session was applied to this body.
+ * Anything that is not a frame for this session, of a kind the body knows, carrying what that
+ * kind is supposed to carry, is dropped exactly like an unparseable one.
+ */
+export function parseServerMessage(data: unknown, sessionId: string): ServerMessage | null {
+  if (!isRecord(data)) return null;
+  if (typeof data.kind !== "string" || data.sessionId !== sessionId) return null;
+
+  switch (data.kind) {
+    case "ui_patch":
+      return UIBlueprintSchema.safeParse(data.blueprint).success ? (data as unknown as ServerMessage) : null;
+    case "world_state_changed":
+      return WorldStateSchema.safeParse(data.worldState).success ? (data as unknown as ServerMessage) : null;
+    case "ai_presence_changed":
+      return typeof data.state === "string" ? (data as unknown as ServerMessage) : null;
+    case "decision_created":
+      return Array.isArray(data.audit) ? (data as unknown as ServerMessage) : null;
+    case "learned":
+      return isRecord(data.learned) && typeof data.learned.suppressed === "string" && typeof data.learned.dismissals === "number"
+        ? (data as unknown as ServerMessage)
+        : null;
+    case "pattern_suggestions":
+      return Array.isArray(data.suggestions) &&
+        data.suggestions.every((s) => isRecord(s) && typeof s.key === "string" && typeof s.count === "number")
+        ? (data as unknown as ServerMessage)
+        : null;
+    default:
+      return null; // a kind this body does not know is not one it should act on
+  }
+}
+
 export class RuntimeClient {
   private ws?: WebSocket;
   private manualClose = false;
@@ -68,7 +109,8 @@ export class RuntimeClient {
     ws.onerror = () => this.onStatusCb?.(false);
     ws.onmessage = (ev) => {
       try {
-        this.onMessageCb?.(JSON.parse(ev.data as string) as ServerMessage);
+        const message = parseServerMessage(JSON.parse(ev.data as string), this.sessionId);
+        if (message) this.onMessageCb?.(message);
       } catch {
         /* ignore malformed frames */
       }
