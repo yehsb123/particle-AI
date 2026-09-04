@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 946 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 958 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,17 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Two reasons the body could give had no words for them** (2026-09-04): when the runtime decides
+  not to reshape the interface it says so and says why, and that why is the only thing between an
+  interface that held back on purpose and one that looks broken. Eight reasons can reach the screen
+  and two had no phrase — the learned preference, and the structurally-impossible refusal added
+  earlier in this campaign without its words. The old formatter dropped what it could not
+  translate, so a hold with one known and one unknown reason showed half of why, and a hold with
+  only unknown reasons printed raw identifiers. The reasons now live in one list in the contracts,
+  where the runtime raises them and the body reads them, and **both sides are held to it**: the
+  guard and the runtime only ever answer with a reason from the list, and the body has English and
+  Korean words for every entry. An unwritten reason is still shown rather than dropped — saying a
+  strange thing beats saying half a thing. 12 tests over both sides. web unit 68, 958 total.
 - **A different root is a change, not the absence of one** (2026-09-04): `computeDiff` answers what
   would turn one tree into another, and for two trees with different roots it answered with
   nothing. Its walk pairs nodes by id — a new root has no partner, is never added because it has no
