@@ -44,6 +44,16 @@ export function computeDiff(
   desired: UIBlueprint,
   patchId: string,
 ): UIPatch {
+  // A different root is not a set of edits to the old one — nothing in the walk below can
+  // express it, and returning an empty patch would tell the caller the two trees already match.
+  if (current.root.id !== desired.root.id) {
+    return {
+      patchId,
+      fromWorkspaceId: current.workspaceId,
+      operations: [{ op: "replace", targetId: current.root.id, component: structuredClone(desired.root) }],
+    };
+  }
+
   const cur = index(current.root);
   const des = index(desired.root);
   const adds: UIPatchOperation[] = [];
