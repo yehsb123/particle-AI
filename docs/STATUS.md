@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 706 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 720 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The message from a page is rebuilt at the boundary, not forwarded** (2026-09-04): the
+  extension's shaping file says a review of it is a review of what can possibly leave the page, and
+  that was not quite true — interaction, idle and visibility messages went from the content script
+  to the runtime exactly as received. The content script does only count that something happened
+  and never reads text, so nothing leaked, but the promise lived in the sender rather than at the
+  boundary, and one change to that file would have moved it without anyone noticing. Each message
+  is rebuilt from scratch now, keeping only the fields its kind may have: a count, a number of
+  seconds, a hostname that looks like one. A field nobody declared is dropped, a kind nobody
+  declared is refused. Consent gets the same treatment — it decides what may leave the machine and
+  is read from storage that syncs between devices and may hold whatever an older build wrote, so it
+  is three booleans and nothing else. 14 tests: page text and a URL smuggled alongside a count
+  dropped, a host that is really a path refused, hostnames in every shape a browser reports
+  accepted, counts kept whole and within reason, only a real boolean read as being back, and the
+  output field-checked against what each kind is allowed to carry.
+  extension 43, 720 unit/integration total.
 - **The brain of last resort has to be one that answers** (2026-09-04): the router promises that
   something always answers — a missing key, an unreachable host, a provider that does not do this
   kind of work all end at the deterministic brain rather than at a stall. It kept that promise by
