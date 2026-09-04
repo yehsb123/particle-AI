@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1003 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1051 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A card that fills itself in is checked against the capability it names** (2026-09-04): a card
+  showing live data declares a binding — a capability id and a field on that capability's output —
+  and the two halves live in different packages. Nothing would have noticed if a capability stopped
+  returning one: the card would quietly keep showing the placeholder it shipped with, which looks
+  like a card that simply has nothing to say. Every binding is now walked and checked — the source
+  in the one format the runtime reads, a capability that exists, a field it answers with on a
+  troubled session and on a fresh one, and only ever a capability that reads, since a card filling
+  itself in must not be able to change anything outside the runtime. All eight resolve today; the
+  test is there so the next one that stops is loud. 48 tests, with the structure of everything the
+  registry can put on screen: each incident layout applying cleanly, with unique ids and none the
+  workspace already holds (a clash would mean the incident never appears, since the morph engine
+  refuses an id the tree already has), laid out differently per kind, and asking only for
+  operations the engine implements. runtime-core 96, ui-registry 65, 1051 unit/integration total.
 - **A snapshot missing a part it can do without is filled in, not refused** (2026-09-04): the world
   state is what the runtime believes is going on, and the copies that come back from outside are
   snapshots written by whichever build was running then. The schema had one part with an empty form
