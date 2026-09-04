@@ -132,6 +132,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   sensor_web: { en: "this page", ko: "이 페이지" },
   sensor_extension: { en: "browser extension", ko: "브라우저 확장" },
   sensor_agent: { en: "desktop agent", ko: "데스크톱 에이전트" },
+  sensor_unknown: { en: "a sensor that did not say what it is", ko: "이름을 밝히지 않은 센서" },
   layer_interactions: { en: "interactions", ko: "상호작용" },
   layer_idle: { en: "idle", ko: "유휴" },
   layer_visibility: { en: "visibility", ko: "탭 가시성" },

@@ -27,6 +27,30 @@ export const ProcessState = z.object({
 export type ProcessState = z.infer<typeof ProcessState>;
 
 /** Continuous intent states (Concept v2) — always present, no error required. */
+/**
+ * Who can be sensing, and what they can be sensing. The body names each of these to the person
+ * in the honest-sensing indicator, so the list lives here rather than in whichever sensor happens
+ * to report one: a sensor or a layer nobody has words for reaches the screen as a bare
+ * identifier. "unknown" is the name the runtime itself uses for a sensor that did not give one.
+ */
+export const SENSOR_NAMES = ["web", "extension", "agent", "unknown"] as const;
+export type SensorName = (typeof SENSOR_NAMES)[number];
+
+export const SENSING_LAYERS = [
+  // the body and the extension
+  "interactions",
+  "idle",
+  "visibility",
+  "dwell",
+  "tabs",
+  "network",
+  // the desktop agent
+  "files",
+  "git",
+  "output",
+] as const;
+export type SensingLayer = (typeof SENSING_LAYERS)[number];
+
 export const INTENT_LABELS = [
   "exploring", "focused", "stuck", "switching", "idle", "returning", "debugging",
 ] as const;

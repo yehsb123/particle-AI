@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createReplayClock } from "../lib/replayClock";
 import { describeHold } from "../lib/hold";
 import { describeMorphStep } from "../lib/morphStep";
+import { describeSensor, describeLayer } from "../lib/sensing";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -79,7 +80,7 @@ export function Workspace() {
   const sensingLine = useMemo(() => {
     const reported = Object.entries(debug.worldState?.sensing ?? {}) as [string, string[]][];
     if (!reported.length) return t("sensingNone", lang);
-    return reported.map(([s, ls]) => `${t(`sensor_${s}`, lang)}: ${ls.map((l) => t(`layer_${l}`, lang)).join(", ")}`).join(" · ");
+    return reported.map(([s, ls]) => `${describeSensor(s, lang)}: ${ls.map((l) => describeLayer(l, lang)).join(", ")}`).join(" · ");
   }, [debug.worldState, lang]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
@@ -826,7 +827,7 @@ export function Workspace() {
                       {s.problems > 0 ? ` · ${s.problems} ${t("sessionsProblems", lang)}` : ""}
                     </span>
                     <div className="muted" style={{ fontSize: 11 }}>
-                      {s.layers.length ? s.layers.map((l) => t(`layer_${l}`, lang)).join(" · ") : t("sessionsNoLayers", lang)}
+                      {s.layers.length ? s.layers.map((l) => describeLayer(l, lang)).join(" · ") : t("sessionsNoLayers", lang)}
                     </div>
                   </div>
                 ))}

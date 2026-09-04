@@ -26,6 +26,9 @@ importers:
 
   apps/agent:
     devDependencies:
+      '@particle/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
@@ -41,6 +44,9 @@ importers:
 
   apps/extension:
     devDependencies:
+      '@particle/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@types/chrome':
         specifier: ^0.0.287
         version: 0.0.287
