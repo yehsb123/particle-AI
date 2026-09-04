@@ -11,6 +11,18 @@ function isoNow(): string {
   return new Date().toISOString();
 }
 
+/**
+ * What to answer when an ingest fails. A malformed event is the caller's to fix, so the
+ * validation detail goes back with a 400. Anything else — storage down, a bug — is ours: the
+ * caller gets a 500 and nothing about our insides, since those messages carry hostnames, ports
+ * and query text.
+ */
+export function ingestFailure(err: unknown): { code: number; body: { error: string } } {
+  const name = (err as { name?: string })?.name;
+  if (name === "ZodError") return { code: 400, body: { error: (err as Error).message } };
+  return { code: 500, body: { error: "internal error" } };
+}
+
 export async function buildServer(): Promise<BuildResult> {
   const app = Fastify({ logger: false });
   const persistence = await createPersistence(process.env.DATABASE_URL);
@@ -60,6 +72,11 @@ export async function buildServer(): Promise<BuildResult> {
       .send({ error: "internal error" });
   });
 
+  // The default 404 body echoes the path and names the framework; say only what happened.
+  app.setNotFoundHandler((_req, reply) => {
+    reply.code(404).send({ error: "not found" });
+  });
+
   await app.register(websocket);
 
   app.get("/health", async () => ({ ok: true, events: runtime.store.count(), backend: persistence.backend }));
@@ -79,8 +96,9 @@ export async function buildServer(): Promise<BuildResult> {
       const { event, result } = await runtime.ingest(req.body);
       return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
     } catch (err) {
-      reply.code(400);
-      return { error: (err as Error).message };
+      const { code, body } = ingestFailure(err);
+      reply.code(code);
+      return body;
     }
   });
 
