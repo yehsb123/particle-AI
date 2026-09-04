@@ -9,6 +9,8 @@
  * chrome.storage.session.
  */
 import {
+  RELAY_KINDS,
+  relayPayload,
   hostOf,
   networkSeverity,
   matterEvent,
@@ -30,7 +32,11 @@ let consent: Consent = { ...NONE };
 let token = "";
 
 function applySettings(v: Record<string, unknown>): void {
-  consent = { ...DEFAULT_CONSENT, ...((v.consent as Partial<Consent> | undefined) ?? {}) };
+  // Consent decides what may leave this machine, so it is three booleans and nothing else —
+  // storage syncs across devices and can hold whatever an older build wrote there.
+  const stored = (v.consent && typeof v.consent === "object" ? v.consent : {}) as Record<string, unknown>;
+  const layer = (k: keyof Consent) => (typeof stored[k] === "boolean" ? (stored[k] as boolean) : DEFAULT_CONSENT[k]);
+  consent = { interactions: layer("interactions"), tabs: layer("tabs"), network: layer("network") };
   token = typeof v.token === "string" ? v.token : "";
   const u = typeof v.runtimeUrl === "string" ? v.runtimeUrl.trim() : "";
   runtimeUrl = /^https?:\/\//.test(u) ? u.replace(/\/$/, "") : DEFAULT_RUNTIME;
@@ -157,9 +163,10 @@ chrome.runtime.onMessage.addListener((msg: { kind?: string; payload?: Record<str
   void (async () => {
     await ready;
     if (!consent.interactions || !msg?.kind) return;
-    if (msg.kind === "interaction") void send(matterEvent(SESSION, "user", "user.interaction", "debug", msg.payload ?? {}));
-    if (msg.kind === "idle") void send(matterEvent(SESSION, "user", "user.idle", "debug", msg.payload ?? {}));
-    if (msg.kind === "visibility") void send(matterEvent(SESSION, "user", "user.visibility", "info", msg.payload ?? {}));
+    const kind = Object.hasOwn(RELAY_KINDS, msg.kind) ? RELAY_KINDS[msg.kind] : undefined;
+    const payload = relayPayload(msg.kind, msg.payload);
+    if (!kind || !payload) return;
+    void send(matterEvent(SESSION, "user", kind.type, kind.severity, payload));
   })();
 });
 

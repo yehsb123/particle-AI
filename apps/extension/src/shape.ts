@@ -19,6 +19,34 @@ export function hostOf(url: string): string {
   }
 }
 
+/** What a relayed message may carry, per kind: counts, seconds, a hostname. Nothing else. */
+export const RELAY_KINDS: Record<string, { type: string; severity: "debug" | "info" }> = {
+  interaction: { type: "user.interaction", severity: "debug" },
+  idle: { type: "user.idle", severity: "debug" },
+  visibility: { type: "user.visibility", severity: "info" },
+};
+
+function count(v: unknown, fallback: number): number {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), 1_000_000) : fallback;
+}
+
+/**
+ * Rebuild a content script's message from scratch, keeping only the fields that kind is allowed
+ * to have. The content script counts interactions and never reads text — but this file is where
+ * that promise is kept, and a message forwarded as-is is a promise kept somewhere else. Anything
+ * unknown, and any kind nobody declared, ends here.
+ */
+export function relayPayload(kind: string, payload: unknown): Record<string, unknown> | null {
+  if (!Object.hasOwn(RELAY_KINDS, kind)) return null;
+  const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+  if (kind === "interaction") {
+    const host = typeof p.host === "string" && /^[A-Za-z0-9.\-[\]:]{1,253}$/.test(p.host) ? p.host.toLowerCase() : undefined;
+    return { count: count(p.count, 1), ...(host ? { host } : {}) };
+  }
+  if (kind === "idle") return { seconds: count(p.seconds, 0) };
+  return { visible: p.visible === true, awaySeconds: count(p.awaySeconds, 0) };
+}
+
 export type NetworkShape = { host: string; status?: number; ms?: number; error?: boolean };
 
 /** Severity for a network observation: 5xx/errors warn, everything else is informational. */
