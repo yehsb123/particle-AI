@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 795 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 810 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The send queue is a thing with a name, and it has tests** (2026-09-04): both sensors send what
+  they observe one at a time, because a transition only means something in order — a recovery
+  arriving before the failure it recovers from reads as a runtime that never broke. Both had the
+  same twenty lines written out separately, with the ceiling, the drop rule and the timeout
+  repeated in each, and no test behind any of it; that is the fourth time this campaign has met the
+  shape where one fact lives in two places with nothing stopping them drifting apart. Each sensor
+  keeps its own copy — the agent and the extension are standalone by design — but the queue is now
+  a named function beside that package's other shaping helpers, with the sending injected, so the
+  policy is testable without a network. 15 tests: order kept when the far end answers out of order,
+  the queue carrying on after a failed send and telling whoever asked to be told, the ceiling
+  dropping the newest rather than the oldest since what is queued is the beginning of the story,
+  the count settling back to nothing, how many were let go reported honestly, and the extension
+  waiting for consent to be read before anything leaves. agent 46, extension 55,
+  810 unit/integration total.
 - **A window too small to show alternation is not evidence of it** (2026-09-04): juggling is read
   from the last few places someone moved between — the window has to alternate and span only a
   couple of contexts. With a window of one there is nothing to alternate, and with a window of zero
