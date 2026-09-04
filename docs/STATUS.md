@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 977 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 990 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,17 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A frame is checked before the body believes it** (2026-09-04): everything arriving over the
+  socket was cast to a message and handed straight to the body, which acts on one immediately —
+  replacing the interface, replacing its belief about what is happening. A cast is not a check, so
+  anything that parsed as JSON got through: a number or a null reached a handler that reads a field
+  off it, a `ui_patch` could carry no interface at all or one from another build, a suggestion list
+  could be a string, and **a frame addressed to another session was applied to this body**. Frames
+  are read rather than assumed now — for this session, of a known kind, carrying what that kind
+  carries, with the interface and the belief parsed against the same schemas the runtime uses — and
+  anything else is dropped like an unparseable frame. 13 tests, plus the older lifecycle test
+  updated: it asserted the previous contract that anything parseable is forwarded.
+  web unit 100, 990 unit/integration total.
 - **A prop of the wrong kind must not take the interface down** (2026-09-04): the renderer is the
   last thing between validated data and the screen, and validated only covers the shape of the
   tree — a component's props are whatever the model put there, and a data binding drops a
