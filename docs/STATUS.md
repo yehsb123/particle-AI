@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 622 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 639 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The reason we fell back names the failure, not the endpoint** (2026-09-04): when a provider
+  fails, the runtime falls back to a decision it computes itself and records why. That reason code
+  is read in the inspector, written to the audit trail and broadcast to every connected client —
+  and it was the first 40 characters of the provider error, which begin with the URL we were
+  calling. A local model on an internal host and port ended up in data every client receives, and
+  since the port is in there the code differed on every run, which defeats the point of a code; the
+  status, the one useful part, fell past the 40-character cut. Failures are classified now —
+  `http_503`, `timeout`, `no_api_key`, `unparseable_output`, or `provider_error` when it cannot be
+  told — with the full message keeping its detail for whoever is debugging, and the HTTP layer
+  attaching the status to the error so a caller can classify without reading the sentence. 17
+  tests: a good answer used as-is, a schema-invalid one refused, every failure still producing a
+  decision the schema accepts, the code naming the status while carrying no host, key or response
+  body, the same code every time for the same failure, and the deterministic decision itself —
+  stable, valid, tied to the event it answered, never asking for more autonomy than reading.
+  decision-engine 23, 639 unit/integration total.
 - **One posted event could leave a session permanently broken** (2026-09-04): an event's `type` is
   any string a client sends, and the table of things that open a problem was indexed with it
   directly. A single event of type `toString` opened a problem with no kind, no summary and no
