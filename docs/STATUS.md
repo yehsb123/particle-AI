@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 452 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 477 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The pattern table stays bounded, and hands out copies** (2026-09-04): the pattern detector
+  capped itself at 500 when restoring a snapshot but not while observing. A pattern key is built
+  from the event type, and an event type is whatever a sensor sends, so a long-lived session grew
+  that table without limit — 2,000 distinct keys in a probe, every one kept. It now holds the same
+  500 either way and forgets the pattern seen longest ago, so one that keeps happening survives a
+  flood of one-offs. `observe()` also returned the stored candidate itself, so setting `suggested`
+  on it meant the person would never be offered that template; every read returns a copy now. And
+  `recent(0)` returned the whole history instead of nothing, since `slice(-0)` is `slice(0)`.
+  25 tests across the four stores: bounds and eviction, the threshold and the one-time suggestion,
+  sticky `suggested` in both directions across a restore, weights that stop at zero when a redo
+  hands a dismissal back, max-wins on restore so a snapshot never lowers what this session learned,
+  and garbage in a snapshot ignored rather than trusted. memory 32, 477 unit/integration total.
 - **An id the tree already uses is refused, and undo comes back exactly** (2026-09-03): an
   `add` reusing a live id went straight through. The tree then held two nodes answering to one
   id — forbidden by the blueprint schema for a reason, since every lookup in the morph engine
