@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1095 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1123 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The body reads the permission policy instead of restating it** (2026-09-04): three things
+  the body said about risk were written out beside the policy rather than read from it. The
+  approval card wore a fixed critical badge whatever the risk was and named the risk with its own
+  stored identifier, so a person saw a red `external_effect` in either language; the tone now comes
+  from `canAutoRun` — loudest for what the policy will never run on its own, quiet for what this
+  runtime would have run unasked anyway, since a read held back only because its server is not
+  allowed yet is not a red alarm. The hint under the level chooser claimed that at L0 and L1 even
+  reads need consent: the policy denies them outright, so anyone who followed it and set L0 waited
+  for an approval card the runtime would never send. Each level now states what it does, built from
+  the policy. Naming the risk is also what surfaced the third: it put a value from the server
+  through a helper that formats a name, and a name that is not a string throws inside the render,
+  which in React takes the whole body down rather than one card — the connected E2E spec started
+  failing on its first attempt and passing on retry. That answer had never been parsed;
+  `pendingApprovals`, guard reason codes and the rest were cast and believed. `parseSimResponse`
+  keeps each part only where it is what it claims, drops the rest, and bounds every list, and every
+  name helper now survives a name that is not one. 28 tests. 1123 unit/integration total.
 - **A capability that declares what it needs is finally asked about it** (2026-09-04): a
   `CapabilityManifest` has always carried `requiredPermissions`, and nothing anywhere read it. An
   MCP tool declares its server there, so a tool from a server nobody had allowed was judged on its
