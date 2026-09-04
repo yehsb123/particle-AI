@@ -26,13 +26,24 @@ export const MatterEvent = z.object({
 });
 export type MatterEvent = z.infer<typeof MatterEvent>;
 
-/** Well-known event types used by the reference simulation. Not exhaustive. */
+/**
+ * The event types the runtime knows how to read: what a person does, what their work does, what
+ * the sensors report, and its own bookkeeping. A type outside this list is still accepted — the
+ * vocabulary is open, and an unknown type simply opens no problem and changes no behaviour.
+ */
 export const KNOWN_EVENT_TYPES = [
+  // what a person does
   "user.opened_file",
   "user.selected_component",
   "user.changed_goal",
   "user.focus_changed",
   "user.requested_undo",
+  "user.requested_action",
+  "user.interaction",
+  "user.idle",
+  "user.visibility",
+  "user.action",
+  // what the work does
   "development.build_started",
   "development.build_failed",
   "development.build_succeeded",
@@ -44,5 +55,13 @@ export const KNOWN_EVENT_TYPES = [
   "tool.execution_started",
   "tool.execution_failed",
   "tool.execution_completed",
+  // what the sensors report (Concept v2): traffic shape, security, and what each sensor watches
+  "network.request",
+  "security.vulnerability_detected",
+  "security.vulnerability_patched",
+  "external.alert",
+  "sensor.layers_changed",
+  // the runtime's own bookkeeping
+  "runtime.reconcile",
 ] as const;
 export type KnownEventType = (typeof KNOWN_EVENT_TYPES)[number];
