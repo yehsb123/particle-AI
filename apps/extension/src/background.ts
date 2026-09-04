@@ -11,6 +11,7 @@
 import {
   RELAY_KINDS,
   relayPayload,
+  createSendQueue,
   hostOf,
   networkSeverity,
   matterEvent,
@@ -59,29 +60,19 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // Sends are serialized so events arrive in the order they were observed (a recovery must not
 // overtake the failure it recovers from). One in-flight request at a time, best-effort.
-let sendQueue: Promise<void> = Promise.resolve();
-let sendPending = 0;
-function send(event: ReturnType<typeof matterEvent>): Promise<void> {
-  if (sendPending >= 500) return sendQueue; // hung/slow endpoint: drop the NEWEST (order beats completeness)
-  sendPending += 1;
-  sendQueue = sendQueue.then(async () => {
-    await ready;
-    try {
-      const headers: Record<string, string> = { "content-type": "application/json" };
-      if (token) headers["x-particle-token"] = token;
-      await fetch(`${runtimeUrl}/api/events`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(event),
-        signal: AbortSignal.timeout(5_000), // browser fetch has no default timeout — never wedge the queue
-      });
-    } catch {
-      /* runtime offline — sensing is best-effort and local */
-    } finally {
-      sendPending -= 1;
-    }
+const queue = createSendQueue(async (event) => {
+  await ready; // never send before consent has been read
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (token) headers["x-particle-token"] = token;
+  await fetch(`${runtimeUrl}/api/events`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(event),
+    signal: AbortSignal.timeout(5_000), // browser fetch has no default timeout — never wedge the queue
   });
-  return sendQueue;
+});
+function send(event: ReturnType<typeof matterEvent>): Promise<void> {
+  return queue.send(event);
 }
 
 /** Tell the runtime what this sensor observes right now, so the body's indicator stays true. */

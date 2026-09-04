@@ -15,7 +15,7 @@
 import { watch, existsSync, statSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, type Signal } from "./shape";
+import { relPath, isIgnored, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, type Signal } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -25,29 +25,21 @@ const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
 
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
 // parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
-let sendQueue: Promise<void> = Promise.resolve();
-let sendPending = 0;
-function send(event: ReturnType<typeof matterEvent>): Promise<void> {
-  if (sendPending >= 500) return sendQueue; // hung/slow endpoint: drop the NEWEST (order beats completeness)
-  sendPending += 1;
-  sendQueue = sendQueue.then(async () => {
-    try {
-      const headers: Record<string, string> = { "content-type": "application/json" };
-      if (TOKEN) headers["x-particle-token"] = TOKEN;
-      const res = await fetch(`${RUNTIME}/api/events`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(event),
-        signal: AbortSignal.timeout(5_000), // a hung endpoint must not stall sensing for minutes
-      });
-      if (!res.ok) process.stderr.write(`[particle-agent] runtime rejected ${event.type}: ${res.status}\n`);
-    } catch {
-      /* runtime offline — sensing is best-effort and local */
-    } finally {
-      sendPending -= 1;
-    }
+const queue = createSendQueue(async (event) => {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (TOKEN) headers["x-particle-token"] = TOKEN;
+  const res = await fetch(`${RUNTIME}/api/events`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(event),
+    signal: AbortSignal.timeout(5_000), // a hung endpoint must not stall sensing for minutes
   });
-  return sendQueue;
+  if (!res.ok) {
+    process.stderr.write(`[particle-agent] runtime rejected ${(event as { type?: string }).type}: ${res.status}\n`);
+  }
+});
+function send(event: ReturnType<typeof matterEvent>): Promise<void> {
+  return queue.send(event);
 }
 
 function watchPaths(paths: string[]): void {

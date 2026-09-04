@@ -19,6 +19,49 @@ export function hostOf(url: string): string {
   }
 }
 
+/**
+ * A queue that sends one thing at a time, in the order it was handed them. Transitions only mean
+ * something in order — a recovery must never overtake the failure it recovers from — so a second
+ * send waits for the first rather than racing it.
+ *
+ * When the far end is hung or slow the queue fills, and at the ceiling the NEWEST item is dropped
+ * rather than the oldest: what is already queued is the earlier part of the story, and a story
+ * with its beginning is worth more than one with its end.
+ */
+export function createSendQueue(
+  post: (payload: unknown) => Promise<void>,
+  options: { maxPending?: number; onError?: (err: unknown) => void } = {},
+) {
+  const maxPending = options.maxPending ?? 500;
+  let chain: Promise<void> = Promise.resolve();
+  let pending = 0;
+  let dropped = 0;
+
+  return {
+    send(payload: unknown): Promise<void> {
+      if (pending >= maxPending) {
+        dropped += 1;
+        return chain;
+      }
+      pending += 1;
+      chain = chain.then(async () => {
+        try {
+          await post(payload);
+        } catch (err) {
+          options.onError?.(err); // best-effort: the far end being down is not our problem to solve
+        } finally {
+          pending -= 1;
+        }
+      });
+      return chain;
+    },
+    /** How many sends are queued or in flight. */
+    pending: () => pending,
+    /** How many were dropped at the ceiling, for an honest indicator. */
+    dropped: () => dropped,
+  };
+}
+
 /** What a relayed message may carry, per kind: counts, seconds, a hostname. Nothing else. */
 export const RELAY_KINDS: Record<string, { type: string; severity: "debug" | "info" }> = {
   interaction: { type: "user.interaction", severity: "debug" },
