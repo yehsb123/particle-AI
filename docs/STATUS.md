@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 958 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 967 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,16 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The history strip says what each step did, in the reader's language** (2026-09-04): the morph
+  history is the record of everything the runtime has done to the interface, and every chip is
+  something a person can click to undo back to. It printed the intent itself with its underscore
+  swapped for a space, so a Korean reader saw English identifiers — "surface incident", "restore
+  normal" — while the panel around them was in Korean. Each step now says what it did in both
+  languages, including the two the body makes on its own (a card dismissed, a change whose decision
+  named no intent), with a readable fallback for anything unwritten. Second of these found by
+  looking for user-visible states with no words, after the two hold reasons; **the sweep behind it
+  covered the rest** — the presence indicator, the seven intent labels, the autonomy levels and the
+  guard's reasons all have their phrases. 9 tests. web unit 77, 967 unit/integration total.
 - **Two reasons the body could give had no words for them** (2026-09-04): when the runtime decides
   not to reshape the interface it says so and says why, and that why is the only thing between an
   interface that held back on purpose and one that looks broken. Eight reasons can reach the screen
