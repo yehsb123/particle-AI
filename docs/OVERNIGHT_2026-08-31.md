@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1062 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
+Every commit is green (typecheck 0 · 1095 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,4 +85,5 @@ Every commit is green (typecheck 0 · 1062 unit/integration tests · 15 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Declared permissions are enforced**: a capability that names a permission it has not been granted asks before it runs, however low its risk; the approval card says which of the two reasons it is asking for
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist

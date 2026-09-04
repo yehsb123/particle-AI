@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1062 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1095 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A capability that declares what it needs is finally asked about it** (2026-09-04): a
+  `CapabilityManifest` has always carried `requiredPermissions`, and nothing anywhere read it. An
+  MCP tool declares its server there, so a tool from a server nobody had allowed was judged on its
+  name-inferred risk alone — and `get_secrets` reads as a read, which auto-runs at the default
+  level 2. `evaluatePlan` now takes what has been granted, and the rule is one-directional on
+  purpose: a manifest for an MCP tool is somebody else's server describing itself, so an ungranted
+  name can only hold a capability back, never let one through. Below level 2 everything stays
+  denied and destructive still always asks. The permission name also has one home now,
+  `mcpPermission(serverId)`, escaped the way a capability id is, so two servers cannot share one
+  allowance and the grant side cannot spell it differently from the manifest side. And the card
+  that asks now says why: it used to show a capability id and a risk badge and leave the person to
+  decide without the question. The reason travels as a code so the words can be theirs, and the two
+  are not interchangeable — being asked because something is risky is a different decision from
+  being asked because nobody has allowed its server, and only the second is answered by knowing
+  which server it is. 33 tests. 1095 unit/integration total.
 - **Every sensor and layer the indicator can name has words for it** (2026-09-04): the indicator is
   the runtime's honesty about what it can see, and the one place a person looks to find out what is
   being observed about them. A name with no phrase appeared there as the lookup key itself, and one
