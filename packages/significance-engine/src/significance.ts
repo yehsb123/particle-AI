@@ -56,7 +56,10 @@ export function evaluateSignificance(
 
   // Novelty — repeated identical events decay toward 0 (anti-thrash)
   const sameTypeRecently = world.recentEvents.filter((e) => e.type === event.type).length;
-  const novelty = Math.max(0, 1 - sameTypeRecently / config.noveltyWindow);
+  // A window of zero would make this 0/0 — NaN, which spreads through the score into the trace,
+  // the audit and every client. A window that small means "nothing is novel twice".
+  const window = config.noveltyWindow > 0 ? config.noveltyWindow : 1;
+  const novelty = Math.max(0, 1 - sameTypeRecently / window);
   if (sameTypeRecently === 0) reasonCodes.push("novel_event");
   if (sameTypeRecently >= config.noveltyWindow) reasonCodes.push("repetitive_event");
 

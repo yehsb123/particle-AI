@@ -10,7 +10,7 @@ import type {
   UIPatch,
   WorldState,
 } from "@particle/contracts";
-import { emptyWorldState } from "@particle/contracts";
+import { emptyWorldState, WorldState as WorldStateSchema, UIBlueprint as UIBlueprintSchema } from "@particle/contracts";
 import { reduce } from "@particle/world-model";
 import {
   evaluateSignificance,
@@ -235,11 +235,17 @@ export class RuntimeCore {
   }
 
   /** Restore a session's belief state and body from persisted snapshots (resume). */
-  hydrate(sessionId: string, state: { world?: WorldState; blueprint?: UIBlueprint }): void {
+  hydrate(sessionId: string, state: { world?: WorldState; blueprint?: UIBlueprint }): { world: boolean; blueprint: boolean } {
     const s = this.session(sessionId);
-    if (state.world) s.world = state.world;
-    if (state.blueprint) {
-      s.blueprint = state.blueprint;
+    // A snapshot was written by whichever build was running then, and comes back unchecked from
+    // storage. One missing field is enough to break the runtime for that session — a world
+    // without its recent events threw inside the significance reflex, failing every ingest — so
+    // what does not parse is refused here and the session keeps what it already had.
+    const world = state.world ? WorldStateSchema.safeParse(state.world) : undefined;
+    const blueprint = state.blueprint ? UIBlueprintSchema.safeParse(state.blueprint) : undefined;
+    if (world?.success) s.world = world.data;
+    if (blueprint?.success) {
+      s.blueprint = blueprint.data;
       // the undo stack described the OLD blueprint — inverses would target ids that may not exist
       s.history = new MorphHistory();
       s.morphMeta = [];
@@ -247,6 +253,7 @@ export class RuntimeCore {
       s.lastMorphAt = undefined;
       s.lastMajorMorphAt = undefined;
     }
+    return { world: world?.success === true, blueprint: blueprint?.success === true };
   }
   canUndo(sessionId: string): boolean {
     return this.sessions.get(sessionId)?.history.canUndo ?? false; // read-only: never creates

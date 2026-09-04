@@ -236,10 +236,16 @@ export class SessionRuntime {
     const memory = reversed.find((s) => s.kind === "memory");
     if (memory) this.core.importMemory(sessionId, memory.data as { preferences?: { key: string; weight: number }[] });
     if (!ui && !world) return null;
-    this.core.hydrate(sessionId, {
+    const taken = this.core.hydrate(sessionId, {
       blueprint: ui?.data as UIBlueprint | undefined,
       world: world?.data as WorldState | undefined,
     });
+    if (!taken.world && !taken.blueprint) {
+      // the snapshots exist but neither survived validation — say nothing was resumed rather
+      // than hand back a fresh body and call it a restoration
+      this.log.warn("resume_snapshot_unusable", { sessionId });
+      return null;
+    }
     const bp = this.core.getBlueprint(sessionId);
     this.emit({ kind: "world_state_changed", sessionId, worldState: this.core.getWorld(sessionId) });
     this.emit({ kind: "ui_patch", sessionId, blueprint: bp });

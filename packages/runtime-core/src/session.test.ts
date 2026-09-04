@@ -123,6 +123,33 @@ describe("hydrate and the history that belonged to the old tree", () => {
     expect(other.getWorld("h2").activeProblems).toEqual([]);
   });
 
+  it("refuses a snapshot that is not a world, and keeps what the session had", async () => {
+    // a snapshot was written by whichever build was running then; one missing field used to
+    // break every later ingest, since the significance reflex reads recentEvents directly
+    const core = createRuntimeCore(makeClock());
+    await core.ingest(ev("h4"));
+    const before = core.getWorld("h4");
+    const broken = { ...before } as Record<string, unknown>;
+    delete broken.recentEvents;
+
+    const taken = core.hydrate("h4", { world: broken as never });
+    expect(taken.world).toBe(false);
+    expect(core.getWorld("h4")).toEqual(before);
+    await expect(core.ingest(ev("h4", "development.server_recovered", "info", "h5"))).resolves.toBeDefined();
+  });
+
+  it("refuses a body that is not a blueprint, and says which halves it took", async () => {
+    const core = createRuntimeCore(makeClock());
+    await core.ingest(ev("h6"));
+    const world = core.getWorld("h6");
+    const body = core.getBlueprint("h6");
+
+    expect(core.hydrate("h6", { blueprint: { ...body, root: { id: "r", type: "NotAComponent" } } as never })).toEqual({ world: false, blueprint: false });
+    expect(core.getBlueprint("h6")).toEqual(body);
+    expect(core.hydrate("h6", { world, blueprint: body })).toEqual({ world: true, blueprint: true });
+    expect(core.hydrate("h6", { world })).toEqual({ world: true, blueprint: false });
+  });
+
   it("takes an empty hydrate as nothing to do", async () => {
     const core = createRuntimeCore(makeClock());
     await core.ingest(ev("h3"));
