@@ -29,14 +29,22 @@ export class CapabilityExecutor {
       };
     }
     try {
-      const result = await cap.execute(input, ctx);
+      const answer = await cap.execute(input, ctx);
+      // A capability that returned nothing recognisable is a broken capability, not a mystery:
+      // reading `ok` off undefined used to put our own type error in the audit as if the
+      // capability had said it.
+      const result: CapabilityResult =
+        answer && typeof answer === "object" && typeof answer.ok === "boolean"
+          ? answer
+          : { ok: false, error: `capability ${capabilityId} did not return a result` };
       return {
         capabilityId,
         result,
         run: { id: runId, capabilityId, startedAt, finishedAt: this.now(), ok: result.ok, error: result.error },
       };
     } catch (err) {
-      const error = (err as Error).message;
+      // it may throw anything at all; a failure with no reason tells the operator nothing
+      const error = (err instanceof Error ? err.message : String(err)) || `capability ${capabilityId} failed without saying why`;
       return {
         capabilityId,
         result: { ok: false, error },

@@ -5,12 +5,23 @@ import type { Capability } from "./types";
 export class CapabilityRegistry {
   private caps = new Map<string, Capability>();
 
-  register(capability: Capability): void {
+  /**
+   * Claim an id for a capability. A second claim on the same id is refused rather than allowed
+   * to replace the first: an id is what a decision plans and what an approval answers for, so
+   * swapping what it means — and what risk it carries — would change what a person consented to.
+   * Discovered tools are the reason this matters; a server can offer the same name twice.
+   */
+  register(capability: Capability): boolean {
+    if (this.caps.has(capability.manifest.id)) return false;
     this.caps.set(capability.manifest.id, capability);
+    return true;
   }
 
-  registerAll(capabilities: Capability[]): void {
-    for (const c of capabilities) this.register(c);
+  /** Register each, returning the ids that were refused because something already held them. */
+  registerAll(capabilities: Capability[]): string[] {
+    const refused: string[] = [];
+    for (const c of capabilities) if (!this.register(c)) refused.push(c.manifest.id);
+    return refused;
   }
 
   get(id: string): Capability | undefined {
