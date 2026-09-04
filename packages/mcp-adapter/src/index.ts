@@ -69,6 +69,25 @@ export function inferRisk(tool: McpToolDescriptor, opts: McpAdapterOptions = {})
   return "external_effect";
 }
 
+/**
+ * One segment of a capability id, with anything that could be mistaken for the separator (or
+ * for a path) escaped. Server ids and tool names both routinely contain dots, and plain
+ * concatenation made server "a.b" tool "c" and server "a" tool "b.c" the same capability —
+ * two different tools, one id, one quietly shadowing the other in the registry along with its
+ * risk. Ordinary names pass through unchanged.
+ */
+export function idSegment(part: string): string {
+  return String(part).replace(/[^A-Za-z0-9_-]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
+}
+
+/** How many tools one server may contribute. Far past any real server; a bound all the same. */
+export const MAX_TOOLS_PER_SERVER = 200;
+
+/** True when a descriptor is something we can actually build a capability from. */
+function isUsableTool(tool: unknown): tool is McpToolDescriptor {
+  return !!tool && typeof tool === "object" && typeof (tool as { name?: unknown }).name === "string" && (tool as { name: string }).name.length > 0;
+}
+
 /** Wrap a single MCP tool as a Capability. MCP specifics stay out of the core runtime. */
 export function mcpToolToCapability(
   tool: McpToolDescriptor,
@@ -76,7 +95,7 @@ export function mcpToolToCapability(
   opts: McpAdapterOptions = {},
 ): Capability {
   const manifest: CapabilityManifest = {
-    id: `mcp.${client.serverId}.${tool.name}`,
+    id: `mcp.${idSegment(client.serverId)}.${idSegment(tool.name)}`,
     name: tool.name,
     description: tool.description ?? `MCP tool ${tool.name} from ${client.serverId}`,
     tags: ["mcp", client.serverId],
@@ -92,7 +111,10 @@ export function mcpToolToCapability(
         const output = await client.callTool(tool.name, input ?? {});
         return { ok: true, output };
       } catch (err) {
-        return { ok: false, error: (err as Error).message };
+        // somebody else's process: it may throw anything at all, and a failure with no reason
+        // tells the operator nothing
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: message || "the MCP server failed without saying why" };
       }
     },
   };
@@ -103,6 +125,19 @@ export async function discoverMcpCapabilities(
   client: McpClient,
   opts: McpAdapterOptions = {},
 ): Promise<Capability[]> {
-  const tools = await client.listTools();
-  return tools.map((t) => mcpToolToCapability(t, client, opts));
+  // An MCP server is somebody else's process. Keeping its specifics out of the core includes
+  // keeping its failures out: a server that cannot be reached, answers with something that is
+  // not a list, or describes a tool without a name contributes nothing rather than taking the
+  // whole discovery down.
+  let tools: unknown;
+  try {
+    tools = await client.listTools();
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(tools)) return [];
+  return tools
+    .filter(isUsableTool)
+    .slice(0, MAX_TOOLS_PER_SERVER)
+    .map((t) => mcpToolToCapability(t, client, opts));
 }
