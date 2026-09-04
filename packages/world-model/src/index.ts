@@ -16,8 +16,18 @@ const PROBLEM_CLOSERS: Record<string, string> = {
   "security.vulnerability_patched": "security_alert",
 };
 
+/** Longest identifier the world state will hold. Anything longer is not an identifier. */
+const MAX_IDENTIFIER = 120;
+
+/**
+ * Every payload string that becomes part of the belief comes through here. The sensors send
+ * identifiers — a path, a host, an action key — but the ingest API accepts whatever a client
+ * posts, and these values are read back out by capabilities, rendered into cards and written to
+ * snapshots. One long enough to be prose is trimmed, visibly.
+ */
 function str(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
+  if (typeof v !== "string") return undefined;
+  return v.length > MAX_IDENTIFIER ? `${v.slice(0, MAX_IDENTIFIER)}…` : v;
 }
 
 function setProcess(
