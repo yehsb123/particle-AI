@@ -26,7 +26,10 @@ export const DEFAULT_INTENT_CONFIG: IntentConfig = {
  * distinct contexts (A B A B A B). Breadth over many entities is "exploring"; this is juggling.
  */
 export function isSwitching(keys: string[], n: number): boolean {
-  if (keys.length < n) return false;
+  // It takes at least two keys to alternate. A window of one shows nothing, and a window of
+  // zero takes the whole history instead of none — slice(-0) is slice(0) — which made an empty
+  // history read as juggling.
+  if (n < 2 || keys.length < n) return false;
   const tail = keys.slice(-n);
   for (let i = 1; i < tail.length; i++) if (tail[i] === tail[i - 1]) return false;
   return new Set(tail).size <= 3;
