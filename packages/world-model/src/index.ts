@@ -25,10 +25,23 @@ const MAX_IDENTIFIER = 120;
  * posts, and these values are read back out by capabilities, rendered into cards and written to
  * snapshots. One long enough to be prose is trimmed, visibly.
  */
+/** A duration in seconds from a payload: a real, non-negative number, or nothing at all. */
+function seconds(v: unknown): number {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function str(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   return v.length > MAX_IDENTIFIER ? `${v.slice(0, MAX_IDENTIFIER)}…` : v;
 }
+
+/**
+ * How many sensors one session tracks. There are three of them — the body, the extension, the
+ * desktop agent — and the name comes from an event payload, so this is a ceiling rather than a
+ * limit anyone should meet.
+ */
+const MAX_SENSORS = 16;
 
 function setProcess(
   processes: ProcessState[] | undefined,
@@ -113,12 +126,12 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
       break;
     }
     case "user.idle": {
-      b.idleSeconds = Number(event.payload.seconds ?? 0) || 0;
+      b.idleSeconds = seconds(event.payload.seconds);
       break;
     }
     case "user.visibility": {
       // { visible: boolean, awaySeconds?: number } — returning after being away
-      if (event.payload.visible === true) b.awaySeconds = Number(event.payload.awaySeconds ?? 0) || 0;
+      if (event.payload.visible === true) b.awaySeconds = seconds(event.payload.awaySeconds);
       else b.awaySeconds = 0;
       break;
     }
@@ -202,8 +215,14 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
         ? (event.payload.layers as unknown[]).filter((l): l is string => typeof l === "string").slice(0, 16)
         : [];
       const sensing = { ...(next.sensing ?? {}) };
-      if (layers.length) sensing[sensor] = layers;
-      else delete sensing[sensor];
+      if (layers.length) {
+        // Assigning by key would set the prototype for a sensor called "__proto__", leaving a
+        // sensing map that looks empty and a world state that fails its own schema — from one
+        // posted event. defineProperty writes an own property whatever the name is.
+        if (Object.hasOwn(sensing, sensor) || Object.keys(sensing).length < MAX_SENSORS) {
+          Object.defineProperty(sensing, sensor, { value: layers, enumerable: true, writable: true, configurable: true });
+        }
+      } else delete sensing[sensor];
       next.sensing = sensing;
       break;
     }
