@@ -34,10 +34,14 @@ export const REGISTRY: Record<ComponentType, ComponentMeta> = Object.fromEntries
   ]),
 ) as Record<ComponentType, ComponentMeta>;
 
+/**
+ * Whether the registry lists this type. Own keys only: `in` walks the prototype chain, so
+ * "toString" and "__proto__" would answer yes and then behave like a component that is not there.
+ */
 export function isKnownComponent(type: string): type is ComponentType {
-  return type in REGISTRY;
+  return Object.hasOwn(REGISTRY, type);
 }
 
 export function isContainer(type: ComponentType): boolean {
-  return REGISTRY[type].container;
+  return isKnownComponent(type) && REGISTRY[type].container;
 }

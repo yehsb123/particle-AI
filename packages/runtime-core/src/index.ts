@@ -110,14 +110,25 @@ type SessionState = {
  * Source format: `capability:<capabilityId>:<field>` — when the capability ran and the field
  * exists on its output, the bound prop is overwritten with live data. Pure (clones the patch).
  */
+/** Prop names that mean something to the language rather than to a component. */
+const UNBINDABLE_PROPS = new Set(["__proto__", "constructor", "prototype"]);
+
 export function resolvePatchBindings(patch: UIPatch, lookup: Map<string, unknown>): UIPatch {
   const next: UIPatch = structuredClone(patch);
   const resolveNode = (node: { bindings?: { prop: string; source: string }[]; props?: Record<string, unknown>; children?: unknown[] }) => {
     for (const b of node.bindings ?? []) {
       const m = /^capability:([^:]+):(.+)$/.exec(b.source);
       if (!m) continue;
-      const output = lookup.get(m[1]!) as Record<string, unknown> | undefined;
-      const value = output?.[m[2]!];
+      // The binding is written by the model, so both halves are read carefully: only the
+      // capability's OWN fields count (asking for `toString` used to hand back a function off
+      // the prototype and put it in props), and a prop named after a language feature is not a
+      // prop — `__proto__` survives a spread but changes an object's prototype under assign.
+      if (UNBINDABLE_PROPS.has(b.prop)) continue;
+      const output = lookup.get(m[1]!);
+      if (typeof output !== "object" || output === null) continue;
+      const field = m[2]!;
+      if (!Object.hasOwn(output, field)) continue;
+      const value = (output as Record<string, unknown>)[field];
       if (value !== undefined) {
         node.props = { ...(node.props ?? {}), [b.prop]: value };
       }
