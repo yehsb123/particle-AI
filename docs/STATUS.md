@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 773 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 795 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A window too small to show alternation is not evidence of it** (2026-09-04): juggling is read
+  from the last few places someone moved between — the window has to alternate and span only a
+  couple of contexts. With a window of one there is nothing to alternate, and with a window of zero
+  the check took the whole history instead of none, since slicing the last nought of a list gives
+  the list; an empty history therefore read as juggling. A window below two is no longer evidence
+  of anything. **Third time that slicing trap has turned up here** (episodic memory returned every
+  episode when asked for none), so it is worth naming: asking for none has to give none. 22 tests —
+  ping-pong between two or three contexts seen while breadth stays exploring and a repeat stays
+  stuck, a full window wanted before deciding, the ladder in order with confidence falling as the
+  reading gets vaguer, thresholds at their exact boundary, a config asking for more patience
+  followed, and every threshold set to zero still producing one honest reading.
+  intent-engine 50, 795 unit/integration total.
 - **One place decides where the body lives** (2026-09-04): the side panel checks whether the body
   is reachable before loading it, and it checked one address while pointing the frame at another —
   the probe was written into the code, the frame's URL into the panel's HTML. That HTML is the only
