@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 639 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 665 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **An identifier that is really a paragraph gets trimmed** (2026-09-04): every payload string that
+  becomes part of the belief goes through one helper, and it took whatever it was handed. Our own
+  sensors send identifiers — a path, a host, an action key — but the ingest API accepts what any
+  client posts, and those values are read back out by capabilities, rendered into context cards and
+  written to snapshots; a 400-character string arrived as an identifier and left as one, blowing out
+  the card that shows it. Anything past 120 characters is trimmed now, visibly, so what the runtime
+  remembers stays the shape it claims to be. 26 tests over the built-in capabilities, whose output
+  is bound straight into components: every one declaring a risk the permission engine understands,
+  only the two that change the world outside sitting above safe_write, every one answering with no
+  world state and with input of the wrong shape entirely — a result or a reason, never an exception
+  — and the workspace reader pinned field by field, from the open-problem count naming kinds rather
+  than prose to the dash that stands in where there is no history.
+  capability-core 41, 665 unit/integration total.
 - **The reason we fell back names the failure, not the endpoint** (2026-09-04): when a provider
   fails, the runtime falls back to a decision it computes itself and records why. That reason code
   is read in the inspector, written to the audit trail and broadcast to every connected client —
