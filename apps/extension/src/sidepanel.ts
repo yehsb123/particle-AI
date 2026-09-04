@@ -2,6 +2,8 @@
  * Side panel shell: shows a hint when the body (web app on :3000) is not reachable, instead of a
  * silent blank panel. Probe only — no content is read. Korean when the browser is Korean.
  */
+import { bodyUrl, probeUrl } from "./panel";
+
 const hint = document.getElementById("offline") as HTMLElement;
 const frame = document.querySelector("iframe") as HTMLIFrameElement;
 
@@ -15,9 +17,7 @@ hint.textContent = TEXT;
 async function bodySrc(): Promise<string> {
   const base = String(frame.dataset.src);
   try {
-    const v = await chrome.storage.sync.get("token");
-    const token = typeof v.token === "string" ? v.token.trim() : "";
-    return token ? `${base}&token=${encodeURIComponent(token)}` : base;
+    return bodyUrl(base, (await chrome.storage.sync.get("token")).token);
   } catch {
     return base;
   }
@@ -26,7 +26,8 @@ async function bodySrc(): Promise<string> {
 let loaded = false;
 async function probe(): Promise<void> {
   try {
-    await fetch("http://localhost:3000/", { mode: "no-cors", cache: "no-store" });
+    // the address lives in one place: whatever the frame is pointed at
+    await fetch(probeUrl(String(frame.dataset.src)), { mode: "no-cors", cache: "no-store" });
     hint.hidden = true;
     if (!loaded) {
       loaded = true;
