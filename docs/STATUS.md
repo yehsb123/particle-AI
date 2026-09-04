@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 889 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 908 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **What someone taught the runtime has a ceiling too** (2026-09-04): a preference key carries the
+  morph intent and its variant, and a variant is a free string the model chooses, so nothing capped
+  that table — it grew for as long as a session lived, in memory, in every snapshot written on
+  every applied morph, and in the browser's own storage, where five thousand keys is a quarter of a
+  megabyte on the way to the quota. The pattern table beside it was given a ceiling earlier in this
+  campaign and this one was missed: the same oversight in the same file. Five hundred now, forgetting
+  the least reinforced first, so a dismissal repeated twenty times survives a flood of one-offs and
+  a snapshot cannot push the table past the ceiling. 19 tests: the ceiling and what survives it,
+  plus the deterministic brain the runtime falls back to — a decision the schema accepts for every
+  situation the runtime meets, the same answer twice for the same situation, tied to the event it
+  answered, saying why in readable words while keeping its thinking to itself, planning only
+  reading, and answering a request that is not a decision without pretending to decide.
+  memory 36, intelligence 59, 908 unit/integration total.
 - **The clock a restored log replays on only moves forward, in the body too** (2026-09-04): the
   body keeps its own log in the browser and replays it on reload, with the morph guard judging each
   step by the saved event's own instant. It followed each timestamp wherever it went, backwards
