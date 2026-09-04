@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 867 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 889 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The clock a restored log replays on only moves forward, in the body too** (2026-09-04): the
+  body keeps its own log in the browser and replays it on reload, with the morph guard judging each
+  step by the saved event's own instant. It followed each timestamp wherever it went, backwards
+  included — and a saved log is in the order events were recorded, while their timestamps came from
+  a clock that can be stepped back by a correction or a machine waking up, so following it back
+  measured negative elapsed time and refused a morph that had gone through: the restored body did
+  not match the one that was saved. The same rule was fixed in the runtime's replay earlier the
+  same day and lived in two places, so the browser side is now a named clock with the rule written
+  down once. 22 tests: the clock real until a replay begins and after it ends, staying put for a
+  timestamp older than the one before, carrying on past one it cannot read; and the rest of the
+  world model — a goal recorded, replaced and kept short enough to be a label, focus given up
+  without pretending someone is typing, the recent-event window keeping the newest while leaving
+  the runtime's own ticks out of it though a tick still moves the clock, and at most one problem of
+  each kind however long a session runs. world-model 72, web unit 58, 889 unit/integration.
 - **A sensor name is a key, and some keys mean something to the language** (2026-09-04): the
   honest-sensing indicator is built from a map keyed by each sensor's own name, and that name
   arrives in an event payload. Assigning by key set the prototype instead of adding an entry when a
