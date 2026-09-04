@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 915 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 926 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Every button in the palette is pressed, and the list of known events is true again**
+  (2026-09-04): the simulation palette is how anyone without a broken service of their own sees the
+  runtime work, and each key is a button that nothing exercised — a key that stopped answering
+  would have been a dead button found by whoever was demonstrating. All of them now go through the
+  real endpoint. Writing that turned up a stale export: the list of event types the runtime knows
+  named sixteen while the world model reduces a dozen more it had never heard of — traffic shape,
+  the security pair, what each sensor watches, the reconcile tick, and everything the behaviour
+  layer reads. Nothing consumed the list, which is how it drifted; it now names what the runtime
+  actually reads and says plainly that the vocabulary stays open. 11 tests: every key answering
+  with a valid event, an undefined key refused without creating the session it was aimed at, the
+  incident story reshaping the body and putting it back, the security story gating its remediation,
+  failing traffic read as shape and cleared on recovery, and each simulated session kept apart.
+  **Also swept: the reads that hand back shared objects** — the ones carrying authority or learning
+  already return copies, and the rest are read-only views of append-only records no caller mutates.
+  runtime app 76, 926 unit/integration total.
 - **A plan waiting for consent goes when the question does** (2026-09-04): a capability the runtime
   may not run on its own waits in two places — the approval record a person will answer, and the
   plan itself, which capability with which input, held until they do. The approval store was given
