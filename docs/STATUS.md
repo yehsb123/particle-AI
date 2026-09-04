@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 665 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 677 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A decision is final, a record is a copy, and the store has a ceiling** (2026-09-04): an approval
+  is a person's answer to "may I do this?" and the only thing standing in front of an action that
+  changes the world outside the runtime. Three things were wrong with how they were kept. A decided
+  request could be decided again in either direction — a refusal turned into consent by calling
+  approve on it; the server path happens to delete a rejected record, so this was not reachable
+  through the API today, but that is a coincidence of the caller, not a property of the store. Only
+  a pending request can be decided now. Reads handed out the stored objects themselves, so anyone
+  holding a listing could rewrite a permission record in place; `create`, `get` and `list` all
+  return copies. And nothing ever removed an approved request, so the store grew for the life of a
+  process that runs for weeks while the per-session listing scanned all of it — it holds 500 now,
+  forgetting an answered request before an unanswered one, since a pending approval is a question
+  nobody has answered yet. 12 tests over that lifecycle, and the existing matrix suite updated: it
+  asserted that a later decision overwrites an earlier one, which is the behaviour being removed.
+  permission-engine 29, 677 unit/integration total.
 - **An identifier that is really a paragraph gets trimmed** (2026-09-04): every payload string that
   becomes part of the belief goes through one helper, and it took whatever it was handed. Our own
   sensors send identifiers — a path, a host, an action key — but the ingest API accepts what any
