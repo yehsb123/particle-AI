@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 751 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 773 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **One place decides where the body lives** (2026-09-04): the side panel checks whether the body
+  is reachable before loading it, and it checked one address while pointing the frame at another —
+  the probe was written into the code, the frame's URL into the panel's HTML. That HTML is the only
+  knob a person has, so running the body on another port left the panel saying "not reachable"
+  forever, since loading is gated on a check that never succeeds. The probe now uses the origin of
+  whatever the frame points at. Passing the runtime token to the body moved next to it (the body's
+  page cannot read extension storage): trimmed before deciding whether there is one, escaped so a
+  token cannot add query parameters of its own, joined with a question mark when there is no query
+  yet. 22 tests: that addressing, plus the rest of the shared vocabulary — what a capability
+  declares and answers with, the three states an approval can be in and nothing else, an audit
+  record tied to a session and a readable moment while its detail stays open, attention assuming
+  nobody is typing until told, and a request to a brain naming what it is for.
+  extension 50, contracts 38, 773 unit/integration total.
 - **The replay clock only ever moves forward** (2026-09-04): replay judges a log by the timestamps
   in it, so the timing guards see the gaps they saw live instead of collapsing minutes into
   microseconds. But a log is in the order the runtime received events, while each timestamp comes
