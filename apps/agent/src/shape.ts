@@ -13,13 +13,23 @@ export function relPath(root: string, abs: string): string {
   return relative(root, abs).split(sep).join("/").replace(/\\/g, "/");
 }
 
+/** A path that is not plainly relative to the watched root: absolute, rooted, or climbing out. */
+function escapesRoot(rel: string): boolean {
+  // `path.relative` between two different Windows drives hands back the absolute target, so a
+  // file on another drive would otherwise leave here spelled "D:/somewhere/private.txt".
+  return rel.startsWith("..") || rel.startsWith("/") || rel.startsWith("\\") || /^[a-zA-Z]:/.test(rel);
+}
+
 export function isIgnored(rel: string): boolean {
-  if (!rel || rel.startsWith("..")) return true;
+  if (!rel || escapesRoot(rel)) return true;
   const parts = rel.split("/");
   if (parts.some((p) => IGNORED_SEGMENTS.has(p))) return true;
+  // A dot directory anywhere in the path is configuration, not work — .ssh, .aws and .vscode
+  // are nobody's business, and the name alone would say what someone was editing.
+  if (parts.some((p) => p.startsWith("."))) return true;
   const base = parts[parts.length - 1] ?? "";
   // editor temp/swap files and lockfiles are not "the user working on something"
-  return base.startsWith(".") || base.endsWith("~") || base.endsWith(".swp") || base.endsWith(".tmp") || base.endsWith(".lock");
+  return base.endsWith("~") || base.endsWith(".swp") || base.endsWith(".tmp") || base.endsWith(".lock");
 }
 
 /**
