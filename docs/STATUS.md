@@ -11,8 +11,8 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1226 unit/integration tests,
-15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
+Everything is event-sourced and replays deterministically. Verified by 1236 unit/integration tests,
+16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
   (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The runtime asks every body watching, not only the one that caused the question**
+  (2026-09-05): writing the end-to-end test for the decided-approval broadcast is what showed the
+  other half was missing. Only the body whose own event caused an approval learned it was pending,
+  from the answer to that call; every other body on the session got the presence frame — which has
+  always gone to all of them — so it showed a runtime waiting for approval with nothing on screen
+  to answer it with. Four frames go out on an ingest that needs consent and not one carried the
+  question. `approval_asked` goes out with the presence now, and the two doors an approval arrives
+  through — the answer to the call that caused it, and the socket frame to everyone else — check it
+  through one parser rather than one each. The E2E is the flow itself: one session in two bodies,
+  the second asked without having sent anything, and answering in either clearing the card in both
+  — the first spec here to drive two pages at once. The event log stores bound by writes the way
+  the snapshot store did, but they are not the same problem: an event log is read in full, so
+  keeping only the newest would be wrong, and nothing replays from the runtime store today.
+  23 tests. 1236 unit/integration total.
 - **Snapshots keep what a resume reads, and nothing else** (2026-09-05): every ingest writes
   three snapshots — world, body, memory — and a resume reads exactly one of each, the most recent.
   Both stores kept every one ever written. In memory that meant a single busy session filled the
