@@ -26,6 +26,22 @@ const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
  * posts, and these values are read back out by capabilities, rendered into cards and written to
  * snapshots. One long enough to be prose is trimmed, visibly.
  */
+/**
+ * How much one report may add to a count. Both sensors batch: they watch for ten seconds and
+ * send how many times something happened. A window with more than this in it is not a person,
+ * and the ingest API takes whatever a client posts.
+ */
+const MAX_PER_REPORT = 10_000;
+
+/** A count from a payload: a whole non-negative number, bounded, or one where none was given. */
+function howMany(v: unknown): number {
+  if (v === undefined) return 1; // a sender that reports an occurrence rather than a batch
+  // a number, not something that can be read as one: Number(true) is 1 and Number("5") is 5, and
+  // neither is a count anybody sent. The sensors check the same way before they send.
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return 0;
+  return Math.min(Math.floor(v), MAX_PER_REPORT);
+}
+
 /** A duration in seconds from a payload: a real, non-negative number, or nothing at all. */
 function seconds(v: unknown): number {
   const n = Number(v ?? 0);
@@ -122,8 +138,11 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
   const b = { ...prev.behavior, recentEntities: [...prev.behavior.recentEntities], recentKeys: [...(prev.behavior.recentKeys ?? [])] };
   switch (event.type) {
     case "user.interaction": {
-      // { kind: click|scroll|hover|key, target? } — shape only, never content
-      b.interactions += 1;
+      // { count } — how many times something happened in the window, never what. Both sensors
+      // batch a window and send its count; this used to add one per report however many it
+      // carried, so a person clicking two hundred times looked exactly like one who clicked once.
+      // The comment here described a payload of a single interaction that no sensor has ever sent.
+      b.interactions += howMany(event.payload.count);
       b.lastInteractionAt = event.timestamp;
       b.idleSeconds = 0;
       b.awaySeconds = 0;
