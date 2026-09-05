@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1315 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1328 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **An intent nobody has words for is still shown, readably** (2026-09-05): sweeping the closed
+  vocabularies for the shape the presence had — a list in the contracts, a door that does not check
+  it, a body that looks the value up by name — left intent. Three places show it (the presence
+  popover, the inspector, and the row for every other session this runtime senses) and each
+  printed whatever the lookup returned, so a label with no words came back as the key with its
+  prefix on: a session whose runtime had inferred something newer read `intent_thinking` in the
+  rail. An empty string was kept as an intent and a three hundred character label rendered whole.
+  The label stays open, the opposite call from the presence beside it, and the difference is what
+  they are: a presence is a fixed state the body draws a styled dot for, so one it does not know is
+  refused at the door, while an intent is something a runtime worked out about a person and a newer
+  one may have worked out something this build never heard of. It goes through the same describe
+  helper the sensors and hold reasons use — words when there are words, the name itself when there
+  are none, bounded either way. `INTENT_LABELS` and its schema were used by nothing; they close
+  what *this* engine may say, proven across every rung of the ladder and every retuning of its
+  thresholds. 20 tests. 1328 unit/integration total.
 - **What the AI is doing is one list** (2026-09-05): the body shows the AI's presence as a dot
   with a word beside it, looked up by the state's own name, so a state it has no translation for
   is printed as itself. The runtime declared that union in the file where it decides the next one,
