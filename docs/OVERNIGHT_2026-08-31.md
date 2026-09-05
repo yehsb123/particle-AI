@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1167 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
+Every commit is green (typecheck 0 · 1177 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1167 unit/integration tests · 15 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Every answer from the runtime is parsed**: the blueprint the body draws on connect goes through the same gate as everything else, so a build mismatch or an error body no longer blanks the interface
 - **The session rail holds together**: the summary shape lives in the contracts, the listing is parsed leniently so a session never vanishes from it, and a link to another session keeps the token the page is using
 - **Sensors send shapes**: names from git, the OS watcher and the URL bar are bounded and stripped of control characters before leaving the machine, and again on the way into the belief
 - **The body reads the policy, and parses what the server sends**: risk badges and level descriptions are built from the permission policy rather than restated beside it; the event answer is parsed at the boundary instead of cast

@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1167 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1177 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The body the runtime already has goes through the gate** (2026-09-05): switching to
+  connected mode asks the runtime what this session already looks like and draws the answer,
+  before any event arrives — and that answer was cast straight into the renderer. The blueprint
+  schema exists to stand in front of the renderer, and pins its version on purpose so a blueprint
+  written by another build is refused rather than drawn under this build's assumptions; this one
+  call went past it, and a build with a different component registry drew fine. An answer that is
+  not a blueprint is also not an empty body: the renderer reads the root of whatever it is handed,
+  so an error body, an older shape, or a plain null threw inside the render and blanked the whole
+  interface. `parseBlueprint` is the gate now, and the caller tells the two failures apart — a
+  runtime that cannot be reached and one that answered with something unreadable are different
+  things, and neither is a reason to throw away the body already on screen, since the socket may
+  still bring a patch that reads fine. That was the last cast answer in the client. 10 tests.
+  1177 unit/integration total.
 - **The session rail: one shape, a parsed listing, and a link that keeps working** (2026-09-05):
   the rail in one session's body lists the other sessions this runtime senses and links to each.
   Its shape was declared twice — the return type of `listSessions`, and a cast in the body — so a
