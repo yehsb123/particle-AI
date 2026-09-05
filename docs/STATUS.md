@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1364 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1366 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,17 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The gate had a second walk that recursed, and CI found it** (2026-09-06): both commits above
+  went red. The measurement in front of the schema was working — a component parsed to a refusal —
+  but the blueprint still threw, and only on CI. The difference was stack budget, which is the
+  tell: the blueprint's duplicate-id check runs on the root it was handed, and a field that failed
+  still hands it one, so a five thousand deep tree went into a recursive id walk after the
+  measurement had already refused it. There was enough stack here for five thousand frames and
+  there is not on a Linux runner. Reproduced locally by running the probe with a smaller stack,
+  which is what should have come before pushing a change whose whole subject is the stack. That
+  walk is iterative now and takes raw data as readily as a component, because raw data is what a
+  failed parse hands it. The first version of the test copied the walker into the test file and
+  asserted the copy worked; it goes through the exported check instead. 2 tests on top of the 14.
 - **The gate refuses a tree instead of dying on it** (2026-09-06): the blueprint schema is the
   gate in front of the renderer and it is recursive, so validating a tree walks it with the call
   stack — a five thousand deep tree made `safeParse` itself raise "Maximum call stack size
