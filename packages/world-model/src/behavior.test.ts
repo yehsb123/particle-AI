@@ -138,7 +138,17 @@ describe("traffic, as shape", () => {
     const w = fold([request({ host: 42, status: "503", ms: "slow" }, "n1"), request({}, "n2")]);
     expect(valid(w)).toBe(true);
     expect(w.behavior.network.requests).toBe(2);
-    expect(w.behavior.network.failingHosts).toEqual(["unknown"]);
+    // The request is still counted — that it happened is shape. But a status of "503" is not a
+    // status: it used to be read as one, and a host marked failing is what reshapes the body
+    // around a connection view, so a wrong-shaped payload could invent an incident nobody had.
+    expect(w.behavior.network.failingHosts).toEqual([]);
+    expect(w.behavior.network.failures).toBe(0);
+  });
+
+  it("reads a real failure exactly as before", () => {
+    const w = fold([request({ host: "api.example.com", status: 503, ms: 1800 }, "n3")]);
+    expect(w.behavior.network.failingHosts).toEqual(["api.example.com"]);
+    expect(w.behavior.network.failures).toBe(1);
   });
 });
 

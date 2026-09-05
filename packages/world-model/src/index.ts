@@ -33,19 +33,29 @@ const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
  */
 const MAX_PER_REPORT = 10_000;
 
+/**
+ * A number from a payload, or nothing.
+ *
+ * Number() reads true as 1, "300" as three hundred and [503] as five hundred and three, and none
+ * of those is a number anybody sent. It matters most where the belief acts on the value: a status
+ * of [503] used to mark a host as failing, and a failing host is what reshapes the body around a
+ * connection view — an incident nobody had. Every sensor checks the same way before it sends.
+ */
+function num(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
 /** A count from a payload: a whole non-negative number, bounded, or one where none was given. */
 function howMany(v: unknown): number {
   if (v === undefined) return 1; // a sender that reports an occurrence rather than a batch
-  // a number, not something that can be read as one: Number(true) is 1 and Number("5") is 5, and
-  // neither is a count anybody sent. The sensors check the same way before they send.
-  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return 0;
-  return Math.min(Math.floor(v), MAX_PER_REPORT);
+  const n = num(v);
+  return n === undefined || n < 0 ? 0 : Math.min(Math.floor(n), MAX_PER_REPORT);
 }
 
 /** A duration in seconds from a payload: a real, non-negative number, or nothing at all. */
 function seconds(v: unknown): number {
-  const n = Number(v ?? 0);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  const n = num(v);
+  return n !== undefined && n > 0 ? n : 0;
 }
 
 function str(v: unknown): string | undefined {
@@ -186,8 +196,8 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
     case "network.request": {
       // L2 shape: { host, status?, ms?, error? } — never URL path/query/body
       const host = str(event.payload.host) ?? "unknown";
-      const status = Number(event.payload.status ?? 0) || 0;
-      const ms = Number(event.payload.ms ?? 0) || 0;
+      const status = num(event.payload.status) ?? 0;
+      const ms = num(event.payload.ms) ?? 0;
       const failed = event.payload.error === true || status >= 500;
       const net = { ...b.network, failingHosts: [...b.network.failingHosts] };
       net.requests += 1;
