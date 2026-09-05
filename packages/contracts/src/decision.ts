@@ -1,15 +1,42 @@
 import { z } from "zod";
-import { AutonomyLevel, Confidence, RiskLevel } from "./common";
+import { AutonomyLevel, Confidence, MAX_IDENTIFIER, RiskLevel } from "./common";
+
+/**
+ * How many capabilities one decision may ask for.
+ *
+ * A plan is a handful; the runtime executes them one after another. Five hundred of them is a
+ * model that has run away, and running them is worse than not.
+ */
+export const MAX_PLANNED_CAPABILITIES = 16;
+
+/** Every control character except the newline a wrapped sentence has. */
+const CONTROL_CHARACTERS = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g;
+
+/**
+ * A name a model wrote: a capability to run, a layout to show, a mode to be in.
+ *
+ * These are names, not prose. Each ends up somewhere that keeps it — a preference key that is
+ * stored and snapshotted, a mode written into the blueprint, a line the body renders — and the
+ * schema asked only that they not be empty, so a model could write fifty thousand characters, or
+ * an escape sequence, into any of them. Trimmed and cleaned the way every other identifier the
+ * runtime takes already is.
+ */
+const ModelName = z
+  .string()
+  .min(1)
+  .transform((s) => s.replace(CONTROL_CHARACTERS, "").trim())
+  .refine((s) => s.length > 0, "a name needs something in it")
+  .transform((s) => (s.length > MAX_IDENTIFIER ? `${s.slice(0, MAX_IDENTIFIER)}…` : s));
 
 /** A capability the decision wants executed, by id, with optional input. */
 export const PlannedCapability = z.object({
-  capabilityId: z.string().min(1),
+  capabilityId: ModelName,
   input: z.record(z.unknown()).optional(),
 });
 export type PlannedCapability = z.infer<typeof PlannedCapability>;
 
 export const CapabilityPlan = z.object({
-  capabilities: z.array(PlannedCapability),
+  capabilities: z.array(PlannedCapability).max(MAX_PLANNED_CAPABILITIES),
 });
 export type CapabilityPlan = z.infer<typeof CapabilityPlan>;
 
@@ -26,8 +53,6 @@ export type CapabilityPlan = z.infer<typeof CapabilityPlan>;
  * characters, so this is room for several sentences and no room for a page.
  */
 export const MAX_REASON_SUMMARY = 600;
-
-const CONTROL_CHARACTERS = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g;
 
 /**
  * A reason as it will be shown: trimmed to a length someone reads, with the characters that are
@@ -50,17 +75,17 @@ export type UIMorphIntent = z.infer<typeof UIMorphIntent>;
 
 export const UIMorphPlan = z.object({
   intent: UIMorphIntent,
-  targetMode: z.string().min(1),
+  targetMode: ModelName,
   confidence: Confidence,
   // never empty: a decision nobody can read is not auditable, and the body shows this as "why"
   reasonSummary: ReasonSummary,
   /** which incident layout to surface, e.g. "runtime_error" | "build_failure" | "test_failure" */
-  variant: z.string().optional(),
+  variant: ModelName.optional(),
 });
 export type UIMorphPlan = z.infer<typeof UIMorphPlan>;
 
 export const ActionPlan = z.object({
-  actions: z.array(PlannedCapability),
+  actions: z.array(PlannedCapability).max(MAX_PLANNED_CAPABILITIES),
 });
 export type ActionPlan = z.infer<typeof ActionPlan>;
 
