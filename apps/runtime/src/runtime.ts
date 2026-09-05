@@ -17,6 +17,16 @@ export type { RuntimeMessage, RuntimeListener };
 export class SessionRuntime {
   readonly store = new EventStore();
   readonly audit = new AuditLog();
+  /**
+   * Audit records identify themselves, and the trail is read by id: the inspector draws one row
+   * per record keyed by it. Two reversals in the same millisecond were the same record as far as
+   * anything reading could tell, and a multi-step "go back" makes exactly that. A count never
+   * repeats within a process, which is as far as one trail reaches.
+   */
+  private auditSeq = 0;
+  private auditId(kind: string): string {
+    return `aud-${kind}-${++this.auditSeq}`;
+  }
   readonly traces = new TraceStore();
   private readonly log = createLogger((process.env.DM_LOG_LEVEL as LogLevel) ?? "info");
   core: RuntimeCore;
@@ -176,7 +186,7 @@ export class SessionRuntime {
   undo(sessionId: string, opts: { componentId?: string; learn?: boolean } = {}): UIBlueprint | null {
     const bp = this.core.undo(sessionId, opts);
     if (bp) {
-      this.audit.append({ id: `aud-undo-${Date.now()}`, at: this.now(), sessionId, kind: "morph_undone", detail: { componentId: opts.componentId ?? null, learn: opts.learn ?? true } });
+      this.audit.append({ id: this.auditId("undo"), at: this.now(), sessionId, kind: "morph_undone", detail: { componentId: opts.componentId ?? null, learn: opts.learn ?? true } });
       this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
       this.persistReversal(sessionId, bp);
     }
@@ -198,7 +208,7 @@ export class SessionRuntime {
   redo(sessionId: string): UIBlueprint | null {
     const bp = this.core.redo(sessionId);
     if (bp) {
-      this.audit.append({ id: `aud-redo-${Date.now()}`, at: this.now(), sessionId, kind: "morph_redone", detail: {} });
+      this.audit.append({ id: this.auditId("redo"), at: this.now(), sessionId, kind: "morph_redone", detail: {} });
       this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
       this.persistReversal(sessionId, bp);
     }
@@ -256,6 +266,17 @@ export class SessionRuntime {
       return null;
     }
     const bp = this.core.getBlueprint(sessionId);
+    // Undo and redo, its siblings, have always written to the trail. A resume replaces what the
+    // runtime believes and what the body shows with something an earlier process wrote, and left
+    // no mark at all — so a reader of the trail could not tell that the body above them came off
+    // a disk rather than out of the events listed under it.
+    this.audit.append({
+      id: this.auditId("resume"),
+      at: this.now(),
+      sessionId,
+      kind: "session_resumed",
+      detail: { world: !!taken.world, blueprint: !!taken.blueprint, memory: !!memory },
+    });
     this.emit({ kind: "world_state_changed", sessionId, worldState: this.core.getWorld(sessionId) });
     this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
     return bp;
