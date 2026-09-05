@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildServer } from "./server";
-import { SIM_EVENTS } from "./sim";
-import { MatterEvent, KNOWN_EVENT_TYPES } from "@particle/contracts";
+import { MatterEvent, KNOWN_EVENT_TYPES, SIM_EVENTS, simEvent } from "@particle/contracts";
 
 /**
  * The simulation palette is how anyone without a broken service of their own sees the runtime
@@ -20,7 +19,7 @@ afterAll(async () => {
   await app.close();
 });
 
-const keys = Object.keys(SIM_EVENTS);
+const keys = SIM_EVENTS.map((s) => s.key);
 
 describe("the palette itself", () => {
   it("offers something to simulate", () => {
@@ -28,7 +27,7 @@ describe("the palette itself", () => {
   });
 
   it("gives every key a label, a type and a severity", () => {
-    for (const [key, spec] of Object.entries(SIM_EVENTS)) {
+    for (const { key, ...spec } of SIM_EVENTS) {
       expect(spec.label.length, key).toBeGreaterThan(0);
       expect(spec.type.length, key).toBeGreaterThan(0);
       expect(["debug", "info", "notice", "warning", "critical"], key).toContain(spec.severity);
@@ -44,13 +43,13 @@ describe("the palette itself", () => {
 
   it("names event types the runtime actually knows", () => {
     const known = new Set<string>(KNOWN_EVENT_TYPES);
-    for (const [key, spec] of Object.entries(SIM_EVENTS)) {
+    for (const { key, ...spec } of SIM_EVENTS) {
       expect(known.has(spec.type), `${key} -> ${spec.type}`).toBe(true);
     }
   });
 
   it("can tell a story: something breaks, and something recovers", () => {
-    const types = Object.values(SIM_EVENTS).map((s) => s.type);
+    const types = SIM_EVENTS.map((s) => s.type);
     expect(types).toContain("development.server_error");
     expect(types).toContain("development.server_recovered");
     expect(types).toContain("security.vulnerability_detected");
@@ -65,7 +64,7 @@ describe("every button in the palette works", () => {
       expect(r.statusCode, key).toBe(200);
       const body = JSON.parse(r.body);
       expect(MatterEvent.safeParse(body.event).success, key).toBe(true);
-      expect(body.event.type, key).toBe(SIM_EVENTS[key]!.type);
+      expect(body.event.type, key).toBe(simEvent(key)!.type);
       expect(body.worldState.sessionId, key).toBe(`sim-${key}`);
     }
   });
@@ -76,6 +75,30 @@ describe("every button in the palette works", () => {
     expect(JSON.parse(r.body).error).toContain("no-such-key");
     const sessions = JSON.parse((await app.inject({ method: "GET", url: "/api/sessions" })).body).sessions;
     expect(sessions.some((s: { sessionId: string }) => s.sessionId === "sim-unknown")).toBe(false);
+  });
+
+  it("refuses a key that is a property of every object, the same way", async () => {
+    // the palette was an object and the key comes off the URL, so `toString` answered with
+    // something truthy that was not an event: the person got a complaint about their request
+    // instead of being told there is no such button
+    for (const key of ["toString", "constructor", "__proto__", "valueOf", "hasOwnProperty"]) {
+      const r = await app.inject({ method: "POST", url: `/api/sim/sim-proto/${key}` });
+      expect(r.statusCode, key).toBe(404);
+      expect(JSON.parse(r.body).error, key).toContain("unknown sim event");
+    }
+    const sessions = JSON.parse((await app.inject({ method: "GET", url: "/api/sessions" })).body).sessions;
+    expect(sessions.some((s: { sessionId: string }) => s.sessionId === "sim-proto")).toBe(false);
+  });
+
+  it("refuses a long key without handing it back whole", async () => {
+    // a key long enough still reaches this route; past roughly 200 characters the framework
+    // refuses the URI itself before the route runs, which is its answer to give, not ours
+    for (const length of [60, 100]) {
+      const r = await app.inject({ method: "POST", url: `/api/sim/sim-long/${"k".repeat(length)}` });
+      expect(r.statusCode, String(length)).toBe(404);
+      expect(r.body.includes("k".repeat(length)), String(length)).toBe(false);
+      expect(JSON.parse(r.body).error, String(length)).toContain("unknown sim event");
+    }
   });
 
   it("reshapes the body for the incident, and puts it back on recovery", async () => {

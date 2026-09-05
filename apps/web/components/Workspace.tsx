@@ -12,7 +12,7 @@ import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
-import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
+import { SIM_EVENTS, buildSimEvent as buildEvent, type SimSpec } from "@particle/contracts";
 import { RuntimeClient, sessionHref, type ServerMessage } from "../lib/runtimeClient";
 import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
 

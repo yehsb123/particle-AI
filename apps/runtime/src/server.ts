@@ -3,7 +3,7 @@ import websocket from "@fastify/websocket";
 import { createPersistence, type Persistence } from "@particle/persistence";
 import { describeProviders } from "@particle/intelligence";
 import { SessionRuntime } from "./runtime";
-import { SIM_EVENTS } from "./sim";
+import { SIM_EVENTS, simEvent, buildSimEvent } from "@particle/contracts";
 
 export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence };
 
@@ -116,24 +116,18 @@ export async function buildServer(): Promise<BuildResult> {
   app.get<{ Params: { id: string } }>("/api/sessions/:id/snapshots", async (req) => ({ snapshots: await persistence.snapshots.list(req.params.id) }));
 
   app.get("/api/sim", async () => ({
-    events: Object.entries(SIM_EVENTS).map(([key, s]) => ({ key, label: s.label, type: s.type })),
+    events: SIM_EVENTS.map((s) => ({ key: s.key, label: s.label, type: s.type })),
   }));
 
   app.post<{ Params: { id: string; key: string } }>("/api/sim/:id/:key", async (req, reply) => {
-    const spec = SIM_EVENTS[req.params.key];
+    const spec = simEvent(req.params.key);
     if (!spec) {
       reply.code(404);
-      return { error: `unknown sim event: ${req.params.key}` };
+      return { error: `unknown sim event: ${String(req.params.key).slice(0, 40)}` };
     }
-    const { event, result } = await runtime.ingest({
-      id: crypto.randomUUID(),
-      sessionId: req.params.id,
-      timestamp: isoNow(),
-      source: spec.source,
-      type: spec.type,
-      severity: spec.severity,
-      payload: spec.payload ?? {},
-    });
+    const { event, result } = await runtime.ingest(
+      buildSimEvent(spec, req.params.id, crypto.randomUUID(), isoNow()),
+    );
     return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
   });
 

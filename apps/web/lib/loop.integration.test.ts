@@ -4,7 +4,7 @@ import { developmentBlueprint } from "@particle/ui-registry";
 import { applyPatch, guardPatch, MorphHistory, DEFAULT_MORPH_POLICY } from "@particle/morph-engine";
 import { findById } from "@particle/ui-protocol";
 import { decide } from "./decide";
-import { buildEvent, SIM_EVENTS } from "./sim";
+import { buildSimEvent as buildEvent, SIM_EVENTS } from "@particle/contracts";
 
 const NOW = "2026-08-19T00:00:00Z";
 
