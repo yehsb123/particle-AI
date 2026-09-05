@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1245 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1253 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The belief counts the interactions the sensors counted** (2026-09-05): both sensors batch —
+  the body and the extension each watch a ten-second window, count how many times something
+  happened in it, never what, and send that count. The belief added one per report however many it
+  carried, so a person clicking two hundred times in a window looked exactly like one who clicked
+  once, and the counting both sensors do was thrown away on arrival. The comment on that branch
+  described a payload of a single interaction, `{ kind, target }`, that no sensor has ever sent,
+  which is what made the increment look right. The count is bounded on the way in at ten thousand
+  per report, and a report with no count still counts as one so a sender that reports each
+  interaction as it happens is read the way it means. Worth saying plainly: nothing reads this
+  number today — the inspector shows context, problems, environment, attention and autonomy, not
+  behavior — so this is the belief being accurate about what it was told, not a bug anyone could
+  see. The content script was checked and left alone: it sends only its own counters and the
+  hostname, never anything read from the page, and the background rebuilds every relayed payload
+  from scratch against a whitelist of kinds. 8 tests. 1253 unit/integration total.
 - **A logger that cannot fail its caller, and traces a neighbour cannot take** (2026-09-05): the
   logger threw on a field it could not serialise — a circular object, a bigint — and a logger is
   called from inside catch blocks, so the runtime reporting a snapshot that failed to save would

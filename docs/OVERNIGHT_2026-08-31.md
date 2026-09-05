@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1245 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1253 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1245 unit/integration tests · 16 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Sensing arrives intact**: a batched interaction count reaches the belief as the number the sensor counted, bounded on the way in, instead of being flattened to one per report
 - **Observability holds up under its own failures**: the logger never throws at the caller that is already handling a problem, and each session keeps its own trace ring so a busy neighbour cannot empty the inspector
 - **Consent reaches every body**: the question goes out with the presence that says the runtime is waiting, so a second tab or the side panel can answer it, proven end to end with two pages on one session
 - **Snapshots are what a resume reads**: the latest of each kind per session in both backends, so a busy session can no longer empty a quiet one and leave it unable to come back
