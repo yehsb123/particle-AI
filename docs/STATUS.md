@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1366 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1376 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The belief remembers a shape, and that list travels three ways** (2026-09-06): the belief
+  holds a short list of recent events so the runtime can tell a repeat from a novelty, and it kept
+  each one whole. That list goes to every body watching the session on every change, into every
+  snapshot, and into the context of every prompt a provider is given, since the decision engine
+  hands the whole world state over as JSON — thirty events carrying a hundred kilobytes each made
+  a three megabyte belief, sent all three ways. Nothing read those payloads: the significance
+  reflex counts how many recent events share a type and the body labels the last one, and that is
+  every reader there is. What is kept is now what a payload is meant to be — a path, a host, a
+  status — with names held to the length every other identifier is, control characters out, and a
+  handful of fields rather than a thousand; anything nested or listed is content rather than shape.
+  Three megabytes became nine kilobytes, and the identifiers beside a blob survive rather than the
+  whole payload being dropped. The event log keeps events whole, so a replay still has everything.
+  The other recursive tree walks were swept and left alone: the morph engine, the renderer and
+  ui-protocol all walk validated trees, now a hundred deep at most. 10 tests.
+  1376 unit/integration total.
 - **The gate had a second walk that recursed, and CI found it** (2026-09-06): both commits above
   went red. The measurement in front of the schema was working — a component parsed to a refusal —
   but the blueprint still threw, and only on CI. The difference was stack budget, which is the
