@@ -42,6 +42,17 @@ export const SEVERITY_RANK: Record<Severity, number> = {
 export const MAX_IDENTIFIER = 120;
 
 /**
+ * How many fields of an event's payload the belief keeps.
+ *
+ * The belief holds a short list of recent events so the runtime can tell a repeat from a novelty.
+ * It kept each one whole, and that list is sent to every body watching the session on every
+ * change, written into every snapshot, and serialised into every prompt a provider is given —
+ * so one noisy sender's payloads rode along in all three. A payload is meant to be shape: a path,
+ * a host, a status. This is far past any of that.
+ */
+export const MAX_PAYLOAD_FIELDS = 24;
+
+/**
  * What a capability can do to the world outside the runtime, from least to most. The order is
  * the order: the permission engine decides what runs on its own by how far down this list a
  * capability sits, and the body names each of them to the person being asked to allow one.
