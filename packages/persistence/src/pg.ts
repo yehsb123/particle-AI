@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, lt } from "drizzle-orm";
 import type { MatterEvent } from "@particle/contracts";
 import { events, snapshots } from "./schema";
 import type { EventLogStore, Snapshot, SnapshotStore } from "./index";
@@ -53,13 +53,27 @@ export class PgEventLogStore implements EventLogStore {
 
 export class PgSnapshotStore implements SnapshotStore {
   constructor(private readonly db: PostgresJsDatabase) {}
+  /**
+   * Keep the latest of each kind for a session and drop what it replaces.
+   *
+   * A resume reads one snapshot per kind, and this table had no bound at all: three rows per
+   * ingest, kept forever, and every one of them read back on every resume. Deleting by id rather
+   * than by timestamp means two saves in the same instant still leave exactly one row.
+   */
   async save(snapshot: Snapshot): Promise<void> {
-    await this.db.insert(snapshots).values({
-      sessionId: snapshot.sessionId,
-      kind: snapshot.kind,
-      at: snapshot.at,
-      data: snapshot.data,
-    });
+    const [inserted] = await this.db
+      .insert(snapshots)
+      .values({
+        sessionId: snapshot.sessionId,
+        kind: snapshot.kind,
+        at: snapshot.at,
+        data: snapshot.data,
+      })
+      .returning({ id: snapshots.id });
+    if (!inserted) return;
+    await this.db
+      .delete(snapshots)
+      .where(and(eq(snapshots.sessionId, snapshot.sessionId), eq(snapshots.kind, snapshot.kind), lt(snapshots.id, inserted.id)));
   }
   async list(sessionId: string, kind?: string): Promise<Snapshot[]> {
     const where = kind

@@ -4,9 +4,11 @@ import type { MatterEvent } from "@particle/contracts";
 
 /**
  * Resume reads these stores back after a restart: it takes the newest snapshot of each kind by
- * walking the list from the end, which only works if the store hands them back in the order they
- * were saved. That contract, and the bounds that keep a long run from growing forever, are what
- * this file pins.
+ * walking the list from the end. It reads exactly one of each kind, and the store used to keep
+ * every one ever written — three per ingest — so a single busy session filled it and pushed out
+ * the snapshots of every quiet session beside it, which then resumed to nothing. What the store
+ * keeps is now what a resume reads: the latest of each kind, per session. That contract, and the
+ * bounds that keep a long run from growing forever, are what this file pins.
  */
 const ev = (id: string, sessionId: string, over: Partial<MatterEvent> = {}): MatterEvent => ({
   id,
@@ -66,25 +68,37 @@ describe("InMemoryEventLogStore", () => {
 });
 
 describe("InMemorySnapshotStore", () => {
-  it("returns snapshots in save order, which is what resume depends on", async () => {
+  it("keeps the latest of each kind, in the order they were taken", async () => {
     const store = new InMemorySnapshotStore();
     await store.save(snap("s1", "ui", "t1"));
     await store.save(snap("s1", "world", "t2"));
     await store.save(snap("s1", "ui", "t3"));
-    expect((await store.list("s1")).map((s) => s.at)).toEqual(["t1", "t2", "t3"]);
+    // the first body snapshot is gone: a resume would never have read it
+    expect((await store.list("s1")).map((s) => s.at)).toEqual(["t2", "t3"]);
     expect(newest(await store.list("s1"), "ui")?.at).toBe("t3");
     expect(newest(await store.list("s1"), "world")?.at).toBe("t2");
     expect(newest(await store.list("s1"), "memory")).toBeUndefined();
   });
 
-  it("filters by kind without disturbing the order", async () => {
+  it("holds one snapshot per kind, however long a session runs", async () => {
+    const store = new InMemorySnapshotStore();
+    for (let i = 0; i < 500; i++) {
+      for (const kind of ["ui", "world", "memory"]) await store.save(snap("s1", kind, `t${i}`));
+    }
+    const list = await store.list("s1");
+    expect(list).toHaveLength(3);
+    expect(new Set(list.map((s) => s.kind)).size).toBe(3);
+    for (const kind of ["ui", "world", "memory"]) expect(newest(list, kind)?.at, kind).toBe("t499");
+  });
+
+  it("filters by kind, and a kind nobody saved is nothing", async () => {
     const store = new InMemorySnapshotStore();
     for (const at of ["t1", "t2", "t3"]) {
       await store.save(snap("s1", "ui", at));
       await store.save(snap("s1", "memory", at));
     }
-    expect((await store.list("s1", "ui")).map((s) => s.at)).toEqual(["t1", "t2", "t3"]);
-    expect(await store.list("s1", "ui")).toHaveLength(3);
+    expect((await store.list("s1", "ui")).map((s) => s.at)).toEqual(["t3"]);
+    expect(await store.list("s1", "memory")).toHaveLength(1);
     expect(await store.list("s1", "nothing-of-this-kind")).toEqual([]);
   });
 
@@ -97,12 +111,27 @@ describe("InMemorySnapshotStore", () => {
     expect(await store.list("")).toEqual([]);
   });
 
-  it("drops the oldest snapshots at its bound, so resume can lose history but never order", async () => {
+  it("forgets the session that went quiet longest, never the one still being written to", async () => {
+    // the bound counts sessions now, because writes no longer accumulate: a busy session used to
+    // evict a quiet one entirely, and that session resumed to nothing having done nothing wrong
     const store = new InMemorySnapshotStore(3);
-    for (const at of ["t1", "t2", "t3", "t4", "t5"]) await store.save(snap("s1", "ui", at));
-    const list = await store.list("s1");
-    expect(list.map((s) => s.at)).toEqual(["t3", "t4", "t5"]);
-    expect(newest(list, "ui")?.at).toBe("t5");
+    for (const session of ["a", "b", "c"]) await store.save(snap(session, "ui", "t1"));
+    await store.save(snap("a", "ui", "t2")); // a is written to again, so b is now the quietest
+    await store.save(snap("d", "ui", "t1"));
+
+    expect(await store.list("b")).toEqual([]);
+    for (const session of ["a", "c", "d"]) expect((await store.list(session)).length, session).toBe(1);
+    expect(newest(await store.list("a"), "ui")?.at).toBe("t2");
+  });
+
+  it("lets a busy session run without emptying a quiet one", async () => {
+    const store = new InMemorySnapshotStore(500);
+    for (const kind of ["ui", "world", "memory"]) await store.save(snap("quiet", kind, "t0"));
+    for (let i = 0; i < 2_000; i++) {
+      for (const kind of ["ui", "world", "memory"]) await store.save(snap("busy", kind, `t${i}`));
+    }
+    expect(await store.list("quiet")).toHaveLength(3);
+    expect(newest(await store.list("quiet"), "ui")?.at).toBe("t0");
   });
 
   it("keeps whatever the runtime put in a snapshot, untouched", async () => {
