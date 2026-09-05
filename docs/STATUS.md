@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1402 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1409 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,17 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The extension says where events actually go** (2026-09-06): the other half of a sensor's
+  promise — not what it watches but where what it sees is sent. That was decided by a prefix test
+  rather than by parsing, so typing `192.168.1.20:8787`, a reasonable thing to write for a runtime
+  on another machine, fell back to this one; the box went on showing what was typed and the line
+  beneath it printed the default address no matter what was configured, so somebody was told twice
+  that their address was in use while their events went elsewhere. `http://` passed the prefix
+  test, lost its last slash to a trailing-slash trim, and became `http:/`, which is not an address
+  at all. It is parsed now, with one answer shared by the background and the page, and the page
+  says the address that will really be used — with a note in both languages when what was typed
+  could not be read as one. The default is unchanged and nothing about what is sent changed.
+  7 tests. 1409 unit/integration total.
 - **A gitdir file names where to watch** (2026-09-06): the agent's consent is the paths somebody
   passed it, and inside one of those a repository may keep its real git directory elsewhere and
   leave a `.git` FILE saying where — a file that names any directory at all. It resolved to a
