@@ -7,6 +7,7 @@ import { describeMorphStep } from "../lib/morphStep";
 import { describeSensor, describeLayer } from "../lib/sensing";
 import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
 import { describeRisk, riskBadgeClass, describeAutonomy } from "../lib/risk";
+import { describeIntent } from "../lib/intent";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, PresenceState, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
@@ -711,7 +712,7 @@ export function Workspace() {
                     <span className="k">{t("presenceWatching", lang)}</span><span>{t("presenceWatchingValue", lang)}</span>
                     <span className="k">{t("presenceAutonomy", lang)}</span><span>L{autonomy}</span>
                     <span className="k">{t("intentTitle", lang)}</span>
-                    <span>{debug.worldState?.inferredIntent ? t(`intent_${debug.worldState.inferredIntent.label}`, lang) : "—"}</span>
+                    <span>{describeIntent(debug.worldState?.inferredIntent?.label, lang) || "—"}</span>
                   </div>
                   <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }} data-testid="sensing-line">
                     {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)})
@@ -837,7 +838,7 @@ export function Workspace() {
                     )}
                     <span className="muted">
                       {" · "}
-                      {s.intent ? t(`intent_${s.intent}`, lang) : "—"}
+                      {describeIntent(s.intent, lang) || "—"}
                       {s.problems > 0 ? ` · ${s.problems} ${t("sessionsProblems", lang)}` : ""}
                     </span>
                     <div className="muted" style={{ fontSize: 11 }}>
@@ -852,7 +853,7 @@ export function Workspace() {
             <span className="k">{t("mode", lang)}</span><span>{tr(blueprint.mode, lang)}</span>
             <span className="k">{t("focus", lang)}</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? ` (${t("typing", lang)})` : ""}</span>
             <span className="k">{t("intentTitle", lang)}</span>
-            <span>{debug.worldState?.inferredIntent ? `${t(`intent_${debug.worldState.inferredIntent.label}`, lang)} · ${Math.round(debug.worldState.inferredIntent.confidence * 100)}%` : "—"}</span>
+            <span>{debug.worldState?.inferredIntent ? `${describeIntent(debug.worldState.inferredIntent.label, lang)} · ${Math.round(debug.worldState.inferredIntent.confidence * 100)}%` : "—"}</span>
             <span className="k">{t("autonomy", lang)}</span>
             <span>
               <select

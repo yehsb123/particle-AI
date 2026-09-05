@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyWorldState, type WorldState } from "@particle/contracts";
+import { emptyWorldState, INTENT_LABELS, IntentLabel, type WorldState } from "@particle/contracts";
 import { inferIntent, isSwitching, intentChanged, DEFAULT_INTENT_CONFIG, type IntentConfig } from "./index";
 
 /**
@@ -158,5 +158,64 @@ describe("noticing that the intent changed", () => {
   it("notices a different reading", () => {
     expect(intentChanged(h("focused"), h("stuck"))).toBe(true);
     expect(intentChanged(h("stuck"), h("debugging"))).toBe(true);
+  });
+});
+
+/**
+ * The label this engine hands back is shown to a person in three places, looked up by its own
+ * name. The contracts hold the list of them and a schema for one, and neither was used by
+ * anything — the hypothesis carries a plain string, so nothing checked that what comes out of
+ * here is a label the body has words for. This is the producer's half of that.
+ *
+ * The wire stays open on purpose: a newer runtime may infer something this build has never heard
+ * of, and the body shows an unknown label readably rather than erasing it. What is closed is what
+ * THIS engine may say.
+ */
+describe("the label this engine hands back", () => {
+  const situations: [string, WorldState][] = [
+    ["nothing happening", world()],
+    ["away a while", world({ awaySeconds: 600 })],
+    ["idle a while", world({ idleSeconds: 300 })],
+    ["repeating one action", world({ lastActionKey: "file:a", repeatCount: 5 })],
+    ["a problem open", world({}, [problem])],
+    ["alternating contexts", world({ recentKeys: ["a", "b", "a", "b", "a", "b"] })],
+    ["many entities", world({ recentEntities: ["a", "b", "c", "d", "e"] })],
+    ["steady interaction", world({ interactions: 12, lastInteractionAt: T })],
+  ];
+
+  it("is always one the contracts declare", () => {
+    for (const [what, w] of situations) {
+      const { label } = inferIntent(w);
+      expect(INTENT_LABELS as readonly string[], what).toContain(label);
+      expect(IntentLabel.safeParse(label).success, `${what}: ${label}`).toBe(true);
+    }
+  });
+
+  it("is one the contracts declare however a host retunes the thresholds", () => {
+    const configs: IntentConfig[] = [
+      DEFAULT_INTENT_CONFIG,
+      { returningAfterSeconds: 1, idleAfterSeconds: 1, stuckRepeatCount: 1, exploringEntities: 1, switchingKeys: 1 },
+      {
+        returningAfterSeconds: 1_000_000,
+        idleAfterSeconds: 1_000_000,
+        stuckRepeatCount: 1_000_000,
+        exploringEntities: 1_000_000,
+        switchingKeys: 1_000_000,
+      },
+    ];
+    for (const config of configs) {
+      for (const [what, w] of situations) {
+        expect(INTENT_LABELS as readonly string[], what).toContain(inferIntent(w, config).label);
+      }
+    }
+  });
+
+  it("says something for every situation, with a confidence between none and certain", () => {
+    for (const [what, w] of situations) {
+      const { label, confidence } = inferIntent(w);
+      expect(label.length, what).toBeGreaterThan(0);
+      expect(confidence, what).toBeGreaterThan(0);
+      expect(confidence, what).toBeLessThanOrEqual(1);
+    }
   });
 });

@@ -59,7 +59,8 @@ export type SensingLayer = (typeof SENSING_LAYERS)[number];
  */
 export const SessionSummary = z.object({
   sessionId: z.string().min(1),
-  intent: z.string().optional(),
+  /** what the runtime worked out that session is doing; a name with nothing in it is not one */
+  intent: z.string().min(1).refine((s) => s.trim().length > 0, "an intent needs a name").optional(),
   problems: z.number().int().nonnegative().default(0),
   layers: z.array(z.string()).default([]),
 });

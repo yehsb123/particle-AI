@@ -171,7 +171,7 @@ export function parseSessions(data: unknown): SessionSummary[] {
     if (!isRecord(raw) || typeof raw.sessionId !== "string" || !raw.sessionId) continue;
     out.push({
       sessionId: raw.sessionId,
-      ...(typeof raw.intent === "string" ? { intent: raw.intent } : {}),
+      ...(typeof raw.intent === "string" && raw.intent.trim() ? { intent: raw.intent } : {}),
       problems: typeof raw.problems === "number" && Number.isFinite(raw.problems) && raw.problems > 0 ? Math.floor(raw.problems) : 0,
       layers: Array.isArray(raw.layers) ? raw.layers.filter((l): l is string => typeof l === "string") : [],
     });
