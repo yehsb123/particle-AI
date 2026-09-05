@@ -1,6 +1,6 @@
 import { ApprovalRequest as ApprovalRequestSchema, SessionSummary as SessionSummarySchema, UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
-import { ApprovalDecisionSchema } from "@particle/contracts";
-import type { ApprovalRequest, RuntimeMessage, SessionSummary, UIBlueprint, WorldState } from "@particle/contracts";
+import { ApprovalDecisionSchema, AuditRecord as AuditRecordSchema } from "@particle/contracts";
+import type { ApprovalRequest, AuditRecord, RuntimeMessage, SessionSummary, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type SimResponse = {
   deliberated?: boolean;
@@ -51,8 +51,11 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
       return WorldStateSchema.safeParse(data.worldState).success ? (data as unknown as ServerMessage) : null;
     case "ai_presence_changed":
       return typeof data.state === "string" ? (data as unknown as ServerMessage) : null;
-    case "decision_created":
-      return Array.isArray(data.audit) ? (data as unknown as ServerMessage) : null;
+    case "decision_created": {
+      const audit = parseAuditRecords(data.audit);
+      // a frame whose every record is unreadable says nothing this body can draw
+      return audit.length > 0 ? ({ ...data, audit } as unknown as ServerMessage) : null;
+    }
     case "learned":
       return isRecord(data.learned) && typeof data.learned.suppressed === "string" && typeof data.learned.dismissals === "number"
         ? (data as unknown as ServerMessage)
@@ -114,6 +117,27 @@ export function parseApprovals(raw: unknown): ApprovalRequest[] {
   const out: ApprovalRequest[] = [];
   for (const item of raw.slice(0, MAX_APPROVALS_PER_ANSWER)) {
     const parsed = ApprovalRequestSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
+/** How many records one decision frame may carry into the inspector. */
+const MAX_AUDIT_PER_FRAME = 100;
+
+/**
+ * The audit records in a decision frame, kept only where each is what it claims to be.
+ *
+ * This door checked that the frame carried a list and never what was in it, and the inspector
+ * draws each record straight: its kind as text, its detail stringified, its id as the key of the
+ * row. A kind that is an object is not text, and React refuses one as a child — which empties the
+ * body rather than one row, in the one place a person goes to find out why it changed.
+ */
+export function parseAuditRecords(raw: unknown): AuditRecord[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AuditRecord[] = [];
+  for (const item of raw.slice(0, MAX_AUDIT_PER_FRAME)) {
+    const parsed = AuditRecordSchema.safeParse(item);
     if (parsed.success) out.push(parsed.data);
   }
   return out;

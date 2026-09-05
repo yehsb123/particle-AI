@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { WorldState } from "@particle/contracts";
 import type { IngestResult } from "@particle/runtime-core";
 import { t, type Lang } from "../lib/i18n";
+import { text } from "./Renderer";
 
 export type TraceRow = {
   n: number;
@@ -38,12 +39,38 @@ function pretty(v: unknown): string {
 }
 
 /**
+ * One audit row, made safe to draw.
+ *
+ * The records shown here arrive two ways: from the local core, where they are typed, and over the
+ * socket, where a frame's list is now checked entry by entry. This is the same discipline the
+ * renderer applies next door — a value put on screen is bounded and is text, and a record that is
+ * not a record is skipped rather than read for an id. The inspector is where a person goes to find
+ * out why their body changed, so it is the last surface that should go blank.
+ */
+function auditRow(a: unknown, i: number): { key: string; kind: string; detail: string } | null {
+  if (!a || typeof a !== "object") return null;
+  const r = a as { id?: unknown; kind?: unknown; detail?: unknown };
+  let detail = "";
+  try {
+    detail = text(JSON.stringify(r.detail ?? {}) ?? "");
+  } catch {
+    detail = "(cannot be shown)";
+  }
+  return { key: `${text(r.id, "record")}-${i}`, kind: text(r.kind, "record"), detail };
+}
+
+/**
  * The developer inspector (spec §31): a replayable window into why the interface changed —
  * event trace, world state, the structured decision, and the audit trail. Hidden in normal
  * use; toggled on for debugging.
  */
-export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; lang?: Lang }) {
-  const [tab, setTab] = useState<Tab>("trace");
+/**
+ * `openOn` is which tab it starts on. It opens on the trace, and until now that was the only tab
+ * anything had ever rendered: static markup lands where a component opens, so the world, decision,
+ * memory and audit tabs were drawn only by a person clicking them.
+ */
+export function DeveloperInspector({ debug, lang = "en", openOn = "trace" }: { debug: DebugState; lang?: Lang; openOn?: Tab }) {
+  const [tab, setTab] = useState<Tab>(openOn);
   const tabs: { id: Tab; label: string }[] = [
     { id: "trace", label: t("tabTrace", lang) },
     { id: "world", label: t("tabWorld", lang) },
@@ -155,12 +182,14 @@ export function DeveloperInspector({ debug, lang = "en" }: { debug: DebugState; 
         <div className="devbody" tabIndex={0}>
           {debug.audit.length === 0 ? <span className="muted">No audit records yet.</span> : null}
           <div className="stack" style={{ gap: 4 }}>
-            {debug.audit.map((a) => (
-              <div key={a.id} style={{ fontFamily: "var(--mono)", fontSize: 12 }}>
-                <span className="badge" style={{ marginRight: 6 }}><span className="dot" />{a.kind}</span>
-                {JSON.stringify(a.detail)}
-              </div>
-            ))}
+            {debug.audit.map((a, i) => auditRow(a, i)).map((row) =>
+              row ? (
+                <div key={row.key} style={{ fontFamily: "var(--mono)", fontSize: 12 }}>
+                  <span className="badge" style={{ marginRight: 6 }}><span className="dot" />{row.kind}</span>
+                  {row.detail}
+                </div>
+              ) : null,
+            )}
           </div>
         </div>
       ) : null}

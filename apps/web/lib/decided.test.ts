@@ -86,6 +86,44 @@ describe("a frame asking about a capability", () => {
   });
 });
 
+const RECORD = { id: "a1", at: "2026-09-05T00:00:00Z", sessionId: S, kind: "decision", detail: { why: "significant" } };
+const decided = (over: Record<string, unknown> = {}) => ({ kind: "decision_created", sessionId: S, audit: [RECORD], ...over });
+
+describe("a frame carrying what the runtime decided", () => {
+  it("is taken, and comes back with the records in it", () => {
+    const parsed = parseServerMessage(decided(), S) as { audit: { kind: string }[] } | null;
+    expect(parsed).not.toBeNull();
+    expect(parsed!.audit.map((a) => a.kind)).toEqual(["decision"]);
+  });
+
+  it("keeps the records that are records and drops the rest", () => {
+    const parsed = parseServerMessage(decided({ audit: [RECORD, null, 7, { id: "half" }] }), S) as { audit: unknown[] };
+    expect(parsed.audit).toHaveLength(1);
+  });
+
+  it("is dropped when a record says a kind that is not text", () => {
+    // the inspector draws a kind as text, and React refuses an object as a child: that emptied
+    // the one place a person goes to find out why their body changed
+    expect(parseServerMessage(decided({ audit: [{ ...RECORD, kind: { a: 1 } }] }), S)).toBeNull();
+  });
+
+  it("is dropped when there is nothing readable in it", () => {
+    for (const audit of [undefined, null, [], "audit", {}, [null], [7]]) {
+      expect(parseServerMessage(decided({ audit }), S), JSON.stringify(audit) ?? "undefined").toBeNull();
+    }
+  });
+
+  it("is dropped when it is about another session", () => {
+    expect(parseServerMessage(decided({ sessionId: "theirs" }), S)).toBeNull();
+  });
+
+  it("cannot carry an unbounded pile of them", () => {
+    const many = Array.from({ length: 5_000 }, (_, i) => ({ ...RECORD, id: `a${i}` }));
+    const parsed = parseServerMessage(decided({ audit: many }), S) as { audit: unknown[] };
+    expect(parsed.audit.length).toBeLessThanOrEqual(100);
+  });
+});
+
 describe("the door every frame comes through", () => {
   it("knows every kind the contracts describe, and nothing else", () => {
     const accepted = new Set<string>();
@@ -93,7 +131,7 @@ describe("the door every frame comes through", () => {
       frame(),
       asked(),
       { kind: "ai_presence_changed", sessionId: S, state: "acting" },
-      { kind: "decision_created", sessionId: S, audit: [] },
+      decided(),
       { kind: "learned", sessionId: S, learned: { suppressed: "stuck", dismissals: 2 } },
       { kind: "pattern_suggestions", sessionId: S, suggestions: [{ key: "flow", count: 3 }] },
     ];
@@ -105,6 +143,7 @@ describe("the door every frame comes through", () => {
     }
     expect(accepted.has("approval_decided")).toBe(true);
     expect(accepted.has("approval_asked")).toBe(true);
+    expect(accepted.has("decision_created")).toBe(true);
   });
 
   it("still refuses a kind nobody declared", () => {

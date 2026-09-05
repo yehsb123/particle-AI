@@ -88,7 +88,7 @@ export const MAX_ITEMS = 500;
  */
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g;
 
-function text(v: unknown, fallback = ""): string {
+export function text(v: unknown, fallback = ""): string {
   if (v === undefined || v === null) return fallback;
   const kind = typeof v;
   if (kind !== "string" && kind !== "number" && kind !== "boolean") return fallback;

@@ -17,6 +17,7 @@ const blueprint = {
   metadata: { generatedAt: T, decisionId: "d", confidence: 1 },
 };
 const world = emptyWorldState("s", T);
+const auditRecord = { id: "a1", at: T, sessionId: "s", kind: "decision", detail: { why: "significant" } };
 const ok = (data: unknown) => parseServerMessage(data, "s") !== null;
 
 describe("frames the body acts on", () => {
@@ -24,7 +25,11 @@ describe("frames the body acts on", () => {
     expect(ok({ kind: "ui_patch", sessionId: "s", blueprint })).toBe(true);
     expect(ok({ kind: "world_state_changed", sessionId: "s", worldState: world })).toBe(true);
     expect(ok({ kind: "ai_presence_changed", sessionId: "s", state: "acting" })).toBe(true);
-    expect(ok({ kind: "decision_created", sessionId: "s", audit: [] })).toBe(true);
+    // an empty list was accepted here when the door only checked that a list was present. The
+    // records are the whole of what this kind carries, and the runtime only sends the frame when
+    // there are some — so a frame with none of them is nothing this body can draw.
+    expect(ok({ kind: "decision_created", sessionId: "s", audit: [auditRecord] })).toBe(true);
+    expect(ok({ kind: "decision_created", sessionId: "s", audit: [] })).toBe(false);
     expect(ok({ kind: "learned", sessionId: "s", learned: { suppressed: "augment:stuck", dismissals: 2 } })).toBe(true);
     expect(ok({ kind: "pattern_suggestions", sessionId: "s", suggestions: [{ key: "k", count: 3 }] })).toBe(true);
   });
@@ -73,6 +78,8 @@ describe("frames it refuses", () => {
 
   it("refuses lists that are not lists, and entries that are not entries", () => {
     expect(ok({ kind: "decision_created", sessionId: "s", audit: 7 })).toBe(false);
+    expect(ok({ kind: "decision_created", sessionId: "s", audit: [null, 7] })).toBe(false);
+    expect(ok({ kind: "decision_created", sessionId: "s", audit: [{ ...auditRecord, kind: {} }] })).toBe(false);
     expect(ok({ kind: "pattern_suggestions", sessionId: "s", suggestions: "x" })).toBe(false);
     expect(ok({ kind: "pattern_suggestions", sessionId: "s", suggestions: [null] })).toBe(false);
     expect(ok({ kind: "pattern_suggestions", sessionId: "s", suggestions: [{ key: 1, count: "many" }] })).toBe(false);
