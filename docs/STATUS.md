@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1338 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1350 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The reason summary was one field of a family** (2026-09-06): the same decision object carries
+  three more strings a model writes, each still asked only not to be empty. The `variant` composes
+  a preference key that is stored, snapshotted and shown in the memory tab, and composes the
+  learned notice the body renders as a line of text; `targetMode` is written into the blueprint as
+  the mode the workspace is in; `capabilityId` is what the runtime looks up and runs. Fifty
+  thousand characters and escape sequences passed into every one, and a plan could name five
+  hundred capabilities the runtime would run one after another. They are names, not prose, so they
+  are held to the length every other identifier is and cleaned the same way, and one left with
+  nothing readable is refused. The plan itself is refused when it is not a handful rather than
+  trimmed — shortening a caption still describes the same decision, while dropping half the
+  capabilities would run a plan the model never reasoned about, and a refused decision falls back
+  to the deterministic one. Where the layout is chosen from that variant was already safe from an
+  earlier sweep; this is about where the string is kept, not where it is read. 12 tests.
+  1350 unit/integration total.
 - **The one sentence a model writes for a person has a length** (2026-09-05): following the
   reason codes to the screen — the intent's own are shown nowhere, the morph guard's go through the
   helper that gives them words — what reaches a person is the reason summary, in the presence

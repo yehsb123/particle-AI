@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1338 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1350 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1338 unit/integration tests · 16 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Every string a model writes has a size**: the names in a decision are trimmed and cleaned like any other identifier, and a plan that is not a handful of capabilities is refused rather than half-run
 - **A reason is a sentence, not a page**: the model-written summary the body shows is trimmed and cleaned at the contract, and the decision it describes survives a provider that ran long
 - **An unknown intent reads as itself, not as a key**: the label stays open on the wire because a newer runtime may infer something new, and the body shows it readably instead of printing the lookup key
 - **The presence is a closed vocabulary**: the runtime and the body read one list from the contracts and the frame carrying a state is checked against it, so nothing but a state the body has words for reaches the dot
