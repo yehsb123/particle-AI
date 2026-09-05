@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IsoTimestamp, MAX_IDENTIFIER, MAX_PAYLOAD_FIELDS, Severity } from "./common";
+import { IsoTimestamp, MAX_IDENTIFIER, MAX_PAYLOAD_FIELDS, SessionId, Severity } from "./common";
 
 /** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
 const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
@@ -50,7 +50,7 @@ export function shapeOfEvent(event: MatterEvent): MatterEvent {
 
 export const MatterEvent = z.object({
   id: z.string().min(1),
-  sessionId: z.string().min(1),
+  sessionId: SessionId,
   timestamp: IsoTimestamp,
   source: EventSource,
   /** dotted type, e.g. "development.server_error", "user.opened_file" */

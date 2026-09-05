@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AutonomyLevel, Confidence, IsoTimestamp } from "./common";
+import { AutonomyLevel, Confidence, IsoTimestamp, SessionId } from "./common";
 import { AttentionState } from "./attention";
 import { MatterEvent } from "./events";
 
@@ -58,7 +58,7 @@ export type SensingLayer = (typeof SENSING_LAYERS)[number];
  * side changed was a field the other went on believing in.
  */
 export const SessionSummary = z.object({
-  sessionId: z.string().min(1),
+  sessionId: SessionId,
   /** what the runtime worked out that session is doing; a name with nothing in it is not one */
   intent: z.string().min(1).refine((s) => s.trim().length > 0, "an intent needs a name").optional(),
   problems: z.number().int().nonnegative().default(0),
@@ -146,7 +146,7 @@ export type AutonomyState = z.infer<typeof AutonomyState>;
  * running then, and a resume should bring back everything it can understand rather than nothing.
  */
 export const WorldState = z.object({
-  sessionId: z.string().min(1),
+  sessionId: SessionId,
   updatedAt: IsoTimestamp,
   currentGoal: Goal.optional(),
   activeContext: ActiveContext.default({}),

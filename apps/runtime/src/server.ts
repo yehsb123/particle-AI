@@ -3,7 +3,7 @@ import websocket from "@fastify/websocket";
 import { createPersistence, type Persistence } from "@particle/persistence";
 import { describeProviders } from "@particle/intelligence";
 import { SessionRuntime } from "./runtime";
-import { SIM_EVENTS, simEvent, buildSimEvent } from "@particle/contracts";
+import { SIM_EVENTS, simEvent, buildSimEvent, SessionId, MAX_IDENTIFIER, MAX_FAILURE_MESSAGE } from "@particle/contracts";
 
 export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence };
 
@@ -12,19 +12,57 @@ function isoNow(): string {
 }
 
 /**
- * What to answer when an ingest fails. A malformed event is the caller's to fix, so the
- * validation detail goes back with a 400. Anything else — storage down, a bug — is ours: the
- * caller gets a 500 and nothing about our insides, since those messages carry hostnames, ports
- * and query text.
+ * What to answer when an ingest fails. A malformed event is the caller's to fix, so it is told
+ * which fields were wrong and why. Anything else — storage down, a bug — is ours: the caller gets
+ * a 500 and nothing about our insides, since those messages carry hostnames, ports and query text.
+ *
+ * It used to hand back the validator's own message, and that message quotes the value it refused.
+ * So a two-hundred-kilobyte field came back as a four-hundred-kilobyte error, control characters
+ * and all: the failure path answered a bad request by repeating it, larger. What a caller needs in
+ * order to fix an event is where it was wrong and what was expected there — never its own content
+ * read back to it.
  */
+type ZodIssue = { path?: unknown[]; code?: string; expected?: string };
 export function ingestFailure(err: unknown): { code: number; body: { error: string } } {
   const name = (err as { name?: string })?.name;
-  if (name === "ZodError") return { code: 400, body: { error: (err as Error).message } };
-  return { code: 500, body: { error: "internal error" } };
+  if (name !== "ZodError") return { code: 500, body: { error: "internal error" } };
+  const issues = (err as { issues?: ZodIssue[] }).issues ?? [];
+  const said = issues.slice(0, MAX_REPORTED_ISSUES).map((issue) => {
+    const where = (issue.path ?? []).map((p) => String(p)).join(".").slice(0, MAX_IDENTIFIER) || "(event)";
+    const why = typeof issue.expected === "string" ? `expected ${issue.expected.slice(0, MAX_IDENTIFIER)}` : String(issue.code ?? "invalid");
+    return `${where}: ${why}`;
+  });
+  if (!said.length) return { code: 400, body: { error: "the event did not match the schema" } };
+  const more = issues.length > said.length ? ` (and ${issues.length - said.length} more)` : "";
+  return { code: 400, body: { error: `${said.join("; ")}${more}`.slice(0, MAX_FAILURE_MESSAGE) } };
+}
+
+/** Enough for a caller to see the shape of what is wrong without reading a wall of them. */
+const MAX_REPORTED_ISSUES = 10;
+
+/**
+ * A session name arriving in a URL never passes through an event schema, so this is where it is
+ * held to the same rule the schema holds it to — one hook rather than a check at each of the
+ * dozen routes that take one, so a route added later cannot forget it.
+ *
+ * Refusing is not extra caution: a name that could never have been created has no belief, trail or
+ * snapshot to read, and one carrying control characters was being written into the world state a
+ * body draws and into every log line and trace that names the session.
+ *
+ * Every `:id` this server routes on is a session name; the approval routes use `:aid` and the
+ * autonomy route `:level`, and neither is one. The answer says nothing about what was sent.
+ */
+export function badSessionParam(params: unknown): boolean {
+  const id = (params as { id?: unknown } | null)?.id;
+  return id !== undefined && !SessionId.safeParse(id).success;
 }
 
 export async function buildServer(): Promise<BuildResult> {
-  const app = Fastify({ logger: false });
+  // The router refuses a path parameter longer than this before any handler sees it. Left at the
+  // framework default it was a hundred, below what a session name may be — so a session that could
+  // be created could not be read back, and the answer for one too long came from Fastify rather
+  // than from the rule. One limit, named once.
+  const app = Fastify({ logger: false, routerOptions: { maxParamLength: MAX_IDENTIFIER } });
   const persistence = await createPersistence(process.env.DATABASE_URL);
   const runtime = new SessionRuntime(isoNow, persistence.events, persistence.snapshots);
   app.addHook("onClose", async () => {
@@ -78,6 +116,13 @@ export async function buildServer(): Promise<BuildResult> {
   });
 
   await app.register(websocket);
+
+  app.addHook("preHandler", async (req, reply) => {
+    if (badSessionParam(req.params)) {
+      reply.code(400);
+      return reply.send({ error: "not a session name" });
+    }
+  });
 
   app.get("/health", async () => ({ ok: true, events: runtime.store.count(), backend: persistence.backend }));
 

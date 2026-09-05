@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IsoTimestamp, RiskLevel } from "./common";
+import { IsoTimestamp, RiskLevel, SessionId } from "./common";
 
 export const LatencyClass = z.enum(["instant", "fast", "slow"]);
 export type LatencyClass = z.infer<typeof LatencyClass>;
@@ -62,7 +62,7 @@ export type ApprovalReason = (typeof APPROVAL_REASONS)[number];
 export const ApprovalRequest = z.object({
   id: z.string().min(1),
   /** the session this was asked in — an approval belongs to one workspace, never to a prefix */
-  sessionId: z.string().min(1),
+  sessionId: SessionId,
   capabilityId: z.string().min(1),
   risk: RiskLevel,
   reason: z.string(),
@@ -79,7 +79,7 @@ export type ApprovalRequest = z.infer<typeof ApprovalRequest>;
 export const AuditRecord = z.object({
   id: z.string().min(1),
   at: IsoTimestamp,
-  sessionId: z.string().min(1),
+  sessionId: SessionId,
   kind: z.string().min(1),
   detail: z.record(z.unknown()),
 });

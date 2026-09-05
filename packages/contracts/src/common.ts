@@ -42,6 +42,29 @@ export const SEVERITY_RANK: Record<Severity, number> = {
 export const MAX_IDENTIFIER = 120;
 
 /**
+ * The name of a session.
+ *
+ * Anything can name one: the body takes it from its own query string, the extension and the
+ * desktop agent each carry a fixed one, and any process that can reach the runtime may invent one
+ * in an event it posts. It is not a caption — it is a key. It selects a belief, a map entry, an
+ * audit trail, a snapshot row and a broadcast, so it is refused rather than trimmed: two names cut
+ * to the same length would be one session, and a name carrying control characters would be written
+ * into every log line, every trace and every listing that names it.
+ *
+ * Unbounded it also travelled: a two-hundred-thousand character id made every world-state
+ * broadcast for that session six hundred kilobytes of nothing but its own name.
+ */
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/;
+export const SessionId = z
+  .string()
+  .min(1)
+  .max(MAX_IDENTIFIER)
+  .refine((s) => !CONTROL_CHARACTER.test(s), {
+    message: "a session name may not carry control characters",
+  });
+export type SessionId = z.infer<typeof SessionId>;
+
+/**
  * How many fields of an event's payload the belief keeps.
  *
  * The belief holds a short list of recent events so the runtime can tell a repeat from a novelty.
