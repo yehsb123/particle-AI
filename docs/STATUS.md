@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1386 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1395 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The activity log is a surface too, and an action is a name the runtime acts on** (2026-09-06):
+  measured the rest of the belief first, since shaping one part is no reason to assume the
+  neighbours hold — two thousand distinct actions, files, failing hosts, problems, processes and
+  sensor announcements each leave the world state under ten kilobytes, with recent keys at eight,
+  files at fifty, hosts at five. What did not hold is where those values are shown: the renderer
+  reads every value through one helper and the inspector was given the same one, while the
+  activity log rendered whatever it was handed — and it is handed names a model wrote, the
+  capability an action asks for, the codes a morph was held for, the id of a patch. All three
+  surfaces agree now. An action is also where a model's name stops being a caption: its event
+  decides what pressing a button asks the runtime for, so it is held to the length every other
+  identifier is and refused rather than trimmed, for the reason a component id is. An audit
+  record's detail was checked and left: it is bounded because everything that goes into one was
+  bounded over the last three nights. A capability's error message is not bounded, but nothing
+  reads it. 9 tests. 1395 unit/integration total.
 - **The event a provider is shown is a shape too** (2026-09-06): probing what a prompt weighs
   after the belief was shaped showed the weight had moved rather than gone — the belief down to
   nine kilobytes, the triggering event beside it a hundred, ninety per cent of the context. The

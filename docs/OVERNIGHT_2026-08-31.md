@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1386 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1395 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1386 unit/integration tests · 16 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Three surfaces, one reader**: the renderer, the inspector and the activity log all bound and clean what they show, and an action names something the runtime acts on rather than an unbounded caption
 - **A prompt carries shapes, not payloads**: the event handed to a provider goes through the same shaping the belief uses, so one noisy sender cannot become the whole context window
 - **Short-term memory holds shapes**: what the belief remembers of an event is a path, a host, a status, not a payload, so the state it broadcasts, snapshots and puts in every prompt stays a size worth sending
 - **A tree is measured before it is walked**: the recursive gate in front of the renderer refuses one too deep or too large instead of overflowing the stack inside itself
