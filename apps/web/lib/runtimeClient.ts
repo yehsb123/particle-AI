@@ -1,5 +1,5 @@
 import { ApprovalRequest as ApprovalRequestSchema, SessionSummary as SessionSummarySchema, UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
-import { ApprovalDecisionSchema, AuditRecord as AuditRecordSchema } from "@particle/contracts";
+import { ApprovalDecisionSchema, AuditRecord as AuditRecordSchema, PresenceStateSchema } from "@particle/contracts";
 import type { ApprovalRequest, AuditRecord, RuntimeMessage, SessionSummary, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type SimResponse = {
@@ -50,7 +50,8 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
     case "world_state_changed":
       return WorldStateSchema.safeParse(data.worldState).success ? (data as unknown as ServerMessage) : null;
     case "ai_presence_changed":
-      return typeof data.state === "string" ? (data as unknown as ServerMessage) : null;
+      // any string used to be a presence, and the body shows one it has no words for as itself
+      return PresenceStateSchema.safeParse(data.state).success ? (data as unknown as ServerMessage) : null;
     case "decision_created": {
       const audit = parseAuditRecords(data.audit);
       // a frame whose every record is unreadable says nothing this body can draw

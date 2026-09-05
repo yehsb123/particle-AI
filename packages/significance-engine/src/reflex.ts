@@ -1,7 +1,10 @@
 import type { SignificanceResult, WorldState } from "@particle/contracts";
 
 export type WorkspaceMode = "development" | "incident";
-export type PresenceState = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
+// One list, in the contracts: the body names each of these to the person, and the frame that
+// carries one between the two sides is checked against it.
+export type { PresenceState } from "@particle/contracts";
+import type { PresenceState } from "@particle/contracts";
 
 /** Deterministic mode the workspace should be in given the current problems. */
 export function suggestMode(world: WorldState): WorkspaceMode {

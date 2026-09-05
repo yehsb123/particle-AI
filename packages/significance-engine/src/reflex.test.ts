@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyWorldState, type MatterEvent, type WorldState } from "@particle/contracts";
+import { emptyWorldState, AI_PRESENCE_STATES, type MatterEvent, type PresenceState, type WorldState } from "@particle/contracts";
 import { evaluateSignificance, DEFAULT_SIGNIFICANCE_CONFIG, suggestMode, nextPresence, type SignificanceConfig } from "./index";
 
 /**
@@ -145,5 +145,44 @@ describe("what the presence indicator says", () => {
     expect(nextPresence("idle", sig(false))).toBe("observing");
     expect(nextPresence("observing", sig(false))).toBe("observing");
     expect(nextPresence("waiting_for_approval", sig(false))).toBe("observing");
+  });
+});
+
+/**
+ * The presence is the dot the body draws with a word beside it, and the word is looked up by the
+ * state's own name. The runtime declared this union here and the body declared its own copy, so
+ * this is the producer's half of keeping them one list: whatever comes out of here is a state the
+ * body has words for.
+ */
+describe("the presence this engine hands back", () => {
+  const sig = (shouldDeliberate: boolean) => ({ score: shouldDeliberate ? 0.9 : 0.1, shouldDeliberate, reasonCodes: [] });
+
+  it("is always one of the states there are", () => {
+    for (const current of AI_PRESENCE_STATES) {
+      for (const deliberate of [true, false]) {
+        const next = nextPresence(current, sig(deliberate) as never);
+        expect(AI_PRESENCE_STATES as readonly string[], `${current} ${deliberate}`).toContain(next);
+      }
+    }
+  });
+
+  it("goes to evaluating when the reflex says the expensive path is worth it", () => {
+    for (const current of AI_PRESENCE_STATES) {
+      expect(nextPresence(current, sig(true) as never), current).toBe("evaluating");
+    }
+  });
+
+  it("keeps acting while it is acting, and settles to observing otherwise", () => {
+    expect(nextPresence("acting", sig(false) as never)).toBe("acting");
+    for (const current of AI_PRESENCE_STATES.filter((s) => s !== "acting")) {
+      expect(nextPresence(current, sig(false) as never), current).toBe("observing");
+    }
+  });
+
+  it("is handed a state it does not know without inventing one", () => {
+    // the runtime holds this between events, and a resumed session brings back what was written
+    // by whichever build was running then
+    const next = nextPresence("thinking" as PresenceState, sig(false) as never);
+    expect(AI_PRESENCE_STATES as readonly string[]).toContain(next);
   });
 });

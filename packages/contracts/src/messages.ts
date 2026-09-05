@@ -23,6 +23,18 @@ export const RUNTIME_MESSAGE_KINDS = [
 ] as const;
 export type RuntimeMessageKind = (typeof RUNTIME_MESSAGE_KINDS)[number];
 
+/**
+ * What the AI is doing right now, as the body shows it: a dot with a word beside it.
+ *
+ * The runtime declared this union where it decides the next one, the body declared its own copy,
+ * and the frame that carries it between them was checked only for being a string. Any string was
+ * therefore a presence — an empty one, a five thousand character one — and the body put it beside
+ * the dot verbatim, because a word it has no translation for is shown as itself.
+ */
+export const AI_PRESENCE_STATES = ["idle", "observing", "evaluating", "acting", "waiting_for_approval"] as const;
+export type PresenceState = (typeof AI_PRESENCE_STATES)[number];
+export const PresenceStateSchema = z.enum(AI_PRESENCE_STATES);
+
 /** What became of a capability a person was asked about. */
 export const APPROVAL_DECISIONS = ["approved", "rejected"] as const;
 export type ApprovalDecision = (typeof APPROVAL_DECISIONS)[number];
@@ -31,7 +43,7 @@ export const ApprovalDecisionSchema = z.enum(APPROVAL_DECISIONS);
 export type RuntimeMessage =
   | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
   | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
-  | { kind: "ai_presence_changed"; sessionId: string; state: string }
+  | { kind: "ai_presence_changed"; sessionId: string; state: PresenceState }
   | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] }
   | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } }
   | { kind: "pattern_suggestions"; sessionId: string; suggestions: { key: string; count: number }[] }

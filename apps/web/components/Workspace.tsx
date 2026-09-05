@@ -7,7 +7,7 @@ import { describeMorphStep } from "../lib/morphStep";
 import { describeSensor, describeLayer } from "../lib/sensing";
 import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
 import { describeRisk, riskBadgeClass, describeAutonomy } from "../lib/risk";
-import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
+import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, PresenceState, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider } from "./Renderer";
@@ -16,7 +16,8 @@ import { SIM_EVENTS, buildSimEvent as buildEvent, type SimSpec } from "@particle
 import { RuntimeClient, sessionHref, type ServerMessage } from "../lib/runtimeClient";
 import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
 
-type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
+/** One list, in the contracts, so the runtime and the body cannot drift on what a presence is. */
+type Presence = PresenceState;
 type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
 
 type Inspector = {
@@ -342,7 +343,7 @@ export function Workspace() {
       } else if (m.kind === "world_state_changed") {
         setDebug((d) => ({ ...d, worldState: m.worldState }));
       } else if (m.kind === "ai_presence_changed") {
-        setPresence(m.state as Presence);
+        setPresence(m.state);
       } else if (m.kind === "pattern_suggestions") {
         setPatternSugs((p) => [...p, ...m.suggestions.filter((x) => !p.some((y) => y.key === x.key))]);
       } else if (m.kind === "learned") {
