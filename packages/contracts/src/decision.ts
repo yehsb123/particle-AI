@@ -17,6 +17,34 @@ export type CapabilityPlan = z.infer<typeof CapabilityPlan>;
  * The UI *intent* — NOT a concrete patch. The morphology planner (UI layer) turns this into
  * a validated patch against the registry. This keeps the decision engine free of UI details.
  */
+/**
+ * How long a reason a person is shown may be.
+ *
+ * This is the one piece of model-written prose the product puts in front of somebody, and nothing
+ * said how much of it there could be — a provider that ignored "concise" could write an essay
+ * into the interface, escape sequences and all. The built-in provider writes about ninety
+ * characters, so this is room for several sentences and no room for a page.
+ */
+export const MAX_REASON_SUMMARY = 600;
+
+const CONTROL_CHARACTERS = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/g;
+
+/**
+ * A reason as it will be shown: trimmed to a length someone reads, with the characters that are
+ * not writing taken out.
+ *
+ * It is cleaned rather than refused. A summary that runs long is a provider being wordy, not a
+ * decision being wrong, and throwing the decision away over its caption would cost the person the
+ * reshaping it describes.
+ */
+const ReasonSummary = z
+  .string()
+  .min(1)
+  .transform((s) => {
+    const clean = s.replace(CONTROL_CHARACTERS, "").trim();
+    return clean.length > MAX_REASON_SUMMARY ? `${clean.slice(0, MAX_REASON_SUMMARY)}…` : clean;
+  });
+
 export const UIMorphIntent = z.enum(["surface_incident", "restore_normal", "augment", "none"]);
 export type UIMorphIntent = z.infer<typeof UIMorphIntent>;
 
@@ -25,7 +53,7 @@ export const UIMorphPlan = z.object({
   targetMode: z.string().min(1),
   confidence: Confidence,
   // never empty: a decision nobody can read is not auditable, and the body shows this as "why"
-  reasonSummary: z.string().min(1),
+  reasonSummary: ReasonSummary,
   /** which incident layout to surface, e.g. "runtime_error" | "build_failure" | "test_failure" */
   variant: z.string().optional(),
 });
@@ -64,6 +92,6 @@ export const RuntimeDecision = z.object({
   actionPlan: ActionPlan.optional(),
   autonomyRequirement: AutonomyRequirement,
   // never empty: a decision nobody can read is not auditable, and the body shows this as "why"
-  reasonSummary: z.string().min(1),
+  reasonSummary: ReasonSummary,
 });
 export type RuntimeDecision = z.infer<typeof RuntimeDecision>;
