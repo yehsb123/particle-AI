@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1328 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1338 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The one sentence a model writes for a person has a length** (2026-09-05): following the
+  reason codes to the screen — the intent's own are shown nowhere, the morph guard's go through the
+  helper that gives them words — what reaches a person is the reason summary, in the presence
+  popover and under the inspector, rendered straight. It is the one piece of model-written prose
+  the product deliberately shows, and the contract asked only that it not be empty: fifty thousand
+  characters parsed and would render whole, an escape sequence survived intact, a newline flood
+  too, while the built-in provider writes about ninety. Both places it is declared now trim it and
+  strip what is not writing, keeping the newline a wrapped sentence has; six hundred is room for
+  several sentences and none for a page. Cleaned rather than refused, deliberately — a summary
+  that runs long is a provider being wordy, not a decision being wrong, and discarding the
+  decision over its caption would cost the person the reshaping it describes — but still refused
+  when nothing readable is left, since a decision nobody can read is not auditable. 10 tests.
+  1338 unit/integration total.
 - **An intent nobody has words for is still shown, readably** (2026-09-05): sweeping the closed
   vocabularies for the shape the presence had — a list in the contracts, a door that does not check
   it, a body that looks the value up by name — left intent. Three places show it (the presence
