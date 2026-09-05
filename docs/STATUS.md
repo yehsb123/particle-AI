@@ -170,6 +170,16 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A resume test that was measuring the runner** (2026-09-05): CI went red on `9b84d8f` — not
+  the change in it, but a test written two nights earlier timing out at 5.08s against a 5s limit,
+  with the docs commit on the same tree passing, which is what a test sitting exactly on the line
+  looks like. It ran three hundred ingests through the real endpoints before checking that a quiet
+  session could still be resumed: 625ms locally against an in-memory store, but CI runs against a
+  real Postgres where every ingest is six round trips. The count was never the point — the store
+  keeps the latest of each kind per session, so a neighbour's volume stops mattering at one, and
+  the store's own test already carries two thousand writes in memory for nothing. Thirty now, with
+  room on a slow runner; the file went from 5.4s to 0.27s. The rest of the suite was swept for the
+  same trap: every other large loop is in memory, with no HTTP or database under it.
 - **A number the belief acts on has to be a number** (2026-09-05): sweeping the rest of the
   reducer after last night's interaction count found the two numeric readers left on `Number()`,
   which reads `true` as 1, `"300"` as three hundred and `[503]` as five hundred and three. A
@@ -237,8 +247,8 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   sessions and kinds live in nested maps rather than under a composed key, so no session id can be
   spelled to reach another's. Postgres had no bound at all — three rows per ingest, kept forever,
   all read back on every resume — and now deletes what each save replaces, by id rather than
-  timestamp so two saves in the same instant still leave one row; that path is typechecked but not
-  exercised here, as there is no database in this environment. Three tests asserted the old
+  timestamp so two saves in the same instant still leave one row. CI runs the suite against a real
+  Postgres and both of its integration tests pass, so that path is exercised after all. Three tests asserted the old
   contract (history in save order) and now pin the new one. 11 tests. 1226 unit/integration total.
 - **The trail: records that identify themselves, and a resume that leaves a mark** (2026-09-05):
   two more sibling asymmetries in the same file, found by reading undo, redo and resume side by
