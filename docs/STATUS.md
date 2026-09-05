@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1395 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1402 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,17 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A gitdir file names where to watch** (2026-09-06): the agent's consent is the paths somebody
+  passed it, and inside one of those a repository may keep its real git directory elsewhere and
+  leave a `.git` FILE saying where — a file that names any directory at all. It resolved to a
+  parent, to an absolute path, to anywhere, and the agent put a watcher on it. The easy rule here
+  is the one that breaks the real case: a worktree's git directory is normally outside the watched
+  root, under the main repository, so refusing anything outside would refuse the feature's whole
+  purpose. What decides instead is whether a branch can actually be read there — the watch follows
+  a gitdir only where a HEAD is, and says so on stderr rather than silently doing nothing — and a
+  line too long to be a path is refused outright. The piped-output path was probed and left alone:
+  the classifier's patterns are plain, with no nested quantifiers, so a crafted line cannot make it
+  hang. 7 tests. 1402 unit/integration total.
 - **The activity log is a surface too, and an action is a name the runtime acts on** (2026-09-06):
   measured the rest of the belief first, since shaping one part is no reason to assume the
   neighbours hold — two thousand distinct actions, files, failing hosts, problems, processes and
