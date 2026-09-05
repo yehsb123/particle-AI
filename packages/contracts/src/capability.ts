@@ -27,6 +27,17 @@ export const CapabilityResult = z.object({
 export type CapabilityResult = z.infer<typeof CapabilityResult>;
 
 /** An audit record of a single capability execution. */
+/**
+ * How much of a failure this system will carry.
+ *
+ * A capability that fails is often somebody else's process failing: an MCP server can put
+ * anything at all in a message, at any length. That message is kept on the run record and handed
+ * to whoever approved the capability, so it is held to a size an operator reads — long enough for
+ * a sentence or several, short enough that a third party cannot decide how much this system
+ * carries or sends.
+ */
+export const MAX_FAILURE_MESSAGE = 600;
+
 export const CapabilityRun = z.object({
   id: z.string().min(1),
   capabilityId: z.string().min(1),
