@@ -12,7 +12,7 @@ that keeps a continuous intent, prepares the screen before and without anything 
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
 Everything is event-sourced and replays deterministically. Verified by 1417 unit/integration tests,
-16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
+17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
   (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior
@@ -182,6 +182,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **The address the page names is the address in use** (2026-09-06): the same line, one layer
+  further in. It was drawn from the box's keystrokes, but the box only saves when the field is
+  left — so half-way through typing a new runtime address the page already named it while the
+  sensor went on sending to the old one, and closing the tab with the caret still in the box saved
+  nothing at all. Confirmed in a real browser: the line read `192.168.1.20` while storage held
+  `10.0.0.1`. It is drawn from storage now, which is what the background reads, and it redraws
+  when that write lands rather than when a key is pressed; a second options tab writing the address
+  redraws it too. This also closes a rule broken the night before — that display shipped without an
+  E2E. The new one covers the address in use, the reload, the typing-is-not-saving gap, and an
+  unreadable address refused out loud in Korean, and it fails on the old code. Which source feeds
+  the line is browser wiring, so the E2E is the only thing holding it; there is no unit test.
+  17 E2E across 15 specs. 1417 unit/integration total.
 - **The extension says where events actually go** (2026-09-06): the other half of a sensor's
   promise — not what it watches but where what it sees is sent. That was decided by a prefix test
   rather than by parsing, so typing `192.168.1.20:8787`, a reasonable thing to write for a runtime
