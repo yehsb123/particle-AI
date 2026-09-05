@@ -363,7 +363,11 @@ export function Workspace() {
       client.current = c;
       c.connect(handleServerMessage, setConnected);
       try {
-        setBlueprint(await c.getUI());
+        const fromServer = await c.getUI();
+        // Keeping what is on screen beats replacing it with nothing: the socket may still bring a
+        // patch this build can read, and an unreadable answer is a different thing from silence.
+        if (fromServer) setBlueprint(fromServer);
+        else pushLog("runtime answered with a body this build cannot read", "blocked");
       } catch {
         pushLog("could not reach runtime server (pnpm runtime)", "blocked");
       }

@@ -72,6 +72,21 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
 }
 
 /**
+ * The body this session already has on the runtime, or nothing.
+ *
+ * This is what the body draws the moment it connects, before any event arrives, and it used to be
+ * cast straight into the renderer — past the one gate the blueprint schema exists to stand in
+ * front of. Its version is pinned on purpose: a blueprint written by another build is to be
+ * refused rather than drawn under this build's assumptions. And an answer that is not a blueprint
+ * at all is not an empty body, it is a thrown error: the renderer reads the root of whatever it
+ * is handed, and reading it off an error body takes the whole interface down.
+ */
+export function parseBlueprint(data: unknown): UIBlueprint | null {
+  const parsed = UIBlueprintSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
  * A link to another session's body on this runtime.
  *
  * The token this page is using travels with it. It arrived in this page's own address — the
@@ -276,8 +291,8 @@ export class RuntimeClient {
     return parseSessions(await res.json().catch(() => null));
   }
 
-  async getUI(): Promise<UIBlueprint> {
+  async getUI(): Promise<UIBlueprint | null> {
     const res = await fetch(`${this.httpBase}/api/sessions/${this.sessionId}/ui`, { headers: auth() });
-    return (await res.json()) as UIBlueprint;
+    return parseBlueprint(await res.json().catch(() => null));
   }
 }
