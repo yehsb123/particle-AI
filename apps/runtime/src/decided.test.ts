@@ -41,6 +41,54 @@ const decisions = () => heard.filter((m): m is Extract<RuntimeMessage, { kind: "
 const auditOf = async (session: string) =>
   ((await app.inject({ method: "GET", url: `/api/sessions/${session}/decisions` })).json().audit ?? []) as { kind: string; sessionId: string; detail: Record<string, unknown> }[];
 
+describe("a capability the runtime is asking about", () => {
+  it("is put to every body watching that session, not only the one whose event caused it", async () => {
+    heard.length = 0;
+    const approval = await pendingIn("asked");
+    const asked = heard.filter((m): m is Extract<RuntimeMessage, { kind: "approval_asked" }> => m.kind === "approval_asked");
+
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.sessionId).toBe("asked");
+    expect(asked[0]!.approvals.map((a) => a.id)).toContain(approval.id);
+  });
+
+  it("carries what a body needs to draw the card", async () => {
+    heard.length = 0;
+    await pendingIn("card");
+    const asked = heard.find((m) => m.kind === "approval_asked") as Extract<RuntimeMessage, { kind: "approval_asked" }>;
+    const offered = asked.approvals[0]!;
+    expect(offered.capabilityId.length).toBeGreaterThan(0);
+    expect(offered.risk).toBe("external_effect");
+    expect(offered.status).toBe("pending");
+    expect(offered.sessionId).toBe("card");
+    expect(typeof offered.reasonCode).toBe("string");
+  });
+
+  it("is put only to bodies watching that session", async () => {
+    await pendingIn("theirs2");
+    heard.length = 0;
+    await pendingIn("mine2");
+    const asked = heard.filter((m) => m.kind === "approval_asked");
+    expect(asked.map((m) => m.sessionId)).toEqual(["mine2"]);
+  });
+
+  it("is not asked when nothing needs asking about", async () => {
+    heard.length = 0;
+    await app.inject({ method: "POST", url: "/api/sim/quiet2/open-file" });
+    expect(heard.some((m) => m.kind === "approval_asked")).toBe(false);
+  });
+
+  it("goes out with the presence that says the runtime is waiting", async () => {
+    // the presence reached every body all along; the card did not, so they showed a runtime
+    // waiting on somebody with nothing to answer it with
+    heard.length = 0;
+    await pendingIn("both");
+    const kinds = heard.map((m) => m.kind);
+    expect(kinds).toContain("ai_presence_changed");
+    expect(kinds).toContain("approval_asked");
+  });
+});
+
 describe("a capability someone allowed", () => {
   it("is told to every body watching that session", async () => {
     const approval = await pendingIn("told-approve");

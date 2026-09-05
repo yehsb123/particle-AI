@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AuditRecord } from "./capability";
+import type { ApprovalRequest, AuditRecord } from "./capability";
 import type { UIBlueprint } from "./ui";
 import type { WorldState } from "./worldstate";
 
@@ -18,6 +18,7 @@ export const RUNTIME_MESSAGE_KINDS = [
   "decision_created",
   "learned",
   "pattern_suggestions",
+  "approval_asked",
   "approval_decided",
 ] as const;
 export type RuntimeMessageKind = (typeof RUNTIME_MESSAGE_KINDS)[number];
@@ -34,6 +35,12 @@ export type RuntimeMessage =
   | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] }
   | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } }
   | { kind: "pattern_suggestions"; sessionId: string; suggestions: { key: string; count: number }[] }
+  /**
+   * The runtime is asking a person before it runs something. Only the body whose own event caused
+   * this used to learn of it, from the answer to that call — every other body watching the session
+   * was told the runtime was waiting for approval and given nothing to answer with.
+   */
+  | { kind: "approval_asked"; sessionId: string; approvals: ApprovalRequest[] }
   /**
    * A capability the runtime proposed has been decided on. One body asking is not the only body
    * watching: the same session can be open in another tab and in the extension's side panel, and

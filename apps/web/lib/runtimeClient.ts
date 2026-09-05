@@ -62,6 +62,8 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
         data.suggestions.every((s) => isRecord(s) && typeof s.key === "string" && typeof s.count === "number")
         ? (data as unknown as ServerMessage)
         : null;
+    case "approval_asked":
+      return parseApprovals(data.approvals).length > 0 ? (data as unknown as ServerMessage) : null;
     case "approval_decided":
       return typeof data.approvalId === "string" && data.approvalId.length > 0 && ApprovalDecisionSchema.safeParse(data.decision).success
         ? (data as unknown as ServerMessage)
@@ -98,6 +100,23 @@ export function sessionHref(sessionId: unknown, token: string = TOKEN): string {
   const query = new URLSearchParams({ connect: "1", session: typeof sessionId === "string" ? sessionId : "" });
   if (token) query.set("token", token);
   return `/?${query.toString()}`;
+}
+
+/**
+ * The approvals in something the runtime sent, kept only where each is what it claims to be.
+ *
+ * They arrive two ways — in the answer to the call that caused them, and over the socket to every
+ * other body watching the session — and both doors have to check the same thing, so there is one
+ * of this rather than one per door.
+ */
+export function parseApprovals(raw: unknown): ApprovalRequest[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ApprovalRequest[] = [];
+  for (const item of raw.slice(0, MAX_APPROVALS_PER_ANSWER)) {
+    const parsed = ApprovalRequestSchema.safeParse(item);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
 }
 
 /** Caps on what one answer may carry, so a server cannot hand the body an unbounded list. */
@@ -161,14 +180,8 @@ export function parseSimResponse(data: unknown): SimResponse | null {
     };
   }
 
-  if (Array.isArray(data.pendingApprovals)) {
-    const approvals = [];
-    for (const raw of data.pendingApprovals.slice(0, MAX_APPROVALS_PER_ANSWER)) {
-      const parsed = ApprovalRequestSchema.safeParse(raw);
-      if (parsed.success) approvals.push(parsed.data);
-    }
-    if (approvals.length > 0) out.pendingApprovals = approvals;
-  }
+  const approvals = parseApprovals(data.pendingApprovals);
+  if (approvals.length > 0) out.pendingApprovals = approvals;
 
   if (Array.isArray(data.patternSuggestions)) {
     out.patternSuggestions = data.patternSuggestions

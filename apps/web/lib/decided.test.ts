@@ -46,11 +46,52 @@ describe("a frame saying a capability was decided", () => {
   });
 });
 
+const APPROVAL = {
+  id: "appr-mine-d1-security.update_dependency",
+  sessionId: S,
+  capabilityId: "security.update_dependency",
+  risk: "external_effect",
+  reason: "external_effect capability requires approval at autonomy level 2",
+  reasonCode: "risk_above_autonomy",
+  missingPermissions: [],
+  createdAt: "2026-09-05T00:00:00Z",
+  status: "pending",
+};
+const asked = (over: Record<string, unknown> = {}) => ({ kind: "approval_asked", sessionId: S, approvals: [APPROVAL], ...over });
+
+describe("a frame asking about a capability", () => {
+  it("is taken, so a body that did not cause it still gets the card", () => {
+    const parsed = parseServerMessage(asked(), S);
+    expect(parsed).not.toBeNull();
+    expect(parsed).toMatchObject({ kind: "approval_asked" });
+  });
+
+  it("is dropped when it is about another session", () => {
+    expect(parseServerMessage(asked({ sessionId: "theirs" }), S)).toBeNull();
+  });
+
+  it("is dropped when it carries nothing to draw", () => {
+    for (const approvals of [undefined, null, [], "one", {}, [null], [{ id: "half" }]]) {
+      expect(parseServerMessage(asked({ approvals }), S), JSON.stringify(approvals) ?? "undefined").toBeNull();
+    }
+  });
+
+  it("keeps the ones that are approvals and drops the rest", () => {
+    const parsed = parseServerMessage(asked({ approvals: [APPROVAL, null, { id: "half" }, 7] }), S);
+    expect(parsed).not.toBeNull();
+  });
+
+  it("is dropped when an approval says a risk that is not a risk", () => {
+    expect(parseServerMessage(asked({ approvals: [{ ...APPROVAL, risk: "catastrophic" }] }), S)).toBeNull();
+  });
+});
+
 describe("the door every frame comes through", () => {
   it("knows every kind the contracts describe, and nothing else", () => {
     const accepted = new Set<string>();
     const samples: Record<string, unknown>[] = [
       frame(),
+      asked(),
       { kind: "ai_presence_changed", sessionId: S, state: "acting" },
       { kind: "decision_created", sessionId: S, audit: [] },
       { kind: "learned", sessionId: S, learned: { suppressed: "stuck", dismissals: 2 } },
@@ -63,6 +104,7 @@ describe("the door every frame comes through", () => {
       expect(RUNTIME_MESSAGE_KINDS as readonly string[], kind).toContain(kind);
     }
     expect(accepted.has("approval_decided")).toBe(true);
+    expect(accepted.has("approval_asked")).toBe(true);
   });
 
   it("still refuses a kind nobody declared", () => {

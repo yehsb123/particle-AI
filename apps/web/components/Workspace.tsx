@@ -350,13 +350,16 @@ export function Workspace() {
       } else if (m.kind === "decision_created") {
         setDebug((d) => ({ ...d, audit: [...m.audit, ...d.audit].slice(0, 60) }));
         pushLog("server decision", "note");
+      } else if (m.kind === "approval_asked") {
+        // this body may not be the one whose event caused the question
+        addApprovals(m.approvals);
       } else if (m.kind === "approval_decided") {
         // somebody decided this one — here, in another tab, or in the side panel
         setApprovals((a) => a.filter((x) => x.id !== m.approvalId));
         pushLog(`approval ${m.decision} (server)`, m.decision === "approved" ? "morph" : "note");
       }
     },
-    [pushLog],
+    [pushLog, addApprovals],
   );
 
   const toggleMode = useCallback(async () => {

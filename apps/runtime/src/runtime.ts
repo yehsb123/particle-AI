@@ -132,6 +132,11 @@ export class SessionRuntime {
     if (result.audit.length) {
       this.emit({ kind: "decision_created", sessionId: event.sessionId, audit: result.audit });
     }
+    // The presence goes out to every body watching, so they all show that the runtime is waiting
+    // on somebody. Only the one whose call caused it had anything to answer with.
+    if (result.pendingApprovals.length) {
+      this.emit({ kind: "approval_asked", sessionId: event.sessionId, approvals: result.pendingApprovals });
+    }
 
     // Durable snapshots of the reshaped body + belief state (best-effort — a DB failure must
     // not abort ingest or diverge clients from the server).
