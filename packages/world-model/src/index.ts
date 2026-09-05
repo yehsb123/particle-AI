@@ -1,5 +1,5 @@
 import type { MatterEvent, Problem, ProcessState, WorldState } from "@particle/contracts";
-import { MAX_IDENTIFIER, MAX_PAYLOAD_FIELDS, RECENT_EVENTS_LIMIT } from "@particle/contracts";
+import { MAX_IDENTIFIER, RECENT_EVENTS_LIMIT, shapeOfEvent } from "@particle/contracts";
 
 const PROBLEM_OPENERS: Record<string, { kind: string; summary: string; severity: "warning" | "critical" }> = {
   "development.server_error": { kind: "runtime_error", summary: "Service returned a runtime error", severity: "critical" },
@@ -59,39 +59,19 @@ function seconds(v: unknown): number {
 }
 
 /**
- * What the belief keeps of an event it is remembering: the event, with its payload reduced to the
- * shape it was supposed to be.
+ * What the belief keeps of an event it is remembering: the same shape the decision engine hands a
+ * provider, from the same place, so the two cannot come to mean different things.
  *
  * Only the type of a remembered event is ever read — the significance reflex counts how many of
  * the same type came recently, and the body labels the last one. The payload was kept whole all
  * the same, and this list travels: to every watching body on every change, into every snapshot,
- * and into the context of every prompt a provider is given. A hundred kilobytes of payload in
- * thirty remembered events is a three megabyte belief.
+ * and into the context of every prompt. A hundred kilobytes of payload in thirty remembered
+ * events is a three megabyte belief.
  *
  * The event log keeps events whole, so nothing is lost that a replay needs; this is the short-term
  * memory, and short-term memory holds shapes.
  */
-function remembered(event: MatterEvent): MatterEvent {
-  const payload: Record<string, unknown> = {};
-  let kept = 0;
-  for (const [key, value] of Object.entries(event.payload)) {
-    if (kept >= MAX_PAYLOAD_FIELDS) break;
-    if (typeof value === "string") {
-      const clean = str(value);
-      if (clean !== undefined) {
-        payload[key] = clean;
-        kept += 1;
-      }
-      continue;
-    }
-    if (typeof value === "number" || typeof value === "boolean" || value === null) {
-      payload[key] = value;
-      kept += 1;
-    }
-    // anything else is content rather than shape: an object, a list, a blob
-  }
-  return { ...event, payload };
-}
+const remembered = shapeOfEvent;
 
 function str(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;

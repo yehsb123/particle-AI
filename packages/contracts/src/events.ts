@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { IsoTimestamp, Severity } from "./common";
+import { IsoTimestamp, MAX_IDENTIFIER, MAX_PAYLOAD_FIELDS, Severity } from "./common";
+
+/** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
 
 export const EventSource = z.enum([
   "user",
@@ -12,6 +15,38 @@ export const EventSource = z.enum([
   "external",
 ]);
 export type EventSource = z.infer<typeof EventSource>;
+
+/**
+ * An event with its payload reduced to the shape a payload is supposed to be: a path, a host, a
+ * status. Strings are held to the length every other identifier is and stripped of what is not
+ * writing; anything nested or listed is content rather than shape and is left behind.
+ *
+ * Two places need this, and they need the same answer. The belief keeps a short list of recent
+ * events, and that list is broadcast, snapshotted and put in every prompt. The decision engine
+ * hands a provider the event being decided about, and one event carrying a hundred kilobytes was
+ * ninety per cent of the prompt on its own.
+ *
+ * What is NOT shaped is what the runtime decides with: the significance reflex reads the raw
+ * event, because that is the sensor's report and the numbers in it are the signal.
+ */
+export function shapeOfEvent(event: MatterEvent): MatterEvent {
+  const payload: Record<string, unknown> = {};
+  let kept = 0;
+  for (const [key, value] of Object.entries(event.payload)) {
+    if (kept >= MAX_PAYLOAD_FIELDS) break;
+    if (typeof value === "string") {
+      const clean = value.replace(CONTROL_CHARACTERS, "");
+      payload[key] = clean.length > MAX_IDENTIFIER ? `${clean.slice(0, MAX_IDENTIFIER)}…` : clean;
+      kept += 1;
+      continue;
+    }
+    if (typeof value === "number" || typeof value === "boolean" || value === null) {
+      payload[key] = value;
+      kept += 1;
+    }
+  }
+  return { ...event, payload };
+}
 
 export const MatterEvent = z.object({
   id: z.string().min(1),

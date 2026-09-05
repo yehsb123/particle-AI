@@ -2,7 +2,7 @@ import type {
   ModelRouteDecision,
   RuntimeDecision,
 } from "@particle/contracts";
-import { RuntimeDecision as RuntimeDecisionSchema } from "@particle/contracts";
+import { RuntimeDecision as RuntimeDecisionSchema, shapeOfEvent } from "@particle/contracts";
 import {
   IntelligenceRouter,
   deterministicDecision,
@@ -56,7 +56,9 @@ export class DecisionEngine {
       structured: true,
       system: DECISION_SYSTEM,
       prompt: "Decide how the runtime should respond to the current event.",
-      context: { event: ctx.event, worldState: ctx.worldState, significance: ctx.significance },
+      // the event as shape, not as content: a payload carrying a hundred kilobytes was ninety
+      // per cent of this prompt, and none of it was what the decision turns on
+      context: { event: shapeOfEvent(ctx.event), worldState: ctx.worldState, significance: ctx.significance },
     };
 
     const { provider, route } = await this.router.route(request);
