@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1236 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1245 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A logger that cannot fail its caller, and traces a neighbour cannot take** (2026-09-05): the
+  logger threw on a field it could not serialise — a circular object, a bigint — and a logger is
+  called from inside catch blocks, so the runtime reporting a snapshot that failed to save would
+  lose the ingest that was carrying on regardless. It writes a line saying its fields were lost
+  instead, since quietly dropping the whole line is the other way to lose the report, and a sink
+  the host supplied is wrapped the same way. The trace store bounded one ring across every
+  session, so a busy session pushed out the traces of every quiet one beside it and the inspector
+  — the one place a person looks to find out why their body changed — showed nothing for a session
+  that had done nothing wrong. Each session has its own ring now, with the ceiling counting
+  sessions; that raises the worst case from 500 traces to 50 across 200 sessions, the same order
+  as the event store and the audit log. Three tests asserted the old contract, one naming the
+  behaviour outright without recording a reason for wanting it. The body's own event list, which
+  grows in memory while only the last 500 persist, is deliberately left: the restore sets the list
+  to what came back, so the live core and the replay check are built from the same events, and
+  trimming it would make that check call the difference non-determinism. 11 tests.
+  1245 unit/integration total.
 - **The runtime asks every body watching, not only the one that caused the question**
   (2026-09-05): writing the end-to-end test for the decided-approval broadcast is what showed the
   other half was missing. Only the body whose own event caused an approval learned it was pending,
