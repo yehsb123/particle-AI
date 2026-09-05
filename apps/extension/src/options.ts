@@ -1,4 +1,4 @@
-import { DEFAULT_CONSENT, type Consent } from "./shape";
+import { DEFAULT_CONSENT, runtimeUrlFrom, type Consent } from "./shape";
 
 const ids: (keyof Consent)[] = ["interactions", "tabs", "network"];
 const box = (id: string) => document.getElementById(id) as HTMLInputElement;
@@ -18,6 +18,7 @@ const KO: Record<string, string> = {
   runtimeUrl: "런타임 URL",
   runtimeUrl_desc: "이벤트가 전송되는 곳 — 기본은 이 컴퓨터입니다. 비우면 <code>http://localhost:8787</code>",
   runtime: "런타임",
+  runtimeFellBack: "주소로 읽을 수 없어 기본값을 씁니다",
   body: "바디: 사이드 패널",
 };
 
@@ -33,12 +34,29 @@ function localize(): void {
   }
 }
 
+/**
+ * Say where events will actually go.
+ *
+ * This line promised the runtime's address and printed the default no matter what was configured,
+ * while the box above it showed whatever had been typed. Somebody who typed an address the sensor
+ * could not read was told twice that it was in use, and their events went somewhere else.
+ */
+function showDestination(): void {
+  const el = document.getElementById("runtimeDestination");
+  if (!el) return;
+  const { url, fellBack } = runtimeUrlFrom(box("runtimeUrl").value);
+  const ko = document.documentElement.lang === "ko";
+  const note = fellBack ? ` (${ko ? KO.runtimeFellBack : "not readable as an address, so the default is used"})` : "";
+  el.textContent = url + note;
+}
+
 /** Read the whole form synchronously and write it as one object — no read-modify-write race. */
 function save(): void {
   const consent: Consent = { interactions: box("interactions").checked, tabs: box("tabs").checked, network: box("network").checked };
   const token = box("token").value.trim();
   const runtimeUrl = box("runtimeUrl").value.trim();
   void chrome.storage.sync.set({ consent, token, runtimeUrl });
+  showDestination();
 }
 
 async function load(): Promise<void> {
@@ -47,10 +65,12 @@ async function load(): Promise<void> {
   for (const id of ids) box(id).checked = c[id];
   box("token").value = typeof v.token === "string" ? v.token : "";
   box("runtimeUrl").value = typeof v.runtimeUrl === "string" ? v.runtimeUrl : "";
+  showDestination();
 }
 
 localize();
 for (const id of ids) box(id).addEventListener("change", save);
 box("token").addEventListener("change", save);
 box("runtimeUrl").addEventListener("change", save);
+box("runtimeUrl").addEventListener("input", showDestination);
 void load();

@@ -36,6 +36,33 @@ export function identifier(name: unknown): string {
   return clean.length > MAX_NAME ? `${clean.slice(0, MAX_NAME)}…` : clean;
 }
 
+/** Where events go when nobody has said otherwise: the runtime on this machine. */
+export const DEFAULT_RUNTIME_URL = "http://localhost:8787";
+
+/**
+ * Where this sensor will send what it observes, from what somebody typed.
+ *
+ * It was decided by a prefix test rather than by parsing, so "192.168.1.20:8787" — a reasonable
+ * thing to type for a runtime on another machine — fell back to this one while the options page
+ * went on showing what was typed, and "http://" became "http:/" which is not an address at all.
+ * Somebody who believes their events are going to one machine while they go to another has been
+ * told something untrue about their own data.
+ *
+ * `fellBack` is what lets the page say so.
+ */
+export function runtimeUrlFrom(typed: unknown): { url: string; fellBack: boolean } {
+  const raw = typeof typed === "string" ? typed.trim() : "";
+  if (!raw) return { url: DEFAULT_RUNTIME_URL, fellBack: false };
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return { url: DEFAULT_RUNTIME_URL, fellBack: true };
+    if (!parsed.hostname) return { url: DEFAULT_RUNTIME_URL, fellBack: true };
+    return { url: `${parsed.origin}${parsed.pathname}`.replace(/\/$/, ""), fellBack: false };
+  } catch {
+    return { url: DEFAULT_RUNTIME_URL, fellBack: true };
+  }
+}
+
 export function hostOf(url: string): string {
   try {
     const u = new URL(url);

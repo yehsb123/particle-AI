@@ -22,10 +22,11 @@ import {
   consentLayers,
   DEFAULT_CONSENT,
   type Consent,
+  runtimeUrlFrom,
+  DEFAULT_RUNTIME_URL,
 } from "./shape";
 
-const DEFAULT_RUNTIME = "http://localhost:8787";
-let runtimeUrl = DEFAULT_RUNTIME;
+let runtimeUrl = DEFAULT_RUNTIME_URL;
 const SESSION = "ext";
 
 const NONE: Consent = { interactions: false, tabs: false, network: false };
@@ -39,8 +40,7 @@ function applySettings(v: Record<string, unknown>): void {
   const layer = (k: keyof Consent) => (typeof stored[k] === "boolean" ? (stored[k] as boolean) : DEFAULT_CONSENT[k]);
   consent = { interactions: layer("interactions"), tabs: layer("tabs"), network: layer("network") };
   token = typeof v.token === "string" ? v.token : "";
-  const u = typeof v.runtimeUrl === "string" ? v.runtimeUrl.trim() : "";
-  runtimeUrl = /^https?:\/\//.test(u) ? u.replace(/\/$/, "") : DEFAULT_RUNTIME;
+  runtimeUrl = runtimeUrlFrom(v.runtimeUrl).url;
 }
 
 /** Resolves once consent has been read — every sender awaits this. */
