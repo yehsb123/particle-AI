@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1192 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1210 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A decision on a proposed capability is recorded and announced** (2026-09-05): the runtime
+  proposes a risky capability and waits for a person, and their answer went nowhere. Nothing was
+  broadcast — one body asking is not the only body watching, so the same session open in another
+  tab or in the side panel kept a card for something already settled, and clicking it got a 404
+  and no explanation. Undo, three lines down the same file, had told every watcher all along. The
+  refusal was worse: it left no trace at all. The trail recorded what a person allowed and kept
+  nothing of what they turned down, which is the half of a consent record worth having. Both now
+  append a record and emit `approval_decided`, and the body drops the card whoever answered it.
+  The message union was declared twice as well — what the runtime sends and what the body accepts
+  — and had already diverged on what a decision frame carries, so the two lists are one list in
+  the contracts now. Approve and reject still take no session: sessions are not principals here
+  (the gate is the origin allow-list and the shared token, and a caller naming a session in a URL
+  would be as free to name another), so a scope check there would look like a boundary without
+  being one. 18 tests. 1210 unit/integration total.
 - **One simulation palette, and a key that is searched for** (2026-09-05): the palette was
   written out twice — an object in the runtime, an array in the body — and both sides need it
   while neither can be the source, since the body builds these itself in local mode where there is
