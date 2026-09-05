@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Confidence, IsoTimestamp } from "./common";
+import { Confidence, IsoTimestamp, MAX_IDENTIFIER } from "./common";
 
 /**
  * The complete set of approved component types. The model may only compose these.
@@ -62,16 +62,66 @@ export type UIComponent = {
   children?: UIComponent[];
 };
 
-export const UIComponent: z.ZodType<UIComponent> = z.lazy(() =>
+/**
+ * How deep and how large a tree the gate will look at.
+ *
+ * The schema is recursive, so validating a tree walks it with the call stack — and a tree deep
+ * enough overflows that stack inside the validator, which throws rather than refusing. The gate
+ * dying is worse than the gate saying no: whatever called it goes down too, and in the body that
+ * is the whole interface. The registry's own layouts are a handful of levels deep, so these are
+ * far past anything real and far short of the stack.
+ */
+export const MAX_TREE_DEPTH = 100;
+export const MAX_TREE_NODES = 2_000;
+
+/**
+ * Measures a raw tree without recursing into it, so it can say no to one that would take the
+ * validator down. Anything that is not a tree passes straight through to the schema, which is
+ * what says why it is not one.
+ */
+export function withinTreeLimits(root: unknown): boolean {
+  if (!root || typeof root !== "object") return true;
+  let seen = 0;
+  const pending: { node: unknown; depth: number }[] = [{ node: root, depth: 1 }];
+  while (pending.length > 0) {
+    const { node, depth } = pending.pop()!;
+    if (!node || typeof node !== "object") continue;
+    if (depth > MAX_TREE_DEPTH) return false;
+    if (++seen > MAX_TREE_NODES) return false;
+    const children = (node as { children?: unknown }).children;
+    if (Array.isArray(children)) {
+      for (const child of children) pending.push({ node: child, depth: depth + 1 });
+    }
+  }
+  return true;
+}
+
+/** A component tree, measured before it is walked. */
+export const BoundedComponentTree = z
+  .unknown()
+  .refine(withinTreeLimits, `a component tree may be ${MAX_TREE_DEPTH} deep and ${MAX_TREE_NODES} nodes at most`);
+
+// the input is unknown because the tree is measured before it is read, and the measurement
+// takes whatever it is handed
+export const UIComponent: z.ZodType<UIComponent, z.ZodTypeDef, unknown> = z.lazy(() =>
+  // measured before it is walked, at every level: the schema is exported and validated directly
+  // in places, and one that only guards its callers' entry points still takes the stack down for
+  // anyone who calls it themselves
+  BoundedComponentTree.pipe(
   z.object({
-    id: z.string().min(1),
+    /**
+     * How a morph addresses this component later, so it is an identifier like any other and held
+     * to the same length. Refused rather than trimmed: two long ids cut to the same length would
+     * be the same component as far as every later patch could tell.
+     */
+    id: z.string().min(1).max(MAX_IDENTIFIER),
     type: ComponentType,
     props: z.record(JsonValue).optional(),
     bindings: z.array(DataBinding).optional(),
     actions: z.array(UIAction).optional(),
     volatile: z.boolean().optional(),
     children: z.array(UIComponent).optional(),
-  }),
+  })),
 );
 
 /**
@@ -117,7 +167,7 @@ export const UIBlueprint = z
     workspaceId: z.string().min(1),
     goal: z.string().optional(),
     mode: z.string().min(1),
-    root: UIComponent,
+    root: BoundedComponentTree.pipe(UIComponent),
     metadata: z.object({
       generatedAt: IsoTimestamp,
       decisionId: z.string().min(1),
@@ -147,7 +197,7 @@ export const AddOp = z.object({
   parentId: z.string().min(1),
   /** insertion index; appended if omitted */
   index: z.number().int().nonnegative().optional(),
-  component: UIComponent,
+  component: BoundedComponentTree.pipe(UIComponent),
 });
 
 export const RemoveOp = z.object({
@@ -158,7 +208,7 @@ export const RemoveOp = z.object({
 export const ReplaceOp = z.object({
   op: z.literal("replace"),
   targetId: z.string().min(1),
-  component: UIComponent,
+  component: BoundedComponentTree.pipe(UIComponent),
 });
 
 export const MoveOp = z.object({
