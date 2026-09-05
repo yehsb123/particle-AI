@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1409 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1417 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A failure from somebody else's process is a message** (2026-09-06): a capability that fails
+  is often another program failing, and an MCP tool can put anything in a message at any length,
+  escape sequences included — a message that is kept on the run record and handed to whoever
+  approved the capability. A third party was deciding how much this system carries and sends.
+  Probed at two hundred thousand characters through four ways of failing (a returned error, a
+  thrown Error, a thrown object with an enormous `toString`, and one carrying escape sequences):
+  all four came through whole. The executor is the one place a failure out there becomes a string
+  in here, so that is where it is settled rather than at each place it later travels — six hundred
+  characters, control characters out, and a failure that says nothing readable still says which
+  capability failed. What the body reads from browser storage besides its event log was probed and
+  left alone: the theme and the language are each checked against the values they can be. 8 tests.
+  1417 unit/integration total.
 - **The extension says where events actually go** (2026-09-06): the other half of a sensor's
   promise — not what it watches but where what it sees is sent. That was decided by a prefix test
   rather than by parsing, so typing `192.168.1.20:8787`, a reasonable thing to write for a runtime

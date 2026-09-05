@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1409 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1417 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1409 unit/integration tests · 16 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Somebody else’s failure is bounded where it arrives**: the executor turns a third party’s error into a message an operator reads, once, rather than at each place it later travels
 - **A sensor is truthful about where it sends**: the runtime address is parsed rather than prefix-tested, and the options page shows the address that will really be used instead of always printing the default
 - **A sensor watches only what it was pointed at**: a repository file can name any directory, so the agent follows one only where a branch can actually be read
 - **Three surfaces, one reader**: the renderer, the inspector and the activity log all bound and clean what they show, and an action names something the runtime acts on rather than an unbounded caption
