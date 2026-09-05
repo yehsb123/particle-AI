@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1376 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1386 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The event a provider is shown is a shape too** (2026-09-06): probing what a prompt weighs
+  after the belief was shaped showed the weight had moved rather than gone — the belief down to
+  nine kilobytes, the triggering event beside it a hundred, ninety per cent of the context. The
+  decision engine hands a provider three things as JSON and that one was still whole: sent to
+  somebody else's model, paid for by the token, and liable to push everything that matters out of
+  the window. It goes as shape now, from the same function the belief uses rather than a second
+  copy of the rule, so the two cannot drift. What the decision turns on survives — a host, a
+  status, a latency — and a string nobody predicted is trimmed rather than dropped, so nothing
+  goes silently missing. What is not shaped is what the runtime decides with: the significance
+  reflex reads the raw event and runs before any of this, because that is the sensor's report and
+  the numbers in it are the signal, and the event log keeps it whole. The test watches the request
+  the engine actually builds rather than calling the shaping function and trusting it reaches the
+  prompt. 10 tests. 1386 unit/integration total.
 - **The belief remembers a shape, and that list travels three ways** (2026-09-06): the belief
   holds a short list of recent events so the runtime can tell a repeat from a novelty, and it kept
   each one whole. That list goes to every body watching the session on every change, into every
