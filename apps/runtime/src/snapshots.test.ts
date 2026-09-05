@@ -37,15 +37,22 @@ describe("a session that has been running", () => {
     expect(JSON.stringify(r.json().blueprint)).toContain("incident");
   });
 
-  it("comes back after a neighbour has been busy for a long time", async () => {
-    // the whole point: a quiet session used to lose its snapshots to a busy one's traffic
+  it("comes back after a neighbour has been busy", async () => {
+    // The whole point: a quiet session used to lose its snapshots to a busy one's traffic. The
+    // volume does not have to be large to show it, because the store now keeps the latest of each
+    // kind per session rather than a shared ring — how many a neighbour writes stops mattering at
+    // one. The store's own test carries the volume, two thousand writes in memory, for nothing.
+    //
+    // This one ran three hundred ingests and timed out on CI at 5.08s against a real Postgres,
+    // where every ingest is six round trips. It is the walk through the real endpoints that has
+    // value here, not the count.
     await ingest("quiet");
-    for (let i = 0; i < 300; i++) await ingest("busy", i % 2 ? "http-500" : "recovered");
+    for (let i = 0; i < 30; i++) await ingest("busy", i % 2 ? "http-500" : "recovered");
 
     const r = await resume("quiet");
     expect(r.json().resumed).toBe(true);
     expect(runtime.audit.list("quiet").map((x) => x.kind)).toContain("session_resumed");
-  });
+  }, 30_000);
 
   it("comes back to its own state, never a neighbour's", async () => {
     await ingest("mine", "http-500");
