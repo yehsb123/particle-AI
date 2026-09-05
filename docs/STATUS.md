@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1274 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1286 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,23 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The renderer bounds and cleans what it shows, on every path into it** (2026-09-05): the
+  renderer is the last thing between validated data and the screen, and it had three ways of
+  reading a prop — one that checked the type, one that checked for an array, and one that handed
+  the value straight through, used eight times. Through that third one a Metric whose value was an
+  object threw, since React refuses an object as a child, and a throw in this tree empties the body
+  rather than one card; a JSONViewer whose data referred to itself threw too, which a prop can do,
+  because a binding puts a capability's own output object into one rather than something that came
+  off the wire. Nothing checked size or content either: props are written by the model and checked
+  for their shape, so a label of a million characters rendered whole, a list prop of twenty thousand
+  entries rendered every one, and an escape sequence went to the screen intact. Values are bounded
+  and cleaned now, lists are bounded, the raw paths go through the same reader, and a structure that
+  cannot be stringified says so. The newline and tab stay, since a Markdown block renders pre-wrap;
+  the carriage return does not. The hostile-prop fixtures claimed to be props of every shape a
+  component might read and never put a bare object in the two the raw reader served — they do now,
+  self-referencing ones included, which caught that the test labelled its own cases with
+  `JSON.stringify`. 12 tests for size and content beside the 10 for shape. 1286 unit/integration
+  total.
 - **A layer name is an identifier like every other one** (2026-09-05): a sensor declares what it
   observes and the body shows that back as the honest-sensing indicator, so those names are what
   someone reads to find out what is watching them. Every other identifier the belief takes goes
