@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1151 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1167 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The session rail: one shape, a parsed listing, and a link that keeps working** (2026-09-05):
+  the rail in one session's body lists the other sessions this runtime senses and links to each.
+  Its shape was declared twice — the return type of `listSessions`, and a cast in the body — so a
+  field either side changed was one the other went on believing in; `SessionSummary` now lives in
+  the contracts and both read it there. The listing itself was cast, and the rail reads a layer
+  list off every entry: reading `.length` off something that is not a list throws inside the
+  render, which takes the whole body down rather than one row. It is parsed now, leniently on
+  purpose — a session that exists is what the rail is for, so an entry whose fields disagree keeps
+  its name and reports nothing rather than vanishing, since an empty rail says there are no other
+  sessions, which is a confident lie where a session reporting nothing is a quiet one. And the link
+  dropped the token: the extension side panel passes one in the page's address, because a page
+  cannot read the extension's storage, so following a link from the rail opened a body that could
+  no longer reach the runtime, silently. `sessionHref` carries it, same origin, building both
+  halves through `URLSearchParams` so neither the id nor the token can add a parameter of its own.
+  16 tests. 1167 unit/integration total.
 - **A sensor sends a shape, and a shape has a size** (2026-09-05): the agent reports names it
   read off this machine and the extension reports the host a page came from, and none of those are
   bounded at the source. A branch name comes out of `.git/HEAD`, a file like any other, and the
