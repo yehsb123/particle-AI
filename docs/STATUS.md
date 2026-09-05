@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1210 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1218 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The trail: records that identify themselves, and a resume that leaves a mark** (2026-09-05):
+  two more sibling asymmetries in the same file, found by reading undo, redo and resume side by
+  side. A reversal took its audit id from the clock, so two in the same millisecond were the same
+  record as far as anything reading could tell — and a multi-step go-back gesture makes exactly
+  that: four reversals produced two ids. The inspector draws one row per record keyed by its id,
+  so the trail a person reads to find out why the body changed was collapsing rows. A count now;
+  records that already had a natural key, like an approval decided, keep it. And a resume left no
+  mark at all, though it replaces both what the runtime believes and what the body shows with
+  something an earlier process wrote — a reader could not tell that the body above them came off a
+  disk rather than out of the events listed under it. It records what came back: world, blueprint,
+  memory. The reconcile event id stays on the clock: it carries the session, the timer for a
+  session is cancelled before another is scheduled, and the event store does not key by id.
+  8 tests. 1218 unit/integration total.
 - **A decision on a proposed capability is recorded and announced** (2026-09-05): the runtime
   proposes a risky capability and waits for a person, and their answer went nowhere. Nothing was
   broadcast — one body asking is not the only body watching, so the same session open in another
