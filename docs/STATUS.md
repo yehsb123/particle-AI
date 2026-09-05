@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1218 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1226 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **Snapshots keep what a resume reads, and nothing else** (2026-09-05): every ingest writes
+  three snapshots — world, body, memory — and a resume reads exactly one of each, the most recent.
+  Both stores kept every one ever written. In memory that meant a single busy session filled the
+  store and pushed out the snapshots of every quiet session beside it: probed with a small
+  ceiling, a session that had saved once was left with nothing after a neighbour ran, and resumed
+  to nothing having done nothing wrong — while of the thirty snapshots crowding it out, a resume
+  read three. The store now holds the latest of each kind per session, so the ceiling counts
+  sessions rather than writes and the session written to most recently is the last forgotten;
+  sessions and kinds live in nested maps rather than under a composed key, so no session id can be
+  spelled to reach another's. Postgres had no bound at all — three rows per ingest, kept forever,
+  all read back on every resume — and now deletes what each save replaces, by id rather than
+  timestamp so two saves in the same instant still leave one row; that path is typechecked but not
+  exercised here, as there is no database in this environment. Three tests asserted the old
+  contract (history in save order) and now pin the new one. 11 tests. 1226 unit/integration total.
 - **The trail: records that identify themselves, and a resume that leaves a mark** (2026-09-05):
   two more sibling asymmetries in the same file, found by reading undo, redo and resume side by
   side. A reversal took its audit id from the clock, so two in the same millisecond were the same

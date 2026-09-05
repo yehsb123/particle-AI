@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1218 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
+Every commit is green (typecheck 0 · 1226 unit/integration tests · 15 Playwright E2E tests across 14 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1218 unit/integration tests · 15 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Snapshots are what a resume reads**: the latest of each kind per session in both backends, so a busy session can no longer empty a quiet one and leave it unable to come back
 - **The audit trail holds up**: every record has an id no other record shares, and a session brought back from a snapshot says so where undo and redo always have
 - **Consent decisions are kept and broadcast**: approving and refusing a proposed capability both write to the trail and reach every body watching that session, on one shared message vocabulary
 - **One simulation palette**: the runtime and the body share the list and the builder, so a button sends the same event in either mode, and a sim key is searched for rather than looked up on an object
