@@ -16,14 +16,40 @@ export function normalizeLevel(level: unknown, fallback: LogLevel = "info"): Log
 export type LogFields = Record<string, unknown>;
 export type Sink = (line: { level: LogLevel; msg: string; fields?: LogFields }) => void;
 
-/** Minimal structured logger. Every runtime decision links event/decision/patch ids. */
+/**
+ * Minimal structured logger. Every runtime decision links event/decision/patch ids.
+ *
+ * Nothing here throws. A logger is called from inside catch blocks, so a logger that fails turns
+ * a failure somebody was handling into one nobody is: a field that cannot be serialised — a
+ * circular object, a bigint — used to take down the operation that was trying to report a
+ * problem. The line still goes out, saying its fields could not be written, and a sink the host
+ * supplied is given the same treatment, since a bug in one is not a reason to fail an ingest.
+ */
 export function createLogger(minLevel: LogLevel | string = "info", sink?: Sink) {
   const floor = normalizeLevel(minLevel);
+  const write = (level: LogLevel, line: string) => {
+    try {
+      console[level === "debug" ? "log" : level](line);
+    } catch {
+      /* a console that cannot be written to is not something a logger can report */
+    }
+  };
   const emit = (level: LogLevel, msg: string, fields?: LogFields) => {
     if (RANK[level] < RANK[floor]) return;
-    if (sink) sink({ level, msg, fields });
+    if (sink) {
+      try {
+        sink({ level, msg, fields });
+      } catch {
+        write(level, JSON.stringify({ level, msg, sinkFailed: true }));
+      }
+      return;
+    }
     // default sink: structured console line
-    else console[level === "debug" ? "log" : level](JSON.stringify({ level, msg, ...fields }));
+    try {
+      write(level, JSON.stringify({ level, msg, ...fields }));
+    } catch {
+      write(level, JSON.stringify({ level, msg, fieldsUnserializable: true }));
+    }
   };
   return {
     debug: (msg: string, fields?: LogFields) => emit("debug", msg, fields),
@@ -50,21 +76,46 @@ export type RuntimeTrace = {
   guardReasonCodes: string[];
 };
 
-/** Collects traces for replay/inspection. Bounded ring. */
+/**
+ * Collects traces for inspection: the "why did the UI change" row behind each event.
+ *
+ * Bounded per session rather than across all of them. One ring for everybody meant a busy session
+ * pushed out the traces of every quiet session beside it, and the inspector of a session that had
+ * done nothing wrong showed nothing at all — the one place a person looks to find out why their
+ * body changed. Sessions are held in a map rather than under a composed key, so no session id can
+ * be spelled to reach another's traces.
+ */
 export class TraceStore {
-  private traces: RuntimeTrace[] = [];
-  constructor(private readonly limit = 500) {}
+  private bySession = new Map<string, RuntimeTrace[]>();
+
+  constructor(
+    private readonly perSession = 50,
+    private readonly maxSessions = 200,
+  ) {}
 
   append(trace: RuntimeTrace): void {
-    this.traces.push(trace);
-    if (this.traces.length > this.limit) this.traces.shift();
+    const existing = this.bySession.get(trace.sessionId);
+    // re-inserting moves this session to the end: what is written to stays, what went quiet goes
+    if (existing) this.bySession.delete(trace.sessionId);
+    const ring = existing ?? [];
+    ring.push(trace);
+    if (ring.length > this.perSession) ring.shift();
+    this.bySession.set(trace.sessionId, ring);
+    while (this.bySession.size > this.maxSessions) {
+      const oldest = this.bySession.keys().next().value;
+      if (oldest === undefined) break;
+      this.bySession.delete(oldest);
+    }
   }
 
   list(sessionId?: string): RuntimeTrace[] {
-    return sessionId ? this.traces.filter((t) => t.sessionId === sessionId) : [...this.traces];
+    if (sessionId !== undefined) return [...(this.bySession.get(sessionId) ?? [])];
+    return [...this.bySession.values()].flat();
   }
 
   count(): number {
-    return this.traces.length;
+    let total = 0;
+    for (const ring of this.bySession.values()) total += ring.length;
+    return total;
   }
 }

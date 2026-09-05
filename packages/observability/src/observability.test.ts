@@ -19,13 +19,20 @@ describe("TraceStore", () => {
     significance: 0.9, deliberated: true, capabilityIds: [], morphApplied: true, guardReasonCodes: [],
   });
 
-  it("appends, filters by session, and bounds the ring", () => {
+  it("appends, filters by session, and bounds each session's ring", () => {
+    // the bound is per session now: three from s1 and one from s2 is four kept, not three, and
+    // s2 keeps its own however busy s1 gets
     const store = new TraceStore(3);
     store.append(t("s1", 1));
     store.append(t("s2", 2));
     store.append(t("s1", 3));
     store.append(t("s1", 4));
-    expect(store.count()).toBe(3); // bounded
-    expect(store.list("s1").length).toBeGreaterThanOrEqual(1);
+    expect(store.count()).toBe(4);
+    expect(store.list("s1").map((x) => x.eventId)).toEqual(["e1", "e3", "e4"]);
+    expect(store.list("s2").map((x) => x.eventId)).toEqual(["e2"]);
+
+    store.append(t("s1", 5));
+    expect(store.list("s1").map((x) => x.eventId)).toEqual(["e3", "e4", "e5"]);
+    expect(store.list("s2")).toHaveLength(1);
   });
 });

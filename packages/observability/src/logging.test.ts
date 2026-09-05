@@ -116,16 +116,35 @@ describe("TraceStore — the inspector's window, bounded", () => {
     expect(store.list("s1").map((t) => t.eventId)).toEqual(["e1", "e3"]);
     expect(store.list("s2").map((t) => t.eventId)).toEqual(["e2"]);
     expect(store.list("never-existed")).toEqual([]);
-    expect(store.list().map((t) => t.eventId)).toEqual(["e1", "e2", "e3"]);
+    // each session keeps its own order; across sessions there is no order to keep, since nothing
+    // reads them together except a count
+    expect(store.list()).toHaveLength(3);
+    expect(new Set(store.list().map((t) => t.eventId))).toEqual(new Set(["e1", "e2", "e3"]));
   });
 
-  it("evicts by age, not by session, so a busy session can push out a quiet one", () => {
+  it("bounds each session on its own, so a busy one cannot empty a quiet one", () => {
+    // this used to evict by age across every session: the inspector of a session that had done
+    // nothing wrong showed nothing at all, which is the one place a person looks to find out why
+    // their body changed
     const store = new TraceStore(2);
     store.append(mk("quiet", 1));
-    store.append(mk("busy", 2));
-    store.append(mk("busy", 3));
-    expect(store.list("quiet")).toEqual([]);
+    for (let i = 2; i <= 20; i += 1) store.append(mk("busy", i));
+
+    expect(store.list("quiet").map((t) => t.eventId)).toEqual(["e1"]);
     expect(store.list("busy")).toHaveLength(2);
+    expect(store.list("busy").map((t) => t.eventId)).toEqual(["e19", "e20"]);
+  });
+
+  it("forgets the session that went quiet longest when it is holding too many", () => {
+    const store = new TraceStore(5, 2);
+    store.append(mk("a", 1));
+    store.append(mk("b", 2));
+    store.append(mk("a", 3)); // a is written to again, so b is now the quietest
+    store.append(mk("c", 4));
+
+    expect(store.list("b")).toEqual([]);
+    expect(store.list("a").map((t) => t.eventId)).toEqual(["e1", "e3"]);
+    expect(store.list("c")).toHaveLength(1);
   });
 
   it("hands back a list the caller cannot use to lengthen the ring", () => {
