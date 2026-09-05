@@ -15,7 +15,7 @@
 import { watch, existsSync, statSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, type Signal } from "./shape";
+import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, type Signal } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -60,7 +60,7 @@ function watchPaths(paths: string[]): void {
         rel,
         setTimeout(() => {
           pending.delete(rel);
-          void send(matterEvent(SESSION, "user", "user.opened_file", "debug", { path: rel }));
+          void send(matterEvent(SESSION, "user", "user.opened_file", "debug", { path: identifier(rel) }));
         }, DEBOUNCE_MS),
       );
     });

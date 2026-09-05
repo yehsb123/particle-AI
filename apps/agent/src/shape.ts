@@ -36,11 +36,39 @@ export function isIgnored(rel: string): boolean {
  * Branch name from the text of `.git/HEAD` — "ref: refs/heads/main" → "main"; a detached HEAD
  * becomes "detached@<short sha>". Anything else is undefined (never sent).
  */
-export function branchFromHead(text: string): string | undefined {
+/**
+ * How much of a name this sensor will send. The same bound the runtime keeps (MAX_IDENTIFIER in
+ * the contracts, asserted by this package's tests): a sensor sends a shape, and a shape has a
+ * size. Trimming here as well as there means what leaves this machine is already a shape, rather
+ * than something the receiver has to cut down after it has already been sent.
+ */
+export const MAX_NAME = 120;
+
+/** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
+const WHITESPACE = /\s+/g;
+
+/**
+ * A name this machine observed, made fit to send and to print.
+ *
+ * These come from outside: a branch name out of a file git wrote, a path out of the OS watcher, a
+ * host out of a URL. None of them are bounded at the source, and a name is written into an event,
+ * into cards someone reads, and into this process's own stderr — where an escape sequence is an
+ * instruction to their terminal rather than a name anybody chose.
+ */
+export function identifier(name: unknown): string {
+  if (typeof name !== "string") return "";
+  const clean = name.replace(CONTROL_CHARACTERS, "").replace(WHITESPACE, " ").trim();
+  return clean.length > MAX_NAME ? `${clean.slice(0, MAX_NAME)}…` : clean;
+}
+
+export function branchFromHead(text: unknown): string | undefined {
+  if (typeof text !== "string") return undefined;
   const t = text.trim();
   if (!t) return undefined;
   const ref = /^ref:\s*refs\/heads\/(.+)$/.exec(t);
-  if (ref?.[1]) return ref[1].trim();
+  // a branch name is whatever git was told to call it, and .git/HEAD is a file like any other
+  if (ref?.[1]) return identifier(ref[1]) || undefined;
   return /^[0-9a-f]{7,40}$/i.test(t) ? `detached@${t.slice(0, 7)}` : undefined;
 }
 

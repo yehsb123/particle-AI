@@ -10,10 +10,37 @@ export function isSensableUrl(url: string): boolean {
 }
 
 /** Hostname only — never path, query, hash, credentials, or port. */
+/**
+ * How much of a name this sensor will send. The same bound the runtime keeps (MAX_IDENTIFIER in
+ * the contracts, asserted by this package's tests): a sensor sends a shape, and a shape has a
+ * size. Trimming here as well as there means what leaves this machine is already a shape, rather
+ * than something the receiver has to cut down after it has already been sent.
+ */
+export const MAX_NAME = 120;
+
+/** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
+const WHITESPACE = /\s+/g;
+
+/**
+ * A name this machine observed, made fit to send and to print.
+ *
+ * These come from outside: a branch name out of a file git wrote, a path out of the OS watcher, a
+ * host out of a URL. None of them are bounded at the source, and a name is written into an event,
+ * into cards someone reads, and into this process's own stderr — where an escape sequence is an
+ * instruction to their terminal rather than a name anybody chose.
+ */
+export function identifier(name: unknown): string {
+  if (typeof name !== "string") return "";
+  const clean = name.replace(CONTROL_CHARACTERS, "").replace(WHITESPACE, " ").trim();
+  return clean.length > MAX_NAME ? `${clean.slice(0, MAX_NAME)}…` : clean;
+}
+
 export function hostOf(url: string): string {
   try {
     const u = new URL(url);
-    return u.hostname || "unknown";
+    // a URL parses with a hostname of any length; what this sensor reports is a shape
+    return identifier(u.hostname) || "unknown";
   } catch {
     return "unknown";
   }

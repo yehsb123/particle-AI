@@ -34,6 +34,14 @@ export const SEVERITY_RANK: Record<Severity, number> = {
 };
 
 /**
+ * How much of a name travels: a path, a host, a branch, an action key. The sensors observe names
+ * this machine already holds, and a name long enough to be prose is no longer a shape. Each
+ * sensor trims to this before sending and the world model trims again on the way in, because a
+ * sensor is not the only thing that can post an event.
+ */
+export const MAX_IDENTIFIER = 120;
+
+/**
  * What a capability can do to the world outside the runtime, from least to most. The order is
  * the order: the permission engine decides what runs on its own by how far down this list a
  * capability sits, and the body names each of them to the person being asked to allow one.

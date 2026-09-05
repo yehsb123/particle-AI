@@ -1,5 +1,5 @@
 import type { MatterEvent, Problem, ProcessState, WorldState } from "@particle/contracts";
-import { RECENT_EVENTS_LIMIT } from "@particle/contracts";
+import { MAX_IDENTIFIER, RECENT_EVENTS_LIMIT } from "@particle/contracts";
 
 const PROBLEM_OPENERS: Record<string, { kind: string; summary: string; severity: "warning" | "critical" }> = {
   "development.server_error": { kind: "runtime_error", summary: "Service returned a runtime error", severity: "critical" },
@@ -17,7 +17,8 @@ const PROBLEM_CLOSERS: Record<string, string> = {
 };
 
 /** Longest identifier the world state will hold. Anything longer is not an identifier. */
-const MAX_IDENTIFIER = 120;
+/** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
 
 /**
  * Every payload string that becomes part of the belief comes through here. The sensors send
@@ -33,7 +34,10 @@ function seconds(v: unknown): number {
 
 function str(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
-  return v.length > MAX_IDENTIFIER ? `${v.slice(0, MAX_IDENTIFIER)}…` : v;
+  // an identifier is written into cards, snapshots and the operator's own terminal; an escape
+  // sequence in one is instruction to whatever renders it, not a name anybody chose
+  const clean = v.replace(CONTROL_CHARACTERS, "");
+  return clean.length > MAX_IDENTIFIER ? `${clean.slice(0, MAX_IDENTIFIER)}…` : clean;
 }
 
 /**
