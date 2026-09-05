@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1417 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1430 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -113,4 +113,5 @@ Every commit is green (typecheck 0 · 1417 unit/integration tests · 17 Playwrig
 - **The body reads the policy, and parses what the server sends**: risk badges and level descriptions are built from the permission policy rather than restated beside it; the event answer is parsed at the boundary instead of cast
 - **Declared permissions are enforced**: a capability that names a permission it has not been granted asks before it runs, however low its risk; the approval card says which of the two reasons it is asking for
 - **The page names the address in use**: the options page draws its runtime destination from what is stored rather than from what is being typed, so it can no longer promise an address the sensor is not sending to
+- **A session name is held to a shape**: bounded and refused control characters at both doors — the event schema and the URL — and a rejected event is told where it was wrong rather than having its own contents read back to it
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist

@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1417 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1430 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,23 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **A session name is a key, not a caption** (2026-09-06): it selects a belief, a map entry, an
+  audit trail, a snapshot row and a broadcast, and anything at all may choose one — the body takes
+  it from its own query string, and any process that can reach the runtime may name one in an event
+  it posts. It had no bound and no rule about characters. Probed on the real server: 200,000
+  characters were accepted, and every world-state broadcast for that session then carried six
+  hundred kilobytes of nothing but its own name; an escape sequence and a NUL were accepted too and
+  went into the world state a body draws, into the session listing, and into every trace and log
+  line naming that session — a plain GET was enough for the last of those, because the URL never
+  passes through the event schema. It is refused now rather than trimmed, since two names cut to
+  the same length would be one session, and the URL door gets the same rule in one hook rather than
+  a check at each of the dozen routes, with the router's own parameter limit set from the same
+  constant — left at the framework default a session that could be created could not be read back.
+  In the same pass: a rejected event was answered with the validator's own message, and that
+  message quotes the value it refused, so a 200,000-character field came back as a 400,374 byte
+  error with its control characters intact. The failure path was answering a bad request by
+  repeating it, larger; it now says where the event was wrong and what was expected there, and
+  never the content. 13 tests. 1430 unit/integration total.
 - **The address the page names is the address in use** (2026-09-06): the same line, one layer
   further in. It was drawn from the box's keystrokes, but the box only saves when the field is
   left — so half-way through typing a new runtime address the page already named it while the
