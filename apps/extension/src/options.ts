@@ -40,11 +40,17 @@ function localize(): void {
  * This line promised the runtime's address and printed the default no matter what was configured,
  * while the box above it showed whatever had been typed. Somebody who typed an address the sensor
  * could not read was told twice that it was in use, and their events went somewhere else.
+ *
+ * It is drawn from what is stored, because that is what the background reads. Drawn from the box
+ * instead it moved with every keystroke, so half-way through typing a new address the line already
+ * named it while events still went to the old one — and the box only saves when the field is left,
+ * so closing the tab with the caret still in it saved nothing at all. Where a sensor sends what it
+ * observes is not a thing to be provisional about.
  */
-function showDestination(): void {
+function showDestination(stored: unknown): void {
   const el = document.getElementById("runtimeDestination");
   if (!el) return;
-  const { url, fellBack } = runtimeUrlFrom(box("runtimeUrl").value);
+  const { url, fellBack } = runtimeUrlFrom(stored);
   const ko = document.documentElement.lang === "ko";
   const note = fellBack ? ` (${ko ? KO.runtimeFellBack : "not readable as an address, so the default is used"})` : "";
   el.textContent = url + note;
@@ -55,8 +61,8 @@ function save(): void {
   const consent: Consent = { interactions: box("interactions").checked, tabs: box("tabs").checked, network: box("network").checked };
   const token = box("token").value.trim();
   const runtimeUrl = box("runtimeUrl").value.trim();
+  // the line below redraws from storage.onChanged, once the write has actually landed
   void chrome.storage.sync.set({ consent, token, runtimeUrl });
-  showDestination();
 }
 
 async function load(): Promise<void> {
@@ -65,12 +71,15 @@ async function load(): Promise<void> {
   for (const id of ids) box(id).checked = c[id];
   box("token").value = typeof v.token === "string" ? v.token : "";
   box("runtimeUrl").value = typeof v.runtimeUrl === "string" ? v.runtimeUrl : "";
-  showDestination();
+  showDestination(v.runtimeUrl);
 }
 
 localize();
 for (const id of ids) box(id).addEventListener("change", save);
 box("token").addEventListener("change", save);
 box("runtimeUrl").addEventListener("change", save);
-box("runtimeUrl").addEventListener("input", showDestination);
+// another options tab, or anything else that writes it, is describing this sensor too
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && changes.runtimeUrl) showDestination(changes.runtimeUrl.newValue);
+});
 void load();
