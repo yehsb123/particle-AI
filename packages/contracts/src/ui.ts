@@ -30,11 +30,19 @@ export const DataBinding = z.object({
 export type DataBinding = z.infer<typeof DataBinding>;
 
 export const UIAction = z.object({
-  /** event name emitted to the runtime when triggered (e.g. "user.requested_undo") */
-  event: z.string().min(1),
-  label: z.string().optional(),
+  /**
+   * Event name emitted to the runtime when triggered (e.g. "user.requested_undo").
+   *
+   * This decides what pressing a button does, so it is a name the runtime acts on rather than a
+   * caption, and it is held to the length every other identifier is. Refused rather than trimmed,
+   * for the same reason a component id is: two names cut to the same length would ask the runtime
+   * for the same thing.
+   */
+  event: z.string().min(1).max(MAX_IDENTIFIER),
+  /** what the button says, if the action carries its own words rather than the component's */
+  label: z.string().max(MAX_IDENTIFIER).optional(),
   /** capability id to invoke, if this action maps to one */
-  capabilityId: z.string().optional(),
+  capabilityId: z.string().min(1).max(MAX_IDENTIFIER).optional(),
   payload: z.record(z.unknown()).optional(),
 });
 export type UIAction = z.infer<typeof UIAction>;

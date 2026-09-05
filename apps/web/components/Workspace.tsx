@@ -11,7 +11,7 @@ import { describeIntent } from "../lib/intent";
 import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, PresenceState, UIAction, UIBlueprint } from "@particle/contracts";
 import { MatterEvent as MatterEventSchema } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
-import { Render, RendererProvider } from "./Renderer";
+import { Render, RendererProvider, text as displayText } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildSimEvent as buildEvent, type SimSpec } from "@particle/contracts";
 import { RuntimeClient, sessionHref, type ServerMessage } from "../lib/runtimeClient";
@@ -104,8 +104,16 @@ export function Workspace() {
     });
   }, []);
 
+  /**
+   * A line in the activity log.
+   *
+   * The log is the third surface that shows values from outside — the renderer and the inspector
+   * are the other two, and both read through the same helper. This one rendered whatever it was
+   * handed, and it is handed names a model wrote: the capability an action names, the reason codes
+   * a morph was held for, the id of a patch.
+   */
   const pushLog = useCallback((text: string, kind: LogEntry["kind"]) => {
-    setLog((l) => [{ id: `${Date.now()}-${Math.random()}`, text, kind }, ...l].slice(0, 40));
+    setLog((l) => [{ id: `${Date.now()}-${Math.random()}`, text: displayText(text), kind }, ...l].slice(0, 40));
   }, []);
 
   const applyResult = useCallback(
