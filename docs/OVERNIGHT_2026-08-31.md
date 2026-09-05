@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1265 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1274 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1265 unit/integration tests · 16 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **Every identifier is read the same way**: layer names are trimmed and stripped of control characters like every other name, so what the sensing indicator tells a person is a name and not an escape sequence
 - **A number has to be a number**: every numeric field the belief acts on is type-checked rather than coerced, so a payload shaped like a status can no longer invent a failing host and the incident that follows it
 - **Sensing arrives intact**: a batched interaction count reaches the belief as the number the sensor counted, bounded on the way in, instead of being flattened to one per report
 - **Observability holds up under its own failures**: the logger never throws at the caller that is already handling a problem, and each session keeps its own trace ring so a busy neighbour cannot empty the inspector

@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1265 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1274 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,16 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A layer name is an identifier like every other one** (2026-09-05): a sensor declares what it
+  observes and the body shows that back as the honest-sensing indicator, so those names are what
+  someone reads to find out what is watching them. Every other identifier the belief takes goes
+  through one reader that trims it and strips control characters — a path, a host, an action key,
+  the sensor's own name — and layer names did not. How many a sensor could declare was bounded at
+  sixteen, but not how long one could be: a five thousand character layer went into the belief
+  whole, and one carrying an escape sequence kept it, into snapshots, into the rail that lists
+  every session this runtime senses, and into whatever an operator reads them with. They go
+  through the same reader now, and a name left with nothing in it is dropped rather than shown as
+  an empty chip. 9 tests. 1274 unit/integration total.
 - **A resume test that was measuring the runner** (2026-09-05): CI went red on `9b84d8f` — not
   the change in it, but a test written two nights earlier timing out at 5.08s against a 5s limit,
   with the docs commit on the same tree passing, which is what a test sitting exactly on the line
