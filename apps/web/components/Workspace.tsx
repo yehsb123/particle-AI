@@ -13,7 +13,7 @@ import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "
 import { Render, RendererProvider } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildEvent, type SimSpec } from "../lib/sim";
-import { RuntimeClient, type ServerMessage } from "../lib/runtimeClient";
+import { RuntimeClient, sessionHref, type ServerMessage } from "../lib/runtimeClient";
 import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
 
 type Presence = "idle" | "observing" | "evaluating" | "acting" | "waiting_for_approval";
@@ -819,7 +819,7 @@ export function Workspace() {
                       <span style={{ fontFamily: "var(--mono)" }}>{s.sessionId} ●</span>
                     ) : (
                       // jump to that session's body (same runtime, different senses)
-                      <a href={`/?connect=1&session=${encodeURIComponent(s.sessionId)}`} style={{ fontFamily: "var(--mono)" }}>
+                      <a href={sessionHref(s.sessionId)} style={{ fontFamily: "var(--mono)" }}>
                         {s.sessionId}
                       </a>
                     )}

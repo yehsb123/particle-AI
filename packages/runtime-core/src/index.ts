@@ -2,6 +2,7 @@ import type {
   AttentionState,
   AuditRecord,
   AutonomyLevel,
+  SessionSummary,
   MatterEvent,
   ModelRouteDecision,
   RuntimeDecision,
@@ -226,7 +227,7 @@ export class RuntimeCore {
    * Shape-level summary of every live session (for the multi-session view): id, current intent,
    * open problem count, and the layers each sensor reported. Read-only; never creates sessions.
    */
-  listSessions(): { sessionId: string; intent?: string; problems: number; layers: string[] }[] {
+  listSessions(): SessionSummary[] {
     return [...this.sessions.entries()].map(([sessionId, s]) => ({
       sessionId,
       intent: s.world.inferredIntent?.label,

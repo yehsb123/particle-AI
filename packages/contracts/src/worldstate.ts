@@ -51,6 +51,20 @@ export const SENSING_LAYERS = [
 ] as const;
 export type SensingLayer = (typeof SENSING_LAYERS)[number];
 
+/**
+ * What one session looks like from outside it: enough for the rail in another session's body to
+ * name it and say what it is dealing with, and nothing that would be its content. The runtime
+ * built this shape and the body read it back, each describing it separately, so a field either
+ * side changed was a field the other went on believing in.
+ */
+export const SessionSummary = z.object({
+  sessionId: z.string().min(1),
+  intent: z.string().optional(),
+  problems: z.number().int().nonnegative().default(0),
+  layers: z.array(z.string()).default([]),
+});
+export type SessionSummary = z.infer<typeof SessionSummary>;
+
 export const INTENT_LABELS = [
   "exploring", "focused", "stuck", "switching", "idle", "returning", "debugging",
 ] as const;

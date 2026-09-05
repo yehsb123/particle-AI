@@ -1,5 +1,5 @@
-import { ApprovalRequest as ApprovalRequestSchema, UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
-import type { ApprovalRequest, UIBlueprint, WorldState } from "@particle/contracts";
+import { ApprovalRequest as ApprovalRequestSchema, SessionSummary as SessionSummarySchema, UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
+import type { ApprovalRequest, SessionSummary, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type SimResponse = {
   deliberated?: boolean;
@@ -71,10 +71,54 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
   }
 }
 
+/**
+ * A link to another session's body on this runtime.
+ *
+ * The token this page is using travels with it. It arrived in this page's own address — the
+ * extension side panel puts it there, since a page cannot read the extension's storage — and a
+ * link that dropped it opened a body that could no longer reach the runtime at all, with nothing
+ * said about why. The link is same-origin, so carrying it there is not carrying it anywhere new.
+ */
+export function sessionHref(sessionId: unknown, token: string = TOKEN): string {
+  const query = new URLSearchParams({ connect: "1", session: typeof sessionId === "string" ? sessionId : "" });
+  if (token) query.set("token", token);
+  return `/?${query.toString()}`;
+}
+
 /** Caps on what one answer may carry, so a server cannot hand the body an unbounded list. */
 const MAX_APPROVALS_PER_ANSWER = 50;
 const MAX_REASON_CODES = 20;
 const MAX_SUGGESTIONS = 20;
+/** The runtime keeps up to 500 sessions; the body does not have to draw all of them to say so. */
+const MAX_SESSIONS_SHOWN = 50;
+
+/**
+ * The other sessions this runtime senses, kept only where each is what it claims to be. The rail
+ * reads a layer list off every entry, and reading `.length` off something that is not a list
+ * throws inside the render — which takes the whole body down rather than one row.
+ */
+export function parseSessions(data: unknown): SessionSummary[] {
+  if (!isRecord(data) || !Array.isArray(data.sessions)) return [];
+  const out: SessionSummary[] = [];
+  for (const raw of data.sessions.slice(0, MAX_SESSIONS_SHOWN)) {
+    const parsed = SessionSummarySchema.safeParse(raw);
+    if (parsed.success) {
+      out.push(parsed.data);
+      continue;
+    }
+    // A session that exists is the thing this rail is for. A runtime that has changed the shape of
+    // one field would otherwise empty the rail entirely, and "no other sessions" is a confident
+    // lie where "a session that reports nothing" is only a quiet one.
+    if (!isRecord(raw) || typeof raw.sessionId !== "string" || !raw.sessionId) continue;
+    out.push({
+      sessionId: raw.sessionId,
+      ...(typeof raw.intent === "string" ? { intent: raw.intent } : {}),
+      problems: typeof raw.problems === "number" && Number.isFinite(raw.problems) && raw.problems > 0 ? Math.floor(raw.problems) : 0,
+      layers: Array.isArray(raw.layers) ? raw.layers.filter((l): l is string => typeof l === "string") : [],
+    });
+  }
+  return out;
+}
 
 /**
  * What the server said about an event, kept only where it is what it claims to be.
@@ -227,10 +271,9 @@ export class RuntimeClient {
     await fetch(`${this.httpBase}/api/autonomy/${level}`, { method: "POST", headers: auth() });
   }
 
-  async sessions(): Promise<{ sessionId: string; intent?: string; problems: number; layers: string[] }[]> {
+  async sessions(): Promise<SessionSummary[]> {
     const res = await fetch(`${this.httpBase}/api/sessions`, { headers: auth() });
-    const body = (await res.json().catch(() => null)) as { sessions?: { sessionId: string; intent?: string; problems: number; layers: string[] }[] } | null;
-    return body?.sessions ?? [];
+    return parseSessions(await res.json().catch(() => null));
   }
 
   async getUI(): Promise<UIBlueprint> {
