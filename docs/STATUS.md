@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1350 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1364 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The gate refuses a tree instead of dying on it** (2026-09-06): the blueprint schema is the
+  gate in front of the renderer and it is recursive, so validating a tree walks it with the call
+  stack — a five thousand deep tree made `safeParse` itself raise "Maximum call stack size
+  exceeded". The gate throwing rather than refusing takes down whatever called it, which in the
+  body is the whole interface, and such a tree can arrive from a snapshot an older build wrote or
+  a patch a model emitted. A tree is measured iteratively first now, and one past a hundred deep
+  or two thousand nodes is turned away before anything recurses into it; fifty thousand children
+  went from parsing in 1.4s to refused in 34ms. The measurement sits on the component schema
+  itself, not only on the blueprint and patch that carry one, since guarding the entry points left
+  the exported schema able to take the stack down for anyone validating a component directly. A
+  component id is bounded at the length every other identifier is, and refused rather than trimmed
+  — two long ids cut to the same length would be the same component as far as every later patch
+  could tell. 14 tests. 1364 unit/integration total.
 - **The reason summary was one field of a family** (2026-09-06): the same decision object carries
   three more strings a model writes, each still asked only not to be empty. The `variant` composes
   a preference key that is stored, snapshotted and shown in the memory tab, and composes the
