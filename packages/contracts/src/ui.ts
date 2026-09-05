@@ -143,14 +143,34 @@ export type MorphHoldReason = (typeof MORPH_HOLD_REASONS)[number];
 
 export const UI_SCHEMA_VERSION = "1.0.0";
 
-function collectComponentIds(node: UIComponent, acc: string[] = []): string[] {
-  acc.push(node.id);
-  for (const child of node.children ?? []) collectComponentIds(child, acc);
-  return acc;
+/**
+ * Every id in a tree, walked without the call stack.
+ *
+ * This runs inside the blueprint's own check, and a check on an object whose root failed still
+ * gets handed that root: a tree deep enough took the stack down here even though the measurement
+ * in front of the schema had already refused it. A gate that dies takes its caller with it, so
+ * nothing in the gate may recurse as deep as what it is looking at.
+ *
+ * It is handed raw data as well as validated components for the same reason, so a node that is
+ * not one contributes nothing rather than throwing.
+ */
+function collectComponentIds(root: unknown): string[] {
+  const ids: string[] = [];
+  const pending: unknown[] = [root];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!node || typeof node !== "object") continue;
+    const { id, children } = node as { id?: unknown; children?: unknown };
+    if (typeof id === "string") ids.push(id);
+    if (Array.isArray(children)) {
+      for (const child of children) pending.push(child);
+    }
+  }
+  return ids;
 }
 
 /** The first duplicate id in a component tree, or undefined if all ids are unique. */
-export function firstDuplicateId(root: UIComponent): string | undefined {
+export function firstDuplicateId(root: unknown): string | undefined {
   const seen = new Set<string>();
   for (const id of collectComponentIds(root)) {
     if (seen.has(id)) return id;

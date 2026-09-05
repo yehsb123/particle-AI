@@ -8,6 +8,7 @@ import {
   MAX_TREE_DEPTH,
   MAX_TREE_NODES,
   withinTreeLimits,
+  firstDuplicateId,
 } from "./index";
 
 /**
@@ -75,6 +76,29 @@ describe("a tree too large to draw", () => {
     const started = Date.now();
     UIBlueprint.safeParse(wrap(wide(50_000)));
     expect(Date.now() - started).toBeLessThan(1_000);
+  });
+});
+
+describe("the gate's own walk over a tree", () => {
+  it("does not recurse as deep as what it is looking at", () => {
+    // The blueprint's duplicate-id check runs on the root it was handed, and a failed field still
+    // hands it one: this walked a five thousand deep tree with the call stack and took the gate
+    // down on a runner with less of it than mine, after the measurement in front had already
+    // refused the tree. CI is what caught it, so this goes through the exported check itself.
+    const tree = deep(5_000);
+    expect(firstDuplicateId(tree)).toBeUndefined();
+
+    const withRepeat = deep(5_000) as { children: { id: string }[] };
+    withRepeat.children[0]!.id = (withRepeat as unknown as { id: string }).id;
+    expect(firstDuplicateId(withRepeat)).toBe((withRepeat as unknown as { id: string }).id);
+  });
+
+  it("takes raw data as readily as a component, since that is what it is handed", () => {
+    expect(firstDuplicateId({ id: "a", children: [{ id: "a" }] })).toBe("a");
+    expect(firstDuplicateId({ id: "a", children: [{ id: "b" }] })).toBeUndefined();
+    for (const notATree of [null, undefined, 7, "root", [], { children: "no" }]) {
+      expect(firstDuplicateId(notATree), String(notATree)).toBeUndefined();
+    }
   });
 });
 
