@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1253 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1265 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A number the belief acts on has to be a number** (2026-09-05): sweeping the rest of the
+  reducer after last night's interaction count found the two numeric readers left on `Number()`,
+  which reads `true` as 1, `"300"` as three hundred and `[503]` as five hundred and three. A
+  status of `[503]` marked a host as failing — and a failing host is what reshapes the body around
+  a connection view, so a payload merely shaped like a number could open an incident nobody had.
+  A duration of `true` became one second away; a latency in an array made a request slow. All
+  three read through one function now, and nothing a real sensor sends reads differently, since
+  both sensors have always required an actual number before sending one. The failure threshold is
+  left alone: reading a status above 499 as a failure is a product decision, not a type check. One
+  test asserted the old behaviour — its own name calls that payload the wrong shape, and its point,
+  that the world survives one, still holds since the request is still counted. 12 tests.
+  1265 unit/integration total.
 - **The belief counts the interactions the sensors counted** (2026-09-05): both sensors batch —
   the body and the extension each watch a ten-second window, count how many times something
   happened in it, never what, and send that count. The belief added one per report however many it
