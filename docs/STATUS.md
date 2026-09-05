@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1123 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1151 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **A sensor sends a shape, and a shape has a size** (2026-09-05): the agent reports names it
+  read off this machine and the extension reports the host a page came from, and none of those are
+  bounded at the source. A branch name comes out of `.git/HEAD`, a file like any other, and the
+  pattern reading it ended in an open-ended group — a HEAD holding a 200,000 character line sent a
+  200,000 character event. A URL parses with a hostname of any length, so the extension had the
+  same hole. Worse than the size, none of it was cleaned: a name carrying an escape sequence went
+  into an event, into the belief, into cards someone reads, and into the agent's own stderr, where
+  it is an instruction to their terminal rather than a name anybody chose. Both sensors trim and
+  clean before sending, and the world model — which already cut a name too long to be one, because
+  a sensor is not the only thing that can post an event — takes control characters out on the way
+  in as well. `MAX_IDENTIFIER` moves into the contracts so there is one of it; neither sensor
+  imports it at runtime, but each one's tests assert its own bound still agrees. `branchFromHead`
+  is total now too: it reads a file off disk, and a read answering with something other than text
+  gave a TypeError instead of no branch. 28 tests. 1151 unit/integration total.
 - **The body reads the permission policy instead of restating it** (2026-09-04): three things
   the body said about risk were written out beside the policy rather than read from it. The
   approval card wore a fixed critical badge whatever the risk was and named the risk with its own
