@@ -93,6 +93,13 @@ function watchGitBranch(root: string): boolean {
     try { return branchFromHead(readFileSync(head, "utf8")); } catch { return undefined; }
   };
   let last = read();
+  // A .git file can name any directory, which is how a worktree points at the real one — so the
+  // watch follows it only where a branch can actually be read. Somebody else's file naming a
+  // directory nobody opted into does not get a watcher on this machine.
+  if (last === undefined) {
+    process.stderr.write(`[particle-agent] no readable HEAD in ${dir}, not watching it\n`);
+    return false;
+  }
   let timer: NodeJS.Timeout | undefined;
   const check = () => {
     const branch = read();

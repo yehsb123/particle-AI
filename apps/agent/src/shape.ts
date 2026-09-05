@@ -72,11 +72,27 @@ export function branchFromHead(text: unknown): string | undefined {
   return /^[0-9a-f]{7,40}$/i.test(t) ? `detached@${t.slice(0, 7)}` : undefined;
 }
 
-/** Resolve the git directory for a root: `.git` as a directory, or a worktree's `gitdir:` file. */
+/**
+ * How long a path this sensor will follow. Every operating system stops well before this; a line
+ * longer than it is not a path somebody wrote.
+ */
+export const MAX_PATH = 4_096;
+
+/**
+ * Resolve the git directory for a root: `.git` as a directory, or a worktree's `gitdir:` file.
+ *
+ * The file is written by git but lives in a directory somebody else may have authored, and it can
+ * name any directory at all. Pointing outside the watched root is not itself wrong — that is what
+ * a worktree does, since git keeps the real directory under the main repository — so the caller
+ * is what decides whether to follow it, by looking for a HEAD there before watching anything.
+ * What is refused here is a line too long to be a path.
+ */
 export function gitDirFrom(root: string, dotGitIsDir: boolean, dotGitText: string | undefined, resolvePath: (base: string, p: string) => string): string | null {
   if (dotGitIsDir) return resolvePath(root, ".git");
   const m = /^gitdir:\s*(.+)$/m.exec(dotGitText ?? "");
-  return m?.[1] ? resolvePath(root, m[1].trim()) : null;
+  const named = m?.[1]?.trim();
+  if (!named || named.length > MAX_PATH) return null;
+  return resolvePath(root, named);
 }
 
 /** One-line startup warning when the runtime is unreachable (sensing stays best-effort). */
