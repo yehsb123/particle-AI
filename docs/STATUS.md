@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1177 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1192 unit/integration tests,
 15 Playwright E2E tests across 14 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **One simulation palette, and a key that is searched for** (2026-09-05): the palette was
+  written out twice — an object in the runtime, an array in the body — and both sides need it
+  while neither can be the source, since the body builds these itself in local mode where there is
+  no runtime to ask, and the runtime builds them in connected mode where the body only sends a
+  key. They had already drifted: two buttons carried a payload in the body and none on the server,
+  so the same button sent a different event depending on which mode a person was in, which is the
+  one difference connected mode is supposed not to have. Nothing reads those fields yet, so it was
+  latent rather than broken. One list now, in the contracts, and one function that builds the
+  event; the list is the union, so the body gains the Open file button the runtime already had.
+  The key was a defect on its own: it comes off the URL and the palette was an object, so
+  `toString` and `constructor` answered with something truthy that was not an event, and the
+  person was told their request was invalid rather than that no such button exists. It is a search
+  now, and the refusal names the key bounded so a long one cannot come back whole. 15 tests.
+  1192 unit/integration total.
 - **The body the runtime already has goes through the gate** (2026-09-05): switching to
   connected mode asks the runtime what this session already looks like and draws the answer,
   before any event arrives — and that answer was cast straight into the renderer. The blueprint
