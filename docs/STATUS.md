@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1286 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1301 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **The inspector is the last surface that should go blank** (2026-09-05): the renderer was
+  hardened; its sibling next door was not. A decision frame carries the audit records the inspector
+  draws, and the door checked that the frame carried a list without ever checking what was in it —
+  a list of `null`, `7` and the word "audit" went straight through. The inspector draws each
+  record's kind as text, its detail stringified, its id as the row key, so a kind that is an object
+  threw (React refuses one as a child) and a null entry threw on being read for an id: both empty
+  the one place a person goes to find out why their body changed. Records are parsed entry by
+  entry now, bounded, and a frame with none left is nothing this body can draw; the rows are drawn
+  through the same reader the renderer uses, and a detail that refers to itself says so. Static
+  markup lands on the tab a component opens with, and the inspector opens on the trace — so the
+  world, decision, memory and audit tabs had never been rendered by anything but a person clicking
+  them, which is why none of this showed up in a test. They take an opening tab now and all five
+  are covered. One test wanted an empty audit list accepted; its own name says it checks each kind
+  carrying what that kind carries, an empty list carries nothing, and the runtime only sends the
+  frame when there are records. 15 tests. 1301 unit/integration total.
 - **The renderer bounds and cleans what it shows, on every path into it** (2026-09-05): the
   renderer is the last thing between validated data and the screen, and it had three ways of
   reading a prop — one that checked the type, one that checked for an array, and one that handed
