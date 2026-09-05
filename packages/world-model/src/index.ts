@@ -244,8 +244,15 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
     case "sensor.layers_changed": {
       // a sensor declares (or revokes) what it observes; empty layers remove the sensor entirely
       const sensor = str(event.payload.sensor) ?? "unknown";
+      // Each layer name comes through str() like every other identifier the belief takes: how many
+      // a sensor may declare was bounded, but not how long one could be, so a five thousand
+      // character layer went in whole and one carrying an escape sequence kept it — and these are
+      // the words the honest-sensing indicator shows a person about what is watching them.
       const layers = Array.isArray(event.payload.layers)
-        ? (event.payload.layers as unknown[]).filter((l): l is string => typeof l === "string").slice(0, 16)
+        ? (event.payload.layers as unknown[])
+            .map((l) => str(l))
+            .filter((l): l is string => !!l)
+            .slice(0, 16)
         : [];
       const sensing = { ...(next.sensing ?? {}) };
       if (layers.length) {
