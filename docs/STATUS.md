@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1301 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1315 unit/integration tests,
 16 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -170,6 +170,18 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   a restart never re-offers a template suggestion the person already saw, and counting continues
   where it left off. The web restore imports preferences only (its event-log replay re-observes
   patterns; importing both would double-count). memory 7, runtime-core 30 tests.
+- **What the AI is doing is one list** (2026-09-05): the body shows the AI's presence as a dot
+  with a word beside it, looked up by the state's own name, so a state it has no translation for
+  is printed as itself. The runtime declared that union in the file where it decides the next one,
+  the body declared its own copy, and the frame between them was checked only for being a string —
+  an empty one, the word "thinking", `__proto__` and a five thousand character one were all
+  accepted, each landing beside the dot verbatim while the dot lost its styling, since `data-state`
+  is an attribute CSS selects known values on. One list in the contracts now: the engine that
+  decides the next presence reads it there, the body reads it there, the frame is checked against
+  it, and the cast on arrival is gone rather than merely safer. The producer has its own half of
+  the test — whatever `nextPresence` hands back is a state the body has words for, including when
+  handed one it does not know, which a resumed session can do. 14 tests. 1315 unit/integration
+  total.
 - **The inspector is the last surface that should go blank** (2026-09-05): the renderer was
   hardened; its sibling next door was not. A decision frame carries the audit records the inspector
   draws, and the door checked that the frame carried a list without ever checking what was in it —

@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1301 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1315 unit/integration tests · 16 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -85,6 +85,7 @@ Every commit is green (typecheck 0 · 1301 unit/integration tests · 16 Playwrig
 - Access control: origin allow-list, loopback bind, optional token end to end; reads never create sessions
 - **Fact-based usability audit**: provider HTTP contracts + real-adapter fallback proven without keys; all env vars verified in use; turbo strict-env bug (root pnpm dev/test/build dropped env) found and fixed; docs corrected to measured facts
 - 5 adversarial review passes (43+ defects fixed) + a docs-vs-implementation audit; Korean-first repo description
+- **The presence is a closed vocabulary**: the runtime and the body read one list from the contracts and the frame carrying a state is checked against it, so nothing but a state the body has words for reaches the dot
 - **The inspector holds up too**: audit records are checked entry by entry at the socket and drawn through the renderer’s own reader, and all five of its tabs are covered rather than only the one it opens on
 - **The screen cannot be flooded or blanked by a prop**: every path into the renderer bounds length and list size, strips what is not text, and survives an object where text was expected
 - **Every identifier is read the same way**: layer names are trimmed and stripped of control characters like every other name, so what the sensing indicator tells a person is a name and not an escape sequence
