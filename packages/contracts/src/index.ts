@@ -8,3 +8,4 @@ export * from "./decision";
 export * from "./capability";
 export * from "./ui";
 export * from "./sim";
+export * from "./messages";

@@ -7,15 +7,8 @@ import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@
 import type { EventLogStore, SnapshotStore } from "@particle/persistence";
 
 /** Messages the runtime publishes to connected clients. */
-export type RuntimeMessage =
-  | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
-  | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
-  | { kind: "ai_presence_changed"; sessionId: string; state: string }
-  | { kind: "decision_created"; sessionId: string; audit: AuditRecord[] }
-  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } }
-  | { kind: "pattern_suggestions"; sessionId: string; suggestions: { key: string; count: number }[] };
-
-export type RuntimeListener = (msg: RuntimeMessage) => void;
+import type { RuntimeMessage, RuntimeListener } from "@particle/contracts";
+export type { RuntimeMessage, RuntimeListener };
 
 /**
  * Server-side composition of the shared RuntimeCore: validates and stores events, runs the
@@ -156,12 +149,28 @@ export class SessionRuntime {
         detail: { approvalId, capabilityId: outcome.capabilityId, ok: outcome.result.ok },
       };
       this.audit.append(rec);
+      // one body asking is not the only body watching: the same session can be open in another
+      // tab and in the side panel, and whichever did not click was left holding a settled card
+      this.emit({ kind: "approval_decided", sessionId: outcome.sessionId, approvalId, decision: "approved" });
     }
     return outcome;
   }
 
   reject(approvalId: string) {
-    return this.core.reject(approvalId);
+    const req = this.core.reject(approvalId);
+    if (req) {
+      // a refusal is a decision. The trail recorded what was allowed and kept nothing at all of
+      // what a person turned down, which is the half of a consent record worth having.
+      this.audit.append({
+        id: `aud-rej-${approvalId}`,
+        at: this.now(),
+        sessionId: req.sessionId,
+        kind: "capability_rejected",
+        detail: { approvalId, capabilityId: req.capabilityId, risk: req.risk },
+      });
+      this.emit({ kind: "approval_decided", sessionId: req.sessionId, approvalId, decision: "rejected" });
+    }
+    return req;
   }
 
   undo(sessionId: string, opts: { componentId?: string; learn?: boolean } = {}): UIBlueprint | null {

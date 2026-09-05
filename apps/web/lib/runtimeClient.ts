@@ -1,5 +1,6 @@
 import { ApprovalRequest as ApprovalRequestSchema, SessionSummary as SessionSummarySchema, UIBlueprint as UIBlueprintSchema, WorldState as WorldStateSchema } from "@particle/contracts";
-import type { ApprovalRequest, SessionSummary, UIBlueprint, WorldState } from "@particle/contracts";
+import { ApprovalDecisionSchema } from "@particle/contracts";
+import type { ApprovalRequest, RuntimeMessage, SessionSummary, UIBlueprint, WorldState } from "@particle/contracts";
 
 export type SimResponse = {
   deliberated?: boolean;
@@ -10,13 +11,8 @@ export type SimResponse = {
   retryAfterMs?: number;
 };
 
-export type ServerMessage =
-  | { kind: "world_state_changed"; sessionId: string; worldState: WorldState }
-  | { kind: "ui_patch"; sessionId: string; blueprint: UIBlueprint }
-  | { kind: "ai_presence_changed"; sessionId: string; state: string }
-  | { kind: "decision_created"; sessionId: string; audit: { id: string; kind: string; detail: Record<string, unknown> }[] }
-  | { kind: "learned"; sessionId: string; learned: { suppressed: string; dismissals: number } }
-  | { kind: "pattern_suggestions"; sessionId: string; suggestions: { key: string; count: number }[] };
+/** What the runtime says to a body watching a session. One declaration, in the contracts. */
+export type ServerMessage = RuntimeMessage;
 
 /**
  * Shared secret (optional): from the page URL (`?token=` — how the extension side panel passes it)
@@ -64,6 +60,10 @@ export function parseServerMessage(data: unknown, sessionId: string): ServerMess
     case "pattern_suggestions":
       return Array.isArray(data.suggestions) &&
         data.suggestions.every((s) => isRecord(s) && typeof s.key === "string" && typeof s.count === "number")
+        ? (data as unknown as ServerMessage)
+        : null;
+    case "approval_decided":
+      return typeof data.approvalId === "string" && data.approvalId.length > 0 && ApprovalDecisionSchema.safeParse(data.decision).success
         ? (data as unknown as ServerMessage)
         : null;
     default:
