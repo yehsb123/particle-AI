@@ -29,16 +29,35 @@ const HOSTILE: Record<string, unknown>[] = [
   { rows: [null, 42, "x", {}], columns: [null, {}], items: [undefined, 1], lines: [null, {}], data: ["a", 2], entries: [null, { k: 1 }], nodes: [null, { label: {} }], options: [null, 3], panels: [null] },
   { rows: [[null, undefined]], items: [{ time: {}, label: [] }], nodes: [{ label: 1, children: [null] }] },
   { text: "x".repeat(3000), rows: Array.from({ length: 200 }, () => ["a", "b"]) },
+  // A bare object in a prop that is shown rather than walked. Every fixture above put an object
+  // in `title` and `badge` but never in `value` or `data`, and those two are read by helpers that
+  // did not check: React refuses an object as a child, and that empties the body rather than one
+  // card. This is the shape the list above was meant to have all along.
+  { value: { a: 1 }, data: { a: 1 }, diff: { a: 1 }, placeholder: { a: 1 } },
+  { value: [1, 2], data: [1, 2], diff: [1, 2], placeholder: [1, 2] },
+  { value: () => 1, data: () => 1, diff: () => 1 },
 ];
 
+/** A structure that refers to itself: JSON.stringify throws on one, and a prop can hold one. */
+const circular = (): Record<string, unknown> => {
+  const o: Record<string, unknown> = { name: "x" };
+  o.self = o;
+  return o;
+};
+HOSTILE.push({ value: circular(), data: circular(), diff: circular() });
+
 afterEach(() => vi.restoreAllMocks());
+
+/** A label for a fixture. The fixtures include one that refers to itself, so this cannot use
+ *  JSON.stringify: naming the case must not be the thing that throws. */
+const label = (props: Record<string, unknown>, i: number): string => `#${i} {${Object.keys(props).join(",")}}`;
 
 describe("every component type survives a prop of the wrong kind", () => {
   it("renders all of them without throwing", () => {
     for (const type of COMPONENT_TYPES) {
-      for (const props of HOSTILE) {
+      for (const [i, props] of HOSTILE.entries()) {
         const node = { id: "n", type, props, children: [{ id: "c", type: "Text", props: { text: "child" } }] } as UIComponent;
-        expect(() => render(node), `${type} ${JSON.stringify(props).slice(0, 60)}`).not.toThrow();
+        expect(() => render(node), `${type} ${label(props, i)}`).not.toThrow();
       }
     }
   });

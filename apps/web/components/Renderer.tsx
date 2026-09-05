@@ -38,6 +38,28 @@ function prop<T = unknown>(node: UIComponent, key: string, fallback: T): T {
   return (v === undefined ? fallback : (v as T)) as T;
 }
 
+/**
+ * A prop shown as text, without translating it. `L` is for words the runtime chose and looks them
+ * up; a value the runtime was handed is shown as it is, bounded and cleaned like any other.
+ */
+function shown(node: UIComponent, key: string, fallback = ""): string {
+  return text(node.props?.[key], fallback);
+}
+
+/**
+ * A prop shown as JSON. Stringify throws on a structure that refers to itself, and a prop can be
+ * an object a capability returned rather than one that came off the wire, so it can. A throw here
+ * takes the whole body down, not one card.
+ */
+function json(node: UIComponent, key: string): string {
+  try {
+    const out = JSON.stringify(node.props?.[key] ?? {}, null, 2) ?? "";
+    return out.length > MAX_TEXT ? `${out.slice(0, MAX_TEXT)}…` : out;
+  } catch {
+    return "(cannot be shown)";
+  }
+}
+
 /** Numeric prop with coercion — never lets a non-number produce NaN in layout math. */
 function num(node: UIComponent, key: string, fallback: number): number {
   const v = Number(node.props?.[key]);
@@ -48,16 +70,39 @@ function num(node: UIComponent, key: string, fallback: number): number {
  * Text from a prop the model chose. A string, a number or a boolean reads as itself; anything
  * else is not text and shows as nothing, rather than putting "[object Object]" on the screen.
  */
+/**
+ * How much of one value the screen will show, and how many entries one list prop may have.
+ *
+ * Props are written by the model and checked for their shape, not their size: a label of five
+ * million characters passed the gate and rendered whole, and a list prop of ten thousand entries
+ * rendered every one. Neither is something a person reads; both are something a tab stops
+ * responding to.
+ */
+export const MAX_TEXT = 4_000;
+export const MAX_ITEMS = 500;
+
+/**
+ * Control characters, except the newline and tab a pre-wrap block needs. A carriage return is not
+ * one of those: nothing here needs it, and it walks a terminal's cursor back over what it printed.
+ * An escape sequence in a label is invisible where it lands and active wherever the text goes next.
+ */
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g;
+
 function text(v: unknown, fallback = ""): string {
   if (v === undefined || v === null) return fallback;
   const kind = typeof v;
-  return kind === "string" || kind === "number" || kind === "boolean" ? String(v) : fallback;
+  if (kind !== "string" && kind !== "number" && kind !== "boolean") return fallback;
+  const clean = String(v).replace(CONTROL_CHARACTERS, "");
+  return clean.length > MAX_TEXT ? `${clean.slice(0, MAX_TEXT)}…` : clean;
 }
 
-/** Array prop guaranteed to be an array — a malformed prop can never throw in .map/.join. */
+/**
+ * Array prop guaranteed to be an array — a malformed prop can never throw in .map/.join — and
+ * guaranteed to be a length somebody could read.
+ */
 function arr<T>(node: UIComponent, key: string): T[] {
   const v = node.props?.[key];
-  return Array.isArray(v) ? (v as T[]) : [];
+  return Array.isArray(v) ? (v.length > MAX_ITEMS ? (v.slice(0, MAX_ITEMS) as T[]) : (v as T[])) : [];
 }
 
 function Children({ node }: { node: UIComponent }) {
@@ -165,7 +210,8 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
     case "Metric":
-      return wrap(<div className="metric"><div className="value">{prop(node, "value", "")}</div><div className="label">{L("label", "")}</div></div>);
+      // an object here used to throw: React refuses one as a child, and that empties the body
+      return wrap(<div className="metric"><div className="value">{shown(node, "value")}</div><div className="label">{L("label", "")}</div></div>);
     case "Divider":
       return wrap(<div className="divider" />);
     case "Alert":
@@ -175,8 +221,8 @@ export function Render({ node }: { node: UIComponent }) {
         <input
           className="input"
           aria-label={L("label", "") || L("placeholder", "") || node.id}
-          defaultValue={prop(node, "value", "")}
-          placeholder={prop(node, "placeholder", "")}
+          defaultValue={shown(node, "value")}
+          placeholder={shown(node, "placeholder")}
           onFocus={() => ctx.setFocus(node.id)}
           onBlur={() => ctx.clearFocus()}
         />,
@@ -207,7 +253,7 @@ export function Render({ node }: { node: UIComponent }) {
             className="code"
             aria-label={L("title", "editor")}
             style={{ width: "100%", minHeight: 140, resize: "vertical" }}
-            defaultValue={prop(node, "value", "")}
+            defaultValue={shown(node, "value")}
             onFocus={() => ctx.setFocus(node.id)}
             onBlur={() => ctx.clearFocus()}
           />
@@ -223,7 +269,7 @@ export function Render({ node }: { node: UIComponent }) {
         </div>,
       );
     case "DiffViewer": {
-      const diff = String(prop(node, "diff", ""));
+      const diff = shown(node, "diff");
       return wrap(
         <div>
           <div className="panel-title"><span>{L("title", "Diff")}</span></div>
@@ -236,7 +282,7 @@ export function Render({ node }: { node: UIComponent }) {
       );
     }
     case "JSONViewer":
-      return wrap(<pre className="code" tabIndex={0}>{JSON.stringify(prop(node, "data", {}), null, 2)}</pre>);
+      return wrap(<pre className="code" tabIndex={0}>{json(node, "data")}</pre>);
     case "Table": {
       const columns = arr<string>(node, "columns");
       const rows = arr<string[]>(node, "rows");
