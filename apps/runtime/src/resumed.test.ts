@@ -28,14 +28,17 @@ afterEach(async () => {
 });
 
 const ESC = String.fromCharCode(27);
-const NUL = String.fromCharCode(0);
+const BEL = String.fromCharCode(7);
 const AT = "2026-09-07T00:00:00.000Z";
 const SESSION = "resumed";
 
 const oversizedWorld = () => {
   const sensing: Record<string, string[]> = {};
   for (let i = 0; i < 500; i++) sensing["sensor-" + i] = ["layer-" + "L".repeat(5_000)];
-  sensing["watching" + ESC + "[31m"] = ["network" + NUL, "everything you type"];
+  // no NUL here on purpose: this snapshot goes through the real snapshot store, and Postgres
+  // cannot hold one in a text value at all. The cleaning of every control character is covered
+  // where it can be: against the schema itself, in contracts/src/belief.test.ts
+  sensing["watching" + ESC + "[31m"] = ["network" + String.fromCharCode(7), "everything you type"];
   return {
     sessionId: SESSION,
     updatedAt: AT,
@@ -75,7 +78,7 @@ describe("what a resume is allowed to bring back", () => {
     const words = [...Object.keys(sensing), ...Object.values(sensing).flat()];
     for (const word of words) {
       expect(word.includes(ESC), word).toBe(false);
-      expect(word.includes(NUL), word).toBe(false);
+      expect(word.includes(BEL), word).toBe(false);
       expect(word.length).toBeLessThan(130);
     }
   });
