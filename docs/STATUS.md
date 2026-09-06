@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1446 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1455 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,24 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **The one list with no ceiling** (2026-09-06): template suggestions reach the body three ways —
+  from its own core, in the answer to a simulated event, and over the socket when another body's
+  event caused them — and each place carried its own copy of the merge, written slightly
+  differently: two spread whatever object arrived, the third mapped it down to the two fields the
+  panel draws. It was also the only list in the body without a bound, one rendered card per entry,
+  while the log keeps forty, the trace fifty, the audit sixty and the stored event log five
+  hundred. The runtime's table holding five hundred at a time does not bound it, since that table
+  evicts the stalest — the distinct keys offered across a long session have no limit. One function
+  now, three one-line call sites. The ceiling's cost is on the record rather than buried: a pattern
+  is offered once, ever, so a suggestion pushed out does not come back, which is why fifty sits
+  well above what a session realistically produces. One behaviour changed deliberately — the same
+  key arriving twice takes the larger count, since the card prints how many times the pattern
+  happened and the old merge dropped the second delivery, so a card could print three while the
+  runtime had counted seven. Probed and left alone: the audit list is filled by two paths with
+  different shapes, but its reader reads three fields defensively and draws nothing wrong; the side
+  panel does auto-connect as its hint promises; `/api/brain` answers with provider id, tier and
+  healthy only, and its health check is a local look rather than a call out. 9 tests.
+  1455 unit/integration total.
 - **A name placed into an address, not spliced into it** (2026-09-06): two outside strings arrive
   in the body's own address — the session to open, and the token the side panel puts there because
   a page cannot read the extension's storage. The name was pasted into six URLs raw while the token
