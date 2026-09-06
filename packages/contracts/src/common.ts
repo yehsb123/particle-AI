@@ -41,27 +41,36 @@ export const SEVERITY_RANK: Record<Severity, number> = {
  */
 export const MAX_IDENTIFIER = 120;
 
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/;
+
+/**
+ * A name the runtime acts on: it selects something, or the runtime routes on it.
+ *
+ * Unlike a caption, such a name is refused rather than trimmed. Trimming makes different things
+ * identical — two names cut to the same length would be one session, one event, one type — and a
+ * name carrying control characters is written into every log line, trace and listing showing it.
+ */
+export const Identifier = z
+  .string()
+  .min(1)
+  .max(MAX_IDENTIFIER)
+  .refine((s) => !CONTROL_CHARACTER.test(s), {
+    message: "a name the runtime acts on may not carry control characters",
+  });
+export type Identifier = z.infer<typeof Identifier>;
+
 /**
  * The name of a session.
  *
  * Anything can name one: the body takes it from its own query string, the extension and the
  * desktop agent each carry a fixed one, and any process that can reach the runtime may invent one
  * in an event it posts. It is not a caption — it is a key. It selects a belief, a map entry, an
- * audit trail, a snapshot row and a broadcast, so it is refused rather than trimmed: two names cut
- * to the same length would be one session, and a name carrying control characters would be written
- * into every log line, every trace and every listing that names it.
+ * audit trail, a snapshot row and a broadcast.
  *
- * Unbounded it also travelled: a two-hundred-thousand character id made every world-state
- * broadcast for that session six hundred kilobytes of nothing but its own name.
+ * Unbounded it also travelled: a two-hundred-thousand character name made every world-state
+ * broadcast for that session six hundred kilobytes of nothing but itself.
  */
-const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/;
-export const SessionId = z
-  .string()
-  .min(1)
-  .max(MAX_IDENTIFIER)
-  .refine((s) => !CONTROL_CHARACTER.test(s), {
-    message: "a session name may not carry control characters",
-  });
+export const SessionId = Identifier;
 export type SessionId = z.infer<typeof SessionId>;
 
 /**

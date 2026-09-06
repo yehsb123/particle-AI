@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IsoTimestamp, MAX_IDENTIFIER, MAX_PAYLOAD_FIELDS, SessionId, Severity } from "./common";
+import { Identifier, IsoTimestamp, MAX_IDENTIFIER, MAX_PAYLOAD_FIELDS, SessionId, Severity } from "./common";
 
 /** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
 const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
@@ -49,12 +49,20 @@ export function shapeOfEvent(event: MatterEvent): MatterEvent {
 }
 
 export const MatterEvent = z.object({
-  id: z.string().min(1),
+  /**
+   * An event's own name and its type are things the runtime acts on rather than shows, and both
+   * were unbounded. A two-hundred-thousand character type made the trace behind that event four
+   * hundred kilobytes, and the same again in the world-state broadcast, the events listing, the
+   * snapshot and the prompt — the belief keeps a recent event whole apart from its payload. An
+   * escape sequence in a type reached the inspector row a person reads to find out why their body
+   * changed. The longest type this runtime knows is thirty-one characters.
+   */
+  id: Identifier,
   sessionId: SessionId,
   timestamp: IsoTimestamp,
   source: EventSource,
   /** dotted type, e.g. "development.server_error", "user.opened_file" */
-  type: z.string().min(1),
+  type: Identifier,
   severity: Severity,
   payload: z.record(z.unknown()),
   metadata: z.record(z.unknown()).optional(),
