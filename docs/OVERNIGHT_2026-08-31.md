@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1437 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1446 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -115,4 +115,5 @@ Every commit is green (typecheck 0 · 1437 unit/integration tests · 17 Playwrig
 - **The page names the address in use**: the options page draws its runtime destination from what is stored rather than from what is being typed, so it can no longer promise an address the sensor is not sending to
 - **A session name is held to a shape**: bounded and refused control characters at both doors — the event schema and the URL — and a rejected event is told where it was wrong rather than having its own contents read back to it
 - **So are an event’s name and type**: the same rule, so one event can no longer weigh four hundred kilobytes in the trace, the events listing and the broadcast every watching body receives
+- **The body places names into addresses**: a session name can no longer cut the token off, add a second one, or walk a request to another endpoint, and a token that could not be a header value no longer stops the body asking anything at all
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist

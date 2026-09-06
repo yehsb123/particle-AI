@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1437 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1446 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **A name placed into an address, not spliced into it** (2026-09-06): two outside strings arrive
+  in the body's own address — the session to open, and the token the side panel puts there because
+  a page cannot read the extension's storage. The name was pasted into six URLs raw while the token
+  beside it on the same line was encoded. A name holding a hash cut the token off into a fragment,
+  so the body silently stopped being able to authenticate with nothing said about why; one holding
+  a question mark put a second token ahead of the real one, so the socket carried whichever the
+  link author chose; one holding `../` walked the request to a different endpoint than the one the
+  body named — `/api/health/ui` while believing it had asked for a session. An approval id is
+  composed from a session name and travelled the same way. The token had the opposite fault: put
+  straight into a header value, one that is not a legal header value made `fetch` throw before any
+  request left and on every call the body makes, so a link with a newline in its token did not fail
+  to authenticate — it stopped the body asking anything at all. It is refused at the one place it
+  becomes ours, since a trimmed secret is a wrong secret; its length is deliberately not bounded,
+  and a test says so. Eight of the nine tests fail on the old code; the ninth covers the rail's
+  session link, which was already built with `URLSearchParams` — which is how the inconsistency was
+  visible in the first place. 9 tests. 1446 unit/integration total.
 - **The two names beside it** (2026-09-06): the session-name fix left its siblings in the same
   object unbounded, which is the half-done version of the rule. An event's own name and its type
   are also things the runtime acts on — it routes on the type, and the id names the decision and
