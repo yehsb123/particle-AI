@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1455 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1470 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,23 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **The reducer was hardened and the schema was left** (2026-09-07): a belief arrives two ways —
+  folded from a live event by the reducer, or read straight off a snapshot on resume — and every
+  ceiling this system has for one lived only in the reducer. So the resume path, which never
+  touches it, restored exactly what the reducer exists to prevent. Resuming one snapshot on the
+  real server: 501 sensors where a live event allows 16, a 5,006-character layer name where it
+  allows 120, escape sequences kept where it strips them, 10,000 recent events where it keeps 50,
+  and a world-state broadcast of 4,097 KB where a live event produces about one — and it stays
+  there, since that belief is broadcast to every watching body on every change, snapshotted again,
+  and serialised into every prompt afterwards. The sensing map is the worst of it: the one thing on
+  screen that tells a person what is watching them, drawn from here verbatim, so what it could say
+  was being decided by whatever sat in the store. 4,097 KB became 12 KB. The ceilings moved into
+  the contracts because two places have to agree on them. It trims rather than refuses, because a
+  resume is meant to bring back everything it can understand rather than nothing. One line is
+  load-bearing in a way worth recording: zod drops a literal `__proto__` key before the transform
+  sees it, so the danger is a name that *becomes* `__proto__` once its control characters come out —
+  replacing the `defineProperty` with an assignment fails that test, which is how it was checked.
+  15 tests. 1470 unit/integration total.
 - **The one list with no ceiling** (2026-09-06): template suggestions reach the body three ways —
   from its own core, in the answer to a simulated event, and over the socket when another body's
   event caused them — and each place carried its own copy of the merge, written slightly

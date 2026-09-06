@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1455 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1470 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -117,4 +117,5 @@ Every commit is green (typecheck 0 · 1455 unit/integration tests · 17 Playwrig
 - **So are an event’s name and type**: the same rule, so one event can no longer weigh four hundred kilobytes in the trace, the events listing and the broadcast every watching body receives
 - **The body places names into addresses**: a session name can no longer cut the token off, add a second one, or walk a request to another endpoint, and a token that could not be a header value no longer stops the body asking anything at all
 - **Every list in the body has a ceiling**: template suggestions were the one that grew for as long as the page stayed open, merged three different ways in three places; one function now, and a repeated pattern prints the count the runtime actually reached
+- **A resumed belief is a belief**: the ceilings that lived only in the reducer are in the schema too, so a snapshot can no longer restore five hundred sensors, ten thousand events and a four megabyte broadcast the live path would never have produced
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
