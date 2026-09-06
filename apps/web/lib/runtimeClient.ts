@@ -15,15 +15,49 @@ export type SimResponse = {
 export type ServerMessage = RuntimeMessage;
 
 /**
+ * A token that can actually be sent as one.
+ *
+ * The token arrives in this page's own address, so it is whatever the link said. Put straight into
+ * a header value, one that is not a legal header value made `fetch` itself throw a TypeError —
+ * before any request left, and on every call the body makes. A link with a newline in its token
+ * did not fail to authenticate; it stopped the body from asking anything at all.
+ *
+ * A secret is refused rather than repaired: a trimmed secret is a wrong secret, and a wrong secret
+ * should fail at the runtime, where failing to authenticate already has an answer the body knows
+ * how to show. Length is left alone deliberately — a deployment may hold a long token, and a long
+ * one is merely sent, not fatal.
+ */
+export function usableToken(raw: unknown): string {
+  const t = typeof raw === "string" ? raw.trim() : "";
+  // what a header value may not carry: control characters of any kind
+  return t && !/[\u0000-\u001F\u007F]/.test(t) ? t : "";
+}
+
+/**
  * Shared secret (optional): from the page URL (`?token=` — how the extension side panel passes it)
  * or the build-time env. Sent as a header on REST and as `?token=` on the WS upgrade.
  */
-const TOKEN =
+const TOKEN = usableToken(
   (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") : null) ??
-  process.env.NEXT_PUBLIC_DM_TOKEN ??
-  "";
+    process.env.NEXT_PUBLIC_DM_TOKEN ??
+    "",
+);
 function auth(extra: Record<string, string> = {}): Record<string, string> {
   return TOKEN ? { ...extra, "x-particle-token": TOKEN } : extra;
+}
+
+/**
+ * One name, placed into a path rather than spliced into it.
+ *
+ * The session to open and the token both arrive in this page's own address, and the name was
+ * pasted into six URLs raw while the token beside it on the same line was encoded. A name holding
+ * a `#` cut the token off into a fragment, so the body silently stopped being able to authenticate;
+ * one holding a `?` put a second token ahead of the real one, so the socket carried whichever the
+ * link author chose; one holding `../` walked the request to a different endpoint than the one the
+ * body named. An approval id is composed from a session name, so it travels the same way.
+ */
+function segment(value: string): string {
+  return encodeURIComponent(value);
 }
 
 /** Browser client for the Particle AI runtime server (REST + WebSocket). */
@@ -235,7 +269,7 @@ export class RuntimeClient {
 
   get wsUrl(): string {
     const q = TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : "";
-    return this.httpBase.replace(/^http/, "ws") + `/ws/sessions/${this.sessionId}${q}`;
+    return this.httpBase.replace(/^http/, "ws") + `/ws/sessions/${segment(this.sessionId)}${q}`;
   }
 
   connect(onMessage: (m: ServerMessage) => void, onStatus: (open: boolean) => void): void {
@@ -294,12 +328,12 @@ export class RuntimeClient {
   }
 
   async emitSim(key: string): Promise<SimResponse | null> {
-    const res = await fetch(`${this.httpBase}/api/sim/${this.sessionId}/${key}`, { method: "POST", headers: auth() });
+    const res = await fetch(`${this.httpBase}/api/sim/${segment(this.sessionId)}/${segment(key)}`, { method: "POST", headers: auth() });
     return parseSimResponse(await res.json().catch(() => null));
   }
 
   async undo(opts: { componentId?: string; learn?: boolean } = {}): Promise<void> {
-    await fetch(`${this.httpBase}/api/morph/${this.sessionId}/undo`, {
+    await fetch(`${this.httpBase}/api/morph/${segment(this.sessionId)}/undo`, {
       method: "POST",
       headers: auth({ "content-type": "application/json" }),
       body: JSON.stringify(opts),
@@ -307,17 +341,17 @@ export class RuntimeClient {
   }
 
   async redo(): Promise<boolean> {
-    const res = await fetch(`${this.httpBase}/api/morph/${this.sessionId}/redo`, { method: "POST", headers: auth() });
+    const res = await fetch(`${this.httpBase}/api/morph/${segment(this.sessionId)}/redo`, { method: "POST", headers: auth() });
     const body = (await res.json().catch(() => null)) as { redone?: boolean } | null;
     return body?.redone === true;
   }
 
   async approve(approvalId: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/approvals/${approvalId}/approve`, { method: "POST", headers: auth() });
+    await fetch(`${this.httpBase}/api/approvals/${segment(approvalId)}/approve`, { method: "POST", headers: auth() });
   }
 
   async reject(approvalId: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/approvals/${approvalId}/reject`, { method: "POST", headers: auth() });
+    await fetch(`${this.httpBase}/api/approvals/${segment(approvalId)}/reject`, { method: "POST", headers: auth() });
   }
 
   async setAutonomy(level: number): Promise<void> {
@@ -330,7 +364,7 @@ export class RuntimeClient {
   }
 
   async getUI(): Promise<UIBlueprint | null> {
-    const res = await fetch(`${this.httpBase}/api/sessions/${this.sessionId}/ui`, { headers: auth() });
+    const res = await fetch(`${this.httpBase}/api/sessions/${segment(this.sessionId)}/ui`, { headers: auth() });
     return parseBlueprint(await res.json().catch(() => null));
   }
 }
