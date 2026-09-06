@@ -15,6 +15,7 @@ import { Render, RendererProvider, text as displayText } from "./Renderer";
 import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
 import { SIM_EVENTS, buildSimEvent as buildEvent, type SimSpec } from "@particle/contracts";
 import { RuntimeClient, sessionHref, type ServerMessage } from "../lib/runtimeClient";
+import { mergeSuggestions, type Suggestion } from "../lib/suggestions";
 import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
 
 /** One list, in the contracts, so the runtime and the body cannot drift on what a presence is. */
@@ -73,7 +74,7 @@ export function Workspace() {
   const [mode, setMode] = useState<"local" | "connected">("local");
   const [connected, setConnected] = useState(false);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
-  const [patternSugs, setPatternSugs] = useState<{ key: string; count: number }[]>([]);
+  const [patternSugs, setPatternSugs] = useState<Suggestion[]>([]);
   const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
   const [otherSessions, setOtherSessions] = useState<{ sessionId: string; intent?: string; problems: number; layers: string[] }[]>([]);
   const [restored, setRestored] = useState(false);
@@ -127,12 +128,7 @@ export function Workspace() {
       }
       addApprovals(res.pendingApprovals);
       if (res.patternSuggestions.length) {
-        setPatternSugs((p) => [
-          ...p,
-          ...res.patternSuggestions
-            .filter((s) => !p.some((x) => x.key === s.key))
-            .map((s) => ({ key: s.key, count: s.count })),
-        ]);
+        setPatternSugs((p) => mergeSuggestions(p, res.patternSuggestions));
         // a suggestion is offered ONCE, ever — persist the suggested flag so a reload can't re-offer
         try { localStorage.setItem(PREFS_KEY, JSON.stringify(core.current.exportMemory(SESSION))); } catch {}
       }
@@ -250,7 +246,7 @@ export function Workspace() {
         }
         if (resp?.morph?.applied) setHeld(null);
         if (resp?.patternSuggestions?.length) {
-          setPatternSugs((p) => [...p, ...resp.patternSuggestions!.filter((x) => !p.some((y) => y.key === x.key))]);
+          setPatternSugs((p) => mergeSuggestions(p, resp.patternSuggestions!));
         }
         if (resp?.learned) setLearned(resp.learned);
       })
@@ -354,7 +350,7 @@ export function Workspace() {
       } else if (m.kind === "ai_presence_changed") {
         setPresence(m.state);
       } else if (m.kind === "pattern_suggestions") {
-        setPatternSugs((p) => [...p, ...m.suggestions.filter((x) => !p.some((y) => y.key === x.key))]);
+        setPatternSugs((p) => mergeSuggestions(p, m.suggestions));
       } else if (m.kind === "learned") {
         setLearned(m.learned);
       } else if (m.kind === "decision_created") {
