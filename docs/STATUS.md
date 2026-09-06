@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1430 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1437 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **The two names beside it** (2026-09-06): the session-name fix left its siblings in the same
+  object unbounded, which is the half-done version of the rule. An event's own name and its type
+  are also things the runtime acts on — it routes on the type, and the id names the decision and
+  the trace behind it. One event with a 200,000-character type made the traces response 400,196
+  bytes, the events response 400,150, and the world-state broadcast 400,680 — and the broadcast is
+  the one that matters, since it goes to every body watching that session on every change, into the
+  snapshot and into the prompt, because the belief keeps a recent event whole apart from its
+  payload. An escape sequence in a type reached the inspector row a person reads to find out why
+  their body changed. Both are refused rather than trimmed, and the rule the three now share has
+  one name in the contracts. A payload value is the opposite case and stays trimmed: it is shown,
+  not acted on, and losing the event would lose the signal — there is a test for that distinction
+  so a later pass does not collapse it. Suspected and found clean: a newline in a type cannot forge
+  a log line, because the logger stringifies the whole line as JSON. 7 tests.
+  1437 unit/integration total.
 - **A session name is a key, not a caption** (2026-09-06): it selects a belief, a map entry, an
   audit trail, a snapshot row and a broadcast, and anything at all may choose one — the body takes
   it from its own query string, and any process that can reach the runtime may name one in an event
