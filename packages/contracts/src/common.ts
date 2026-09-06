@@ -41,6 +41,17 @@ export const SEVERITY_RANK: Record<Severity, number> = {
  */
 export const MAX_IDENTIFIER = 120;
 
+/**
+ * How many sensors one session tracks, and how many layers one of them may declare.
+ *
+ * There are three sensors — the body, the extension, the desktop agent — and both the name and the
+ * layer list come from an event payload, so these are ceilings rather than limits anyone should
+ * meet. They live here because two places have to agree on them: the reducer that folds a live
+ * event into the belief, and the schema that reads a belief back off a snapshot.
+ */
+export const MAX_SENSORS = 16;
+export const MAX_SENSOR_LAYERS = 16;
+
 const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/;
 
 /**

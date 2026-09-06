@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AutonomyLevel, Confidence, IsoTimestamp, SessionId } from "./common";
+import { AutonomyLevel, Confidence, IsoTimestamp, MAX_IDENTIFIER, MAX_SENSORS, MAX_SENSOR_LAYERS, SessionId } from "./common";
 import { AttentionState } from "./attention";
 import { MatterEvent } from "./events";
 
@@ -145,6 +145,56 @@ export type AutonomyState = z.infer<typeof AutonomyState>;
  * refused — because the state that arrives is usually a snapshot, written by whichever build was
  * running then, and a resume should bring back everything it can understand rather than nothing.
  */
+/** How many names one environment list carries; these are shapes a sensor observed, not an inventory. */
+export const MAX_ENVIRONMENT_ITEMS = 200;
+
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
+
+/** A name as the reducer would have left it: control characters out, cut to length. */
+function cleaned(value: string): string {
+  const clean = value.replace(CONTROL_CHARACTERS, "");
+  return clean.length > MAX_IDENTIFIER ? `${clean.slice(0, MAX_IDENTIFIER)}\u2026` : clean;
+}
+
+const boundedNames = z
+  .array(z.string())
+  .transform((names) => names.slice(0, MAX_ENVIRONMENT_ITEMS).map(cleaned));
+
+/**
+ * What each connected sensor currently observes, held to what a sensor may actually say.
+ *
+ * The reducer that folds a live `sensor.layers_changed` event has always bounded this: sixteen
+ * sensors, sixteen layers each, every name cleaned and cut. A snapshot does not pass through the
+ * reducer — it is read straight off the store, written by whichever build was running then — so a
+ * resume restored five hundred sensors with five-thousand-character layer names, escape sequences
+ * intact, and a four megabyte world state went out in every broadcast after that.
+ *
+ * This is also the one thing on screen that tells a person what is watching them, drawn from here
+ * verbatim, so what it can say is not something a snapshot gets to decide.
+ *
+ * It is trimmed rather than refused: refusing would fail the whole parse, and a resume is meant to
+ * bring back everything it can understand rather than nothing. A sensor whose name is empty once
+ * cleaned is dropped, since a nameless sensor cannot be shown as anything.
+ */
+export const BoundedSensing = z
+  .record(z.string(), z.array(z.string()))
+  .default({})
+  .transform((sensing) => {
+    const kept: Record<string, string[]> = {};
+    let sensors = 0;
+    for (const [name, layers] of Object.entries(sensing)) {
+      if (sensors >= MAX_SENSORS) break;
+      const sensor = cleaned(name);
+      if (!sensor || Object.hasOwn(kept, sensor)) continue;
+      const shown = layers.slice(0, MAX_SENSOR_LAYERS).map(cleaned).filter((l) => l.length > 0);
+      if (!shown.length) continue;
+      // a sensor may be called "__proto__"; an own property is written whatever the name is
+      Object.defineProperty(kept, sensor, { value: shown, enumerable: true, writable: true, configurable: true });
+      sensors += 1;
+    }
+    return kept;
+  });
+
 export const WorldState = z.object({
   sessionId: SessionId,
   updatedAt: IsoTimestamp,
@@ -152,13 +202,22 @@ export const WorldState = z.object({
   activeContext: ActiveContext.default({}),
   environment: z
     .object({
-      applications: z.array(z.string()).optional(),
-      files: z.array(z.string()).optional(),
-      processes: z.array(ProcessState).optional(),
+      applications: boundedNames.optional(),
+      files: boundedNames.optional(),
+      processes: z.array(ProcessState).max(MAX_ENVIRONMENT_ITEMS).optional(),
     })
     .default({}),
   activeProblems: z.array(Problem).default([]),
-  recentEvents: z.array(MatterEvent).default([]),
+  /**
+   * The belief keeps the most recent handful so the runtime can tell a repeat from a novelty. The
+   * reducer has always held it to RECENT_EVENTS_LIMIT; a snapshot does not pass through the
+   * reducer, so ten thousand came back on resume and rode along in every broadcast, snapshot and
+   * prompt after that. The newest are the ones that mean anything.
+   */
+  recentEvents: z
+    .array(MatterEvent)
+    .default([])
+    .transform((events) => (events.length > RECENT_EVENTS_LIMIT ? events.slice(-RECENT_EVENTS_LIMIT) : events)),
   inferredIntent: IntentHypothesis.optional(),
   behavior: BehaviorState.default(EMPTY_BEHAVIOR),
   /**
@@ -166,7 +225,7 @@ export const WorldState = z.object({
    * reported by the sensors themselves via `sensor.layers_changed`. The body shows this verbatim
    * so the "currently sensing: …" indicator is always true (Concept v2 privacy rule #3).
    */
-  sensing: z.record(z.string(), z.array(z.string())).default({}),
+  sensing: BoundedSensing,
   attention: AttentionState.default({ typing: false }),
   autonomy: AutonomyState.default({ level: 2 }),
 });

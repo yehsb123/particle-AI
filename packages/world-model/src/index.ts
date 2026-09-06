@@ -1,5 +1,5 @@
 import type { MatterEvent, Problem, ProcessState, WorldState } from "@particle/contracts";
-import { MAX_IDENTIFIER, RECENT_EVENTS_LIMIT, shapeOfEvent } from "@particle/contracts";
+import { MAX_IDENTIFIER, MAX_SENSORS, MAX_SENSOR_LAYERS, RECENT_EVENTS_LIMIT, shapeOfEvent } from "@particle/contracts";
 
 const PROBLEM_OPENERS: Record<string, { kind: string; summary: string; severity: "warning" | "critical" }> = {
   "development.server_error": { kind: "runtime_error", summary: "Service returned a runtime error", severity: "critical" },
@@ -81,12 +81,8 @@ function str(v: unknown): string | undefined {
   return clean.length > MAX_IDENTIFIER ? `${clean.slice(0, MAX_IDENTIFIER)}…` : clean;
 }
 
-/**
- * How many sensors one session tracks. There are three of them — the body, the extension, the
- * desktop agent — and the name comes from an event payload, so this is a ceiling rather than a
- * limit anyone should meet.
- */
-const MAX_SENSORS = 16;
+// MAX_SENSORS and MAX_SENSOR_LAYERS live in the contracts: the schema that reads a belief back
+// off a snapshot has to hold the same ceilings this reducer does.
 
 function setProcess(
   processes: ProcessState[] | undefined,
@@ -267,7 +263,7 @@ export function reduce(prev: WorldState, event: MatterEvent): WorldState {
         ? (event.payload.layers as unknown[])
             .map((l) => str(l))
             .filter((l): l is string => !!l)
-            .slice(0, 16)
+            .slice(0, MAX_SENSOR_LAYERS)
         : [];
       const sensing = { ...(next.sensing ?? {}) };
       if (layers.length) {
