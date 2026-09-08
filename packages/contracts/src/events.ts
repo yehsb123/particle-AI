@@ -48,6 +48,75 @@ export function shapeOfEvent(event: MatterEvent): MatterEvent {
   return { ...event, payload };
 }
 
+/**
+ * How much of a payload the cleaning walk will visit.
+ *
+ * A payload is a shape — a path, a host, a status, a count — and the belief keeps at most
+ * MAX_PAYLOAD_FIELDS of one. These are far above that on purpose: they are not a working limit,
+ * they are the point past which a payload is not a shape at all and the walk stops rather than
+ * running as deep as whatever arrived.
+ */
+export const MAX_PAYLOAD_NODES = 2_000;
+export const MAX_PAYLOAD_DEPTH = 32;
+
+/**
+ * A payload with the characters that are not writing taken out of its strings, at any depth.
+ *
+ * A payload was cleaned on the way into the belief and nowhere else, so one event became three
+ * different events: the belief held `src/a.ts`, the durable log was handed `src/a<NUL>.ts`, and
+ * the caller was answered with the second. On Postgres the stored one is worse than different —
+ * a NUL cannot go into a jsonb value at all, so the append throws, and since the append is
+ * deliberately best-effort the event is dropped from durable storage with nothing but a warn
+ * line. Six such events in a row, six lost, no ingest failed.
+ *
+ * So it is cleaned once, here, at the door every path comes through — the REST route, the socket,
+ * and the body's own in-browser core all parse the same schema. Strings are cleaned rather than
+ * dropped and nothing is shortened: the log is meant to keep what a sensor reported, and the
+ * shaping the belief needs is still `shapeOfEvent`'s job further in.
+ *
+ * The walk is iterative and bounded. `undefined` means the payload is past being a shape.
+ */
+function cleanedDeep(value: unknown): unknown {
+  if (typeof value === "string") return value.replace(CONTROL_CHARACTERS, "");
+  if (!value || typeof value !== "object") return value;
+  const root: unknown[] | Record<string, unknown> = Array.isArray(value) ? [] : {};
+  let visited = 0;
+  const pending: { from: unknown; to: unknown[] | Record<string, unknown>; depth: number }[] = [
+    { from: value, to: root, depth: 1 },
+  ];
+  while (pending.length > 0) {
+    const step = pending.pop();
+    if (!step) break;
+    if (step.depth > MAX_PAYLOAD_DEPTH) return undefined;
+    for (const [key, child] of Object.entries(step.from as Record<string, unknown>)) {
+      if (++visited > MAX_PAYLOAD_NODES) return undefined;
+      const put = (v: unknown) => {
+        // a payload key may be "__proto__"; an own property is written whatever the name is
+        Object.defineProperty(step.to, key, { value: v, enumerable: true, writable: true, configurable: true });
+      };
+      if (typeof child === "string") put(child.replace(CONTROL_CHARACTERS, ""));
+      else if (child && typeof child === "object") {
+        const nested: unknown[] | Record<string, unknown> = Array.isArray(child) ? [] : {};
+        put(nested);
+        pending.push({ from: child, to: nested, depth: step.depth + 1 });
+      } else put(child);
+    }
+  }
+  return root;
+}
+
+/** The record a payload and a metadata block are: cleaned, or refused for not being a shape. */
+const PayloadRecord = z
+  .record(z.unknown())
+  .transform((record, ctx) => {
+    const cleaned = cleanedDeep(record);
+    if (cleaned === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "deeper or wider than a payload is" });
+      return z.NEVER;
+    }
+    return cleaned as Record<string, unknown>;
+  });
+
 export const MatterEvent = z.object({
   /**
    * An event's own name and its type are things the runtime acts on rather than shows, and both
@@ -64,8 +133,8 @@ export const MatterEvent = z.object({
   /** dotted type, e.g. "development.server_error", "user.opened_file" */
   type: Identifier,
   severity: Severity,
-  payload: z.record(z.unknown()),
-  metadata: z.record(z.unknown()).optional(),
+  payload: PayloadRecord,
+  metadata: PayloadRecord.optional(),
 });
 export type MatterEvent = z.infer<typeof MatterEvent>;
 

@@ -127,7 +127,10 @@ describe("RuntimeClient — token mode (fresh module, env token)", () => {
       delete process.env.NEXT_PUBLIC_DM_TOKEN;
       vi.resetModules();
     }
-  });
+    // 30s, not because anything here is slow, but because resetModules + a dynamic import
+    // recompiles the module: what this would otherwise be timing is the machine running the
+    // suite. It went red once at the default five seconds while every package built in parallel.
+  }, 30_000);
 });
 
 describe("RuntimeClient — socket lifecycle", () => {
