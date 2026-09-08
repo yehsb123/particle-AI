@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1470 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1479 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **One posted event was three different events** (2026-09-07): a payload was cleaned on the way
+  into the belief and nowhere else, so the durable log was handed `src/a<NUL>.ts`, the caller was
+  answered with the same, and the belief held `src/a.ts`. On Postgres the stored one is worse than
+  different — a NUL cannot go into a jsonb value at all, so the append throws, and because that
+  append is deliberately best-effort the event is dropped from durable storage with nothing but a
+  warn line: six such events probed in a row, six unstorable, not one ingest failed. It is the same
+  error that took a commit red two before this, on a path that is not a test. Cleaned once now at
+  the door every path comes through — REST, socket, and the body's own in-browser core all parse
+  this schema — and cleaned rather than shortened, because a log keeps what a sensor reported;
+  reducing an event to a shape stays `shapeOfEvent`'s separate job, with a test for the distinction
+  so a later pass does not collapse the two. The walk is iterative with its own ceilings, since a
+  walk inside a gate must not recurse as deep as its input, and a payload past them is refused —
+  a behaviour change, with a test listing all seven payloads this repo actually sends, unchanged.
+  Left alone deliberately: payload keys, since cleaning a key can merge two distinct keys into one.
+  Nothing reads that durable log back today, so no reader has yet missed what was lost — it is the
+  record a replay would be built from. 9 tests. 1479 unit/integration total.
 - **The reducer was hardened and the schema was left** (2026-09-07): a belief arrives two ways —
   folded from a live event by the reducer, or read straight off a snapshot on resume — and every
   ceiling this system has for one lived only in the reducer. So the resume path, which never
