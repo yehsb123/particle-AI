@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1479 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1495 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -119,4 +119,5 @@ Every commit is green (typecheck 0 · 1479 unit/integration tests · 17 Playwrig
 - **Every list in the body has a ceiling**: template suggestions were the one that grew for as long as the page stayed open, merged three different ways in three places; one function now, and a repeated pattern prints the count the runtime actually reached
 - **A resumed belief is a belief**: the ceilings that lived only in the reducer are in the schema too, so a snapshot can no longer restore five hundred sensors, ten thousand events and a four megabyte broadcast the live path would never have produced
 - **One event is one event**: a payload is cleaned once at the door, so what is stored, what is answered and what is believed are the same thing — and an event no longer vanishes from durable storage because a sensor put a NUL in a path
+- **Restored memory is memory this runtime could have learned**: a preference or pattern key coming back from the browser is held to what the live path composes, a count to what counting produces, and a time to being a time
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist

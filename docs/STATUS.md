@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1479 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1495 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **Learned memory came back unmeasured** (2026-09-16): preferences and patterns are restored from
+  local storage and from snapshots, neither of which passes through the live path that produced
+  them — and the live path, which composes a short prefix with a name already held to
+  `MAX_IDENTIFIER`, was the only place they were ever bounded. Measured through the real runtime: a
+  200,000-character preference key was accepted, kept and exported again as a 196 KB write back
+  into local storage and every snapshot after; a key carrying an escape sequence survived, and it
+  is drawn onto a card; a weight of 1e308 was accepted for a preference nobody set, against a
+  threshold of two; and a `lastSeen` of fifty thousand nines was accepted, though it is compared as
+  a string and would have pinned the entry forever. A key is refused rather than cut, since it
+  selects a learned behaviour and two cut to the same length would be one preference; a count is
+  clamped, since clamping a count merges nothing; a time is checked as a time. Refusing one entry
+  leaves the rest of the restore alone. The probe caught the first attempt reusing `Identifier`,
+  whose length is meant for one name — it refused the 139-character key the live path really
+  composes, so a composed key has its own rule and the longest real key has a test of its own.
+  8 of the 16 tests fail on the old code. 16 tests. 1495 unit/integration total.
 - **One posted event was three different events** (2026-09-07): a payload was cleaned on the way
   into the belief and nowhere else, so the durable log was handed `src/a<NUL>.ts`, the caller was
   answered with the same, and the belief held `src/a.ts`. On Postgres the stored one is worse than
