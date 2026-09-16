@@ -1,4 +1,4 @@
-import type { Episode, Preference } from "./types";
+import { restorableKey, restorableWeight, type Episode, type Preference } from "./types";
 
 /** Current-task scratch memory (cleared per session/goal). */
 export class WorkingMemory {
@@ -88,9 +88,13 @@ export class PreferenceMemory {
   /** Restore persisted preferences (max wins on conflict — never lowers what was learned live). */
   load(prefs: Preference[]): void {
     for (const p of prefs) {
-      if (typeof p?.key !== "string" || !Number.isFinite(p.weight)) continue;
-      if (!this.weights.has(p.key) && this.weights.size >= MAX_PREFERENCES) continue; // a snapshot cannot grow it past the ceiling
-      this.weights.set(p.key, Math.max(this.weights.get(p.key) ?? 0, p.weight));
+      // what arrives here was written by whichever build was running then, and lives in the
+      // browser's own storage in between; the live path never touches it on the way back
+      const key = restorableKey(p?.key);
+      const weight = restorableWeight(p?.weight);
+      if (key === null || weight === null) continue;
+      if (!this.weights.has(key) && this.weights.size >= MAX_PREFERENCES) continue; // a snapshot cannot grow it past the ceiling
+      this.weights.set(key, Math.max(this.weights.get(key) ?? 0, weight));
     }
   }
 }

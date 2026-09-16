@@ -49,10 +49,47 @@ export const MAX_IDENTIFIER = 120;
  * meet. They live here because two places have to agree on them: the reducer that folds a live
  * event into the belief, and the schema that reads a belief back off a snapshot.
  */
+/**
+ * A name in restored memory: a preference key or a pattern key.
+ *
+ * Both are composed the same way — a short fixed prefix plus a name this runtime already holds to
+ * MAX_IDENTIFIER (an event type, or the variant a model chose). The longest the live path can make
+ * is around a hundred and forty characters, so this has room and is a ceiling rather than a limit.
+ *
+ * It matters because memory is restored from the browser's own storage and from snapshots, which
+ * the live path never touches. A key is a key: it selects a learned behaviour and it is written
+ * back out again on every export, so it is refused rather than cut — two keys cut to the same
+ * length would be one learned preference.
+ */
+export const MAX_MEMORY_KEY = 200;
+
+/** The characters that are not writing; shared by every name rule below. */
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/;
+
+/**
+ * A composed key: a short fixed prefix plus a name already held to MAX_IDENTIFIER. Identifier
+ * itself is the wrong rule here — its length is meant for one name, and the longest key the live
+ * path composes is a hundred and thirty nine characters, which Identifier would refuse.
+ */
+export const MemoryKey = z
+  .string()
+  .min(1)
+  .max(MAX_MEMORY_KEY)
+  .refine((s) => !CONTROL_CHARACTER.test(s), {
+    message: "a key the runtime acts on may not carry control characters",
+  });
+export type MemoryKey = z.infer<typeof MemoryKey>;
+
+/**
+ * How much reinforcement one memory entry may claim. Both are counts that grow by one at a time:
+ * a dismissal of the same variant, or a repetition of the same flow. A person would have to do
+ * either a thousand times to reach this, and the threshold that acts on them is two.
+ */
+export const MAX_MEMORY_WEIGHT = 1_000;
+
 export const MAX_SENSORS = 16;
 export const MAX_SENSOR_LAYERS = 16;
 
-const CONTROL_CHARACTER = /[\u0000-\u001F\u007F-\u009F]/;
 
 /**
  * A name the runtime acts on: it selects something, or the runtime routes on it.

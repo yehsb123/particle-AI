@@ -1,4 +1,4 @@
-import type { PatternCandidate } from "./types";
+import { restorableKey, restorableTime, restorableWeight, type PatternCandidate } from "./types";
 
 /**
  * Detects repeated context→behaviour combinations. When a key crosses the threshold it
@@ -49,15 +49,22 @@ export class PatternDetector {
    */
   load(items: PatternCandidate[]): void {
     for (const it of items) {
-      if (typeof it?.key !== "string" || !Number.isFinite(it.count) || it.count < 1) continue;
-      if (this.counts.size >= MAX_PATTERNS && !this.counts.has(it.key)) continue;
-      const existing = this.counts.get(it.key);
+      // a pattern is restored from the browser's own storage and from snapshots, neither of which
+      // passes through the live path; a key here is written onto a card a person reads
+      const key = restorableKey(it?.key);
+      const weight = restorableWeight(it?.count);
+      if (key === null || weight === null || weight < 1) continue;
+      const count = Math.floor(weight);
+      if (this.counts.size >= MAX_PATTERNS && !this.counts.has(key)) continue;
+      const existing = this.counts.get(key);
+      const lastSeen = restorableTime(it?.lastSeen);
       if (!existing) {
-        this.counts.set(it.key, { key: it.key, count: Math.floor(it.count), firstSeen: String(it.firstSeen ?? ""), lastSeen: String(it.lastSeen ?? ""), suggested: it.suggested === true });
+        this.counts.set(key, { key, count, firstSeen: restorableTime(it?.firstSeen), lastSeen, suggested: it.suggested === true });
       } else {
-        existing.count = Math.max(existing.count, Math.floor(it.count));
+        existing.count = Math.max(existing.count, count);
         existing.suggested = existing.suggested || it.suggested === true;
-        if (it.lastSeen && String(it.lastSeen) > existing.lastSeen) existing.lastSeen = String(it.lastSeen);
+        // a time that is not one cannot move this forward: it is compared as a string
+        if (lastSeen && lastSeen > existing.lastSeen) existing.lastSeen = lastSeen;
       }
     }
   }
