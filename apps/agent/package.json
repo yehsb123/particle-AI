@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Particle AI desktop agent (opt-in, L4): file-save shape + test/build output transitions → local runtime. Never file contents.",
+  "description": "Particle AI desktop agent (opt-in): sends file-save and build/test shape to the local runtime, never file contents.",
   "bin": { "particle-agent": "./src/index.ts" },
   "scripts": {
     "start": "tsx src/index.ts",

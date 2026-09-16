@@ -2,7 +2,7 @@
   "name": "digital-matter",
   "version": "0.0.1",
   "private": true,
-  "description": "An experimental adaptive computing runtime where the AI restructures its own interface around the user's situation.",
+  "description": "An experimental runtime that watches the shape of your work, never its content, and reshapes the interface around it.",
   "packageManager": "pnpm@10.33.3",
   "engines": {
     "node": ">=20"

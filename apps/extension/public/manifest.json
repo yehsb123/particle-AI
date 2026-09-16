@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Particle AI",
   "version": "0.1.0",
-  "description": "An AI skin for your browser: observes behavior and communication shape (never content), infers intent, and reshapes a side-panel workspace around what you are doing.",
+  "description": "Watches the shape of your browsing, never its content, and reshapes a side-panel workspace around what you are doing.",
   "permissions": [
     "webNavigation",
     "webRequest",
