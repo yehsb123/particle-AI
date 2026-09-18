@@ -83,6 +83,17 @@ export const MAX_TREE_DEPTH = 100;
 export const MAX_TREE_NODES = 2_000;
 
 /**
+ * How many operations one patch may carry.
+ *
+ * A patch is written by a model, so its size is fixed here rather than trusted. The largest a
+ * real one gets is a full diff between two trees — adds, moves, updates and removes across at
+ * most MAX_TREE_NODES nodes each side — so twice that is a ceiling no honest patch reaches, and
+ * a full rebuild is a single replace of the root anyway. Fifty thousand operations parsed before
+ * this, and every one of them was walked.
+ */
+export const MAX_PATCH_OPERATIONS = 2 * MAX_TREE_NODES;
+
+/**
  * Measures a raw tree without recursing into it, so it can say no to one that would take the
  * validator down. Anything that is not a tree passes straight through to the schema, which is
  * what says why it is not one.
@@ -276,7 +287,7 @@ export const UIPatch = z.object({
   fromWorkspaceId: z.string().min(1),
   /** decision that produced this patch, for audit/replay */
   decisionId: z.string().optional(),
-  operations: z.array(UIPatchOperation),
+  operations: z.array(UIPatchOperation).max(MAX_PATCH_OPERATIONS),
 });
 export type UIPatch = z.infer<typeof UIPatch>;
 

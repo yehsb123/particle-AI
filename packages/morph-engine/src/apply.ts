@@ -1,3 +1,4 @@
+import { withinTreeLimits } from "@particle/contracts";
 import type {
   UIBlueprint,
   UIComponent,
@@ -95,6 +96,19 @@ export type ApplyResult = {
  * Apply a validated patch to a blueprint, purely (input is not mutated), returning the
  * next blueprint and an inverse patch for undo. Throws MorphApplyError on structural
  * impossibility (missing target/parent) — callers validate against the tree beforehand.
+ *
+ * A result past the tree limits is the same kind of impossibility. Those limits were checked
+ * when a blueprint was PARSED and never again, and a patch is applied to the tree already in
+ * memory — so they said nothing about what came out. Measured: one patch adding two and a half
+ * thousand children makes 2,501 nodes where the schema allows 2,000, and a hundred and forty
+ * patches each adding one child under the last make a tree 141 deep where it allows 100. Neither
+ * parses as a blueprint afterwards, so the runtime would broadcast a body that the body's own
+ * gate refuses, snapshot it, and fail to restore it on resume — believing all three had worked.
+ * The walks in this file recurse on that tree, and the runner they recurse on is smaller in CI
+ * than it is here.
+ *
+ * Undo and dismiss cannot trip it: an inverse returns the tree to a state that was already
+ * within the limits, and a removal only makes it smaller.
  */
 export function applyPatch(
   blueprint: UIBlueprint,
@@ -226,5 +240,8 @@ export function applyPatch(
     operations: inverseOps.reverse(),
   };
 
+  if (!withinTreeLimits(next.root)) {
+    throw new MorphApplyError("the patched body would be past what a body may be");
+  }
   return { next, inverse };
 }
