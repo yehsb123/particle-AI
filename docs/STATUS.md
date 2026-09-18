@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1495 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1503 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **The gate measured the patch, never the body it produced** (2026-09-18): the tree limits are
+  checked when a blueprint is parsed, and a patch is applied to the tree already in memory, so
+  nothing checked what came out. Measured: one patch adding 2,500 children makes 2,501 nodes where
+  the schema allows 2,000, and 140 patches each adding one child under the last make a tree 141
+  deep where it allows 100 — and neither of those blueprints parses as a blueprint. The runtime
+  would have broadcast a body that the body's own gate refuses, written it into a snapshot and
+  failed to restore it on resume, believing all three had worked; the walks in `apply.ts` recurse
+  on that tree, on a stack that is smaller in CI than locally, a combination that has taken this
+  build red before. A patch also carried as many operations as a model cared to write — fifty
+  thousand parsed, each one walked. The operations list has a size in the schema now, set from what
+  a real patch can be, and `applyPatch` refuses a result past the tree limits with the same error
+  it already throws for a missing target, which is the one place all four call sites go through.
+  Undo and dismiss cannot trip it, and there is a test for that because it is what such a limit
+  would plausibly break. 4 of the 8 tests fail without the guards. 8 tests.
+  1503 unit/integration total.
 - **Learned memory came back unmeasured** (2026-09-16): preferences and patterns are restored from
   local storage and from snapshots, neither of which passes through the live path that produced
   them — and the live path, which composes a short prefix with a name already held to
