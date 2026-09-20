@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1503 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1511 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **An empty environment value is not zero** (2026-09-20): `Number()` is the wrong reader for an
+  environment value, and both places using it were changed by one silently. An empty value is the
+  ordinary way an env file says nothing — this repo's own `.env.example` ships several — and
+  `Number("")` is 0. Measured: `DM_AGENT_DEBOUNCE_MS=` made the debounce zero, so the desktop agent
+  sent an event per file save instead of one per burst; `abc`, `400ms` and `true` became NaN, which
+  `setTimeout` also treats as zero; `1e400` sat past the 32-bit timer maximum and was clamped to
+  1ms — every one of them the same outcome, none of them mentioned. `DM_PORT=` opened the runtime
+  on a random free port that nothing else in the system knows how to reach; a port that is not a
+  number at least fails loudly at `listen`, so it was the empty one that was silent on both.
+  Nothing means the default now, and something unusable is refused at startup naming the variable
+  and what it got — `DM_LOG_LEVEL` was already read this way by `normalizeLevel`, which is where
+  the shape came from. The agent keeps its own copy rather than taking a dependency, as it does for
+  `MAX_NAME`, and a test asserts the two copies agree on every value including which ones they
+  refuse. `.env.example` was also missing two variables the code reads; a file whose job is to be
+  the list has to be the whole list, and the two sets are now checked equal in both directions.
+  8 tests. 1511 unit/integration total.
 - **The gate measured the patch, never the body it produced** (2026-09-18): the tree limits are
   checked when a blueprint is parsed, and a patch is applied to the tree already in memory, so
   nothing checked what came out. Measured: one patch adding 2,500 children makes 2,501 nodes where

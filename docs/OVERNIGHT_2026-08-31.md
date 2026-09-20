@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1503 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1511 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -121,4 +121,5 @@ Every commit is green (typecheck 0 · 1503 unit/integration tests · 17 Playwrig
 - **One event is one event**: a payload is cleaned once at the door, so what is stored, what is answered and what is believed are the same thing — and an event no longer vanishes from durable storage because a sensor put a NUL in a path
 - **Restored memory is memory this runtime could have learned**: a preference or pattern key coming back from the browser is held to what the live path composes, a count to what counting produces, and a time to being a time
 - **A patched body is still a body**: applying a patch can no longer build a tree the blueprint gate would refuse, so what the runtime broadcasts, snapshots and restores is one thing
+- **An environment value is outside data too**: an empty one means the default rather than zero, an unusable one is refused at startup instead of quietly changing how a sensor behaves, and `.env.example` is the whole list of what the code reads
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist
