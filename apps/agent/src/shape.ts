@@ -79,6 +79,29 @@ export function branchFromHead(text: unknown): string | undefined {
 export const MAX_PATH = 4_096;
 
 /**
+ * A number somebody put in the environment, or the default when they did not.
+ *
+ * The same reader the runtime uses (envNumber in the contracts, asserted by this package's
+ * tests). This agent takes no dependencies on purpose — somebody runs it on their own machine —
+ * so it carries its own copy, the way it carries its own MAX_NAME.
+ *
+ * `Number()` alone is the wrong reader. An empty value is the ordinary way an env file says
+ * nothing, and `Number("")` is 0: measured, `DM_AGENT_DEBOUNCE_MS=` made the debounce zero, so
+ * this sensor sent an event per save instead of one per burst, silently. Every malformed value
+ * did the same — "abc" and "400ms" become NaN, which setTimeout also treats as zero.
+ */
+export function envNumber(raw: unknown, fallback: number, name: string, min = 0, max = Number.MAX_SAFE_INTEGER): number {
+  if (raw === undefined || raw === null) return fallback;
+  const text = String(raw).trim();
+  if (!text) return fallback;
+  const value = Number(text);
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${name} must be a whole number between ${min} and ${max}; got ${JSON.stringify(text)}`);
+  }
+  return value;
+}
+
+/**
  * Resolve the git directory for a root: `.git` as a directory, or a worktree's `gitdir:` file.
  *
  * The file is written by git but lives in a directory somebody else may have authored, and it can

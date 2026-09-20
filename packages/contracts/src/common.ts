@@ -39,6 +39,30 @@ export const SEVERITY_RANK: Record<Severity, number> = {
  * sensor trims to this before sending and the world model trims again on the way in, because a
  * sensor is not the only thing that can post an event.
  */
+/**
+ * A number somebody put in the environment, or the default when they did not.
+ *
+ * `Number()` alone is the wrong reader for this. An empty value is the ordinary way an env file
+ * says nothing — `.env.example` ships several — and `Number("")` is 0, not "unset". Measured,
+ * before this: `DM_AGENT_DEBOUNCE_MS=` made the debounce 0 and the sensor sent an event per save
+ * instead of one per burst, and `DM_PORT=` opened the runtime on a random free port that nothing
+ * else in the system knows how to reach. Both silently.
+ *
+ * So: nothing means the default, and something unusable is refused out loud rather than turned
+ * into a number nobody asked for. A person who typed a value meant it, and the answer to a value
+ * that cannot be used is to say so at startup, not to run differently and never mention it.
+ */
+export function envNumber(raw: unknown, fallback: number, name: string, min = 0, max = Number.MAX_SAFE_INTEGER): number {
+  if (raw === undefined || raw === null) return fallback;
+  const text = String(raw).trim();
+  if (!text) return fallback;
+  const value = Number(text);
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${name} must be a whole number between ${min} and ${max}; got ${JSON.stringify(text)}`);
+  }
+  return value;
+}
+
 export const MAX_IDENTIFIER = 120;
 
 /**

@@ -15,12 +15,13 @@
 import { watch, existsSync, statSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, type Signal } from "./shape";
+import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, type Signal } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
 const WATCH = (process.env.DM_WATCH_PATHS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-const DEBOUNCE_MS = Number(process.env.DM_AGENT_DEBOUNCE_MS ?? 400);
+// a timer past the 32-bit maximum is clamped to 1ms by setTimeout, which is the debounce gone
+const DEBOUNCE_MS = envNumber(process.env.DM_AGENT_DEBOUNCE_MS, 400, "DM_AGENT_DEBOUNCE_MS", 1, 2_147_483_647);
 const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
 
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
