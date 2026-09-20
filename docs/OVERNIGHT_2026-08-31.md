@@ -1,7 +1,7 @@
 # Overnight run — 2026-08-31 (Concept v2 build-out)
 
 Everything below was built, tested and pushed autonomously overnight and through the day.
-Every commit is green (typecheck 0 · 1511 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
+Every commit is green (typecheck 0 · 1517 unit/integration tests · 17 Playwright E2E tests across 15 specs · CI).
 
 ## Commits (oldest first)
 
@@ -122,4 +122,5 @@ Every commit is green (typecheck 0 · 1511 unit/integration tests · 17 Playwrig
 - **Restored memory is memory this runtime could have learned**: a preference or pattern key coming back from the browser is held to what the live path composes, a count to what counting produces, and a time to being a time
 - **A patched body is still a body**: applying a patch can no longer build a tree the blueprint gate would refuse, so what the runtime broadcasts, snapshots and restores is one thing
 - **An environment value is outside data too**: an empty one means the default rather than zero, an unusable one is refused at startup instead of quietly changing how a sensor behaves, and `.env.example` is the whole list of what the code reads
+- **A lost event says so**: the extension counts what it could not deliver, names the reason in its own log, and cannot be stopped from sending by a handler that throws
 - QUICKSTART (bilingual), pitch two-act demo, ASCII architecture diagram, store release checklist

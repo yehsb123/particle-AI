@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1511 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1517 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,22 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **A sensor that loses an event said nothing about it** (2026-09-20): chasing the flaky extension
+  end-to-end run by instrumenting it rather than guessing — six clean rounds on an idle machine,
+  zero misses, so the failing runs were not logic — pointed at the send path, where three things
+  were true at once. A send that *failed* was counted nowhere, so `dropped()` read zero while two
+  events were gone; the extension passed no `onError`, so nothing anywhere said an event had been
+  lost; and an `onError` that threw rejected the chain, so no later send ever ran, with an
+  unhandled rejection as the only sign. The fetch behind it carries a five second timeout, so a
+  runtime answering slowly is enough to lose an event — and that is exactly how the flake looked
+  from outside: an event that simply never came, with nothing in the runtime's log because it never
+  arrived and nothing in the extension's because it never said. A failed send counts as not
+  delivered now, since an event that did not arrive is gone either way; a handler that throws
+  cannot end the queue, because nothing called from a failure path may; and the extension says
+  which event did not make it and how many have not, which gives `dropped()` its first reader. The
+  queue still does not retry, by design. Not claimed: that this *was* the cause of that flake —
+  only that the mechanism exists, would look exactly like it, and is now visible if it returns.
+  3 of the 6 tests fail without the fix. 6 tests. 1517 unit/integration total.
 - **An empty environment value is not zero** (2026-09-20): `Number()` is the wrong reader for an
   environment value, and both places using it were changed by one silently. An empty value is the
   ordinary way an env file says nothing — this repo's own `.env.example` ships several — and
