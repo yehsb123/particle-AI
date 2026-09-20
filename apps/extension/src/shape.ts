@@ -102,7 +102,18 @@ export function createSendQueue(
         try {
           await post(payload);
         } catch (err) {
-          options.onError?.(err); // best-effort: the far end being down is not our problem to solve
+          // An event that did not arrive is gone whether the queue refused it or the send failed;
+          // the count is what this sensor lost, not how it lost it. Before this, a send that timed
+          // out left dropped() reading zero, and the fetch here carries a five second timeout, so
+          // a busy runtime silently cost events while the counter said none were lost.
+          dropped += 1;
+          try {
+            options.onError?.(err); // best-effort: the far end being down is not our problem to solve
+          } catch {
+            // A handler that throws used to reject this link of the chain, which meant no later
+            // send ever ran and every event after the first failure was lost — with an unhandled
+            // rejection as the only sign. Nothing called from a failure path may end the queue.
+          }
         } finally {
           pending -= 1;
         }
@@ -111,7 +122,7 @@ export function createSendQueue(
     },
     /** How many sends are queued or in flight. */
     pending: () => pending,
-    /** How many were dropped at the ceiling, for an honest indicator. */
+    /** How many this sensor did not deliver: refused at the ceiling, or failed on the way. */
     dropped: () => dropped,
   };
 }

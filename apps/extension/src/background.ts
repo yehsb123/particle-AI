@@ -12,6 +12,7 @@ import {
   RELAY_KINDS,
   relayPayload,
   createSendQueue,
+  identifier,
   hostOf,
   networkSeverity,
   matterEvent,
@@ -70,6 +71,15 @@ const queue = createSendQueue(async (event) => {
     body: JSON.stringify(event),
     signal: AbortSignal.timeout(5_000), // browser fetch has no default timeout — never wedge the queue
   });
+}, {
+  // Say when an event did not make it. The queue is best-effort by design and does not retry, so
+  // without this a lost event left no trace anywhere: not in the runtime, which never saw it, and
+  // not here. A busy runtime answering slower than the five second timeout above is enough, and
+  // that is how a flaky end-to-end run looked from the outside — an event that simply never came.
+  onError: (err) => {
+    const why = err instanceof Error ? err.message : String(err);
+    console.warn(`[particle] an event was not delivered (${identifier(why) || "no reason given"}); ${queue.dropped()} not delivered so far`);
+  },
 });
 function send(event: ReturnType<typeof matterEvent>): Promise<void> {
   return queue.send(event);
