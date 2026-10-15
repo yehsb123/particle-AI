@@ -6,8 +6,11 @@ services:
       POSTGRES_USER: dm
       POSTGRES_PASSWORD: dm
       POSTGRES_DB: digital_matter
+    # The host port is overridable because a machine often already runs a Postgres on 5432 and
+    # the bind failure names no owner. Move this and DATABASE_URL together; inside the container
+    # and in CI the port is always 5432.
     ports:
-      - "5432:5432"
+      - "${DM_PG_PORT:-5432}:5432"
     volumes:
       - dm_pgdata:/var/lib/postgresql/data
     healthcheck:

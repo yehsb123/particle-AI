@@ -4,6 +4,7 @@ export * from "./attention";
 export * from "./worldstate";
 export * from "./significance";
 export * from "./intelligence";
+export * from "./account";
 export * from "./decision";
 export * from "./capability";
 export * from "./ui";

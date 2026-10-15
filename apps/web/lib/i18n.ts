@@ -188,6 +188,20 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   autonomy_2: { en: "adaptive UI", ko: "적응형 UI" },
   autonomy_3: { en: "assisted", ko: "보조 실행" },
   autonomy_4: { en: "autonomous", ko: "자율" },
+  // linked AI accounts (contracts: ACCOUNT_LINK_KINDS / _STATES / _REASONS — both languages or
+  // the Korean screen shows the vocabulary word itself)
+  accountLinksTitle: { en: "Linked AI accounts", ko: "연동된 AI 계정" },
+  link_kind_api_key: { en: "API key", ko: "API 키" },
+  link_kind_browser_session: { en: "signed-in browser session", ko: "로그인된 브라우저 세션" },
+  link_state_linked: { en: "linked", ko: "연결됨" },
+  link_state_not_linked: { en: "not linked", ko: "연결 안 됨" },
+  link_state_not_operable: { en: "declared, but unusable for now", ko: "등록했지만 아직 쓸 수 없음" },
+  link_reason_api_key_present: { en: "a key for this account is configured", ko: "이 계정의 키가 설정되어 있습니다" },
+  link_reason_credential_absent: { en: "nothing is configured for this account", ko: "이 계정에 설정된 것이 없습니다" },
+  link_reason_session_control_not_built: {
+    en: "using a session you are already signed into is not built yet — nothing touches your browser",
+    ko: "이미 로그인된 세션을 사용하는 기능은 아직 없습니다 — 브라우저를 건드리지 않습니다",
+  },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
   evaluating: { en: "evaluating", ko: "평가 중" },

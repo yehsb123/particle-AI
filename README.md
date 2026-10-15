@@ -110,6 +110,34 @@ The runtime holds a shape-level record of what you did, so by default it only ta
 Reads never create sessions, so unknown ids cannot evict real ones. Shape-only is enforced at the
 sensors; the runtime trusts the body, the extension and token holders.
 
+## Persistence (optional)
+
+With `DATABASE_URL` set the runtime stores events and snapshots in Postgres (Drizzle +
+postgres-js); with it empty it runs on in-memory stores and deterministic replay. The compose
+file brings up that Postgres and nothing else — runtime and web stay in your terminal.
+
+```bash
+docker compose up -d postgres    # start (postgres:16-alpine, same image and settings as CI)
+docker compose down              # stop; the named volume dm_pgdata keeps the data
+docker compose down -v           # stop and throw the data away
+```
+
+Then point the runtime at it and start as usual:
+
+```bash
+DATABASE_URL=postgres://dm:dm@127.0.0.1:5432/digital_matter pnpm runtime
+```
+
+`GET /health` reports which store is live — `"backend":"postgres"` or `"backend":"memory"`.
+
+There are no migration files: the runtime creates the `events` and `snapshots` tables itself on
+connect (`ensureSchema` in `packages/persistence/src/pg.ts`, `CREATE TABLE IF NOT EXISTS`), so a
+first start against an empty database needs no extra step.
+
+On Windows use `127.0.0.1`, not `localhost` — `localhost` can resolve to IPv6 `::1`, where the
+container is not listening. If port 5432 is already taken on your machine, set `DM_PG_PORT` to a
+free port and put the same port in `DATABASE_URL`.
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
