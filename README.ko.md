@@ -131,11 +131,25 @@ pnpm test 2>&1 | pnpm agent      # 실행 결과 전이 감지 (출력은 그대
 
 ## 데이터 영속화 (선택)
 
-`DATABASE_URL`이 설정되면 이벤트가 Postgres(Drizzle + postgres-js)에 durable하게 저장됩니다. 없으면 인메모리 + 결정론적 리플레이로 동작합니다.
+`DATABASE_URL`이 설정되면 이벤트와 스냅샷이 Postgres(Drizzle + postgres-js)에 저장됩니다. 비어 있으면 인메모리 저장소와 결정론적 리플레이로 동작합니다. compose 파일은 Postgres만 띄웁니다. 런타임과 웹은 터미널에서 그대로 실행합니다.
 
 ```bash
-docker compose up -d postgres   # 로컬 Postgres
+docker compose up -d postgres    # 시작 (postgres:16-alpine, CI와 같은 이미지와 설정입니다)
+docker compose down              # 중지, 이름 있는 볼륨 dm_pgdata에 데이터가 남습니다
+docker compose down -v           # 중지하고 데이터까지 지웁니다
 ```
+
+런타임은 `DATABASE_URL`을 채워서 평소대로 띄웁니다.
+
+```bash
+DATABASE_URL=postgres://dm:dm@127.0.0.1:5432/digital_matter pnpm runtime
+```
+
+어느 저장소가 살아 있는지는 `GET /health`가 알려 줍니다. `"backend":"postgres"` 또는 `"backend":"memory"`로 나옵니다.
+
+마이그레이션 파일은 없습니다. 런타임이 접속할 때 `events`와 `snapshots` 테이블을 직접 만듭니다(`packages/persistence/src/pg.ts`의 `ensureSchema`, `CREATE TABLE IF NOT EXISTS`). 빈 데이터베이스에 처음 붙을 때도 따로 할 일이 없습니다.
+
+윈도우에서는 `localhost` 대신 `127.0.0.1`을 씁니다. `localhost`는 IPv6 `::1`로 풀릴 수 있고 거기에는 컨테이너가 떠 있지 않습니다. 5432 포트가 이미 쓰이고 있으면 `DM_PG_PORT`에 비어 있는 포트를 지정하고 `DATABASE_URL`에도 같은 포트를 적습니다.
 
 ## 아키텍처
 
