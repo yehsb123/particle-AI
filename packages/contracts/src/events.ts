@@ -146,6 +146,9 @@ export type MatterEvent = z.infer<typeof MatterEvent>;
 export const KNOWN_EVENT_TYPES = [
   // what a person does
   "user.opened_file",
+  // which application window is in front, as a shape: the program and the window title.
+  // Not user.focus_changed, which is a component inside the body taking focus.
+  "user.focused_window",
   "user.selected_component",
   "user.changed_goal",
   "user.focus_changed",

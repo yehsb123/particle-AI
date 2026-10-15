@@ -162,6 +162,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_files: { en: "file saves", ko: "파일 저장" },
   layer_output: { en: "test/build output", ko: "테스트/빌드 출력" },
   layer_git: { en: "git branch", ko: "git 브랜치" },
+  layer_windows: { en: "active window", ko: "활성 창" },
   sensingNone: { en: "nothing reported yet", ko: "아직 보고된 센서 없음" },
   sessionsTitle: { en: "Sensed on this computer", ko: "이 컴퓨터에서 감지 중" },
   sessionsProblems: { en: "open", ko: "열림" },

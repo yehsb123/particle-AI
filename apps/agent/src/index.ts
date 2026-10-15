@@ -6,16 +6,21 @@
  *   1. File saves under DM_WATCH_PATHS  → `user.opened_file { path }` (relative path, never content)
  *   2. Piped tool output (stdin)        → `development.test_failed/passed`, `development.build_failed/succeeded`
  *      (transitions only — the output itself is passed through to your terminal untouched)
+ *   3. The window in front, with DM_WATCH_WINDOWS → `user.focused_window { app, window }`
+ *      (Windows only, changes only — the program name and the window title, never what is in it)
  *
  *   DM_WATCH_PATHS=. pnpm agent
  *   pnpm test 2>&1 | pnpm agent
+ *   DM_WATCH_WINDOWS=1 pnpm agent
  *
- * Nothing runs unless you opt in with DM_WATCH_PATHS or a pipe. Events go to the LOCAL runtime.
+ * Nothing runs unless you opt in with DM_WATCH_PATHS, DM_WATCH_WINDOWS or a pipe. Events go to
+ * the LOCAL runtime.
  */
 import { watch, existsSync, statSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, type Signal } from "./shape";
+import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, type Signal } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -23,6 +28,9 @@ const WATCH = (process.env.DM_WATCH_PATHS ?? "").split(",").map((s) => s.trim())
 // a timer past the 32-bit maximum is clamped to 1ms by setTimeout, which is the debounce gone
 const DEBOUNCE_MS = envNumber(process.env.DM_AGENT_DEBOUNCE_MS, 400, "DM_AGENT_DEBOUNCE_MS", 1, 2_147_483_647);
 const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
+// the widest of this agent's senses — the window in front is the whole desktop, not one repository
+const WANT_WINDOWS = envFlag(process.env.DM_WATCH_WINDOWS, "DM_WATCH_WINDOWS");
+const WINDOW_MS = envNumber(process.env.DM_AGENT_WINDOW_MS, 1_000, "DM_AGENT_WINDOW_MS", 100, 600_000);
 
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
 // parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
@@ -124,6 +132,58 @@ function watchGitBranch(root: string): boolean {
   return true;
 }
 
+/**
+ * The window in front, read through Windows UI Automation.
+ *
+ * The reading runs in one long-lived PowerShell process that prints a line per tick, rather than
+ * a process per tick: starting one costs a few seconds (it compiles the one P/Invoke it needs),
+ * which would be most of a one-second interval spent starting readers. This agent keeps no
+ * runtime dependencies, so a native module to do the same is not on the table.
+ *
+ * The script is passed as an encoded command rather than on stdin. It is a multi-line script with
+ * a here-string in it, and PowerShell reading that from stdin parses it as console input and exits
+ * without ever running it — measured here, and a sensor that silently never reports is the worst
+ * way for this to fail.
+ */
+function watchWindows(intervalMs: number): boolean {
+  const tracker = new WindowTracker();
+  const encoded = Buffer.from(windowScript(intervalMs, process.pid), "utf16le").toString("base64");
+  let child: ReturnType<typeof spawn>;
+  try {
+    child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], {
+      windowsHide: true,
+      // stderr is the CLIXML stream PowerShell writes when it is redirected: not readable as
+      // text, and the reader dying is what actually matters, which `exit` below reports
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch (e) {
+    process.stderr.write(`[particle-agent] cannot read the window in front: ${(e as Error).message}\n`);
+    return false;
+  }
+  child.on("error", (e) => process.stderr.write(`[particle-agent] window reader failed to start: ${e.message}\n`));
+  child.on("exit", (code) => process.stderr.write(`[particle-agent] window reader stopped (${code}) — windows are no longer sensed\n`));
+  // the reader senses the whole desktop: it must not outlive the agent somebody stopped
+  const stop = (): void => { try { child.kill(); } catch { /* already gone */ } };
+  process.on("exit", stop);
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => { stop(); process.exit(0); });
+  }
+  const readings = child.stdout;
+  if (!readings) {
+    // a reader nobody can read from would sense the desktop and report none of it
+    process.stderr.write("[particle-agent] window reader gave nothing to read — windows are not sensed\n");
+    stop();
+    return false;
+  }
+  readings.setEncoding("utf8");
+  createInterface({ input: readings, crlfDelay: Infinity }).on("line", (line) => {
+    const sig: Signal | null = tracker.feed(line);
+    if (sig) void send(matterEvent(SESSION, sig.source, sig.type, sig.severity, sig.payload));
+  });
+  process.stderr.write(`[particle-agent] sensing the window in front every ${intervalMs}ms (program name and window title only)\n`);
+  return true;
+}
+
 function pipeOutput(): void {
   const tracker = new OutputTracker();
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -136,12 +196,16 @@ function pipeOutput(): void {
 }
 
 const piped = !process.stdin.isTTY;
-if (WATCH.length === 0 && !piped) {
+const windows = windowSensor(process.platform, WANT_WINDOWS);
+// asked for on a machine that cannot read it: said once, to the person who asked
+if (windows.note) process.stderr.write(windows.note + "\n");
+if (WATCH.length === 0 && !piped && !windows.run) {
   process.stdout.write(
     [
       "particle-agent is OPT-IN and does nothing until you choose a sense:",
       "  DM_WATCH_PATHS=.   pnpm agent          # file saves (relative paths only)",
       "  pnpm test 2>&1 | pnpm agent            # test/build pass↔fail transitions",
+      "  DM_WATCH_WINDOWS=1 pnpm agent          # the window in front (Windows; app + title only)",
       `runtime: ${RUNTIME}   session: ${SESSION}   (open the body with ?connect=1&session=${SESSION})`,
       "",
     ].join("\n"),
@@ -159,6 +223,12 @@ void fetch(`${RUNTIME}/health`, { signal: AbortSignal.timeout(2_000) })
 if (WATCH.length > 0) watchPaths(WATCH);
 const gitRoots = WATCH.map((p) => resolve(p)).filter((r) => watchGitBranch(r));
 if (piped) pipeOutput();
+const sensingWindows = windows.run && watchWindows(WINDOW_MS);
 // tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
-const layers = [...(WATCH.length ? ["files"] : []), ...(gitRoots.length ? ["git"] : []), ...(piped ? ["output"] : [])];
+const layers = [
+  ...(WATCH.length ? ["files"] : []),
+  ...(gitRoots.length ? ["git"] : []),
+  ...(piped ? ["output"] : []),
+  ...(sensingWindows ? ["windows"] : []),
+];
 void send(matterEvent(SESSION, "sensor", "sensor.layers_changed", "debug", { sensor: "agent", layers }));

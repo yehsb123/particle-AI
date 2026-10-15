@@ -267,3 +267,179 @@ export class OutputTracker {
     }
   }
 }
+
+// ── the window in front → a shape ──
+
+/**
+ * Chromium-family programs, which this sensor says nothing about.
+ *
+ * The browser extension already reports what happens in a browser, by tab and by host. The same
+ * fact arriving twice is the runtime counting it twice, and the copy this sensor could send is
+ * the coarser one: one window title where the extension has the site the person is actually on.
+ * Matched on the whole program name, since "chromedriver" and "operator-console" are not browsers.
+ */
+const BROWSER_APPS = new Set(["chrome", "msedge", "brave", "chromium", "vivaldi", "opera", "whale", "arc", "thorium"]);
+
+/** What this sensor will say about the window in front: which program, and what the window is called. */
+export type WindowShape = { app: string; window: string };
+
+/**
+ * One reading as the sensor prints it: the program name, a tab, then the window title.
+ *
+ * A title can hold a tab of its own, so only the FIRST one separates — splitting on every tab
+ * would cut a title in half and report the half as a window.
+ */
+export function parseWindowLine(line: unknown): { app: string; title: string } | null {
+  if (typeof line !== "string") return null;
+  const at = line.indexOf("\t");
+  if (at < 0) return null;
+  return { app: line.slice(0, at), title: line.slice(at + 1) };
+}
+
+/**
+ * A reading made fit to send, or nothing when there is nothing to say about it.
+ *
+ * Both names come from outside this process — a program names its own window, and a window title
+ * is unbounded and may carry an escape sequence — so both go through identifier(), the same way
+ * a branch name and a path do.
+ */
+export function windowShape(app: unknown, title: unknown): WindowShape | null {
+  const name = identifier(app);
+  if (!name) return null; // a window whose program has no name is not a window this can report
+  if (BROWSER_APPS.has(name.toLowerCase().replace(/\.exe$/, ""))) return null;
+  return { app: name, window: identifier(title) };
+}
+
+/**
+ * Everything in a title that is not a letter or a digit. Measured on a real desktop: a terminal
+ * running this repository alternated its title between two spinner characters twice a second, so
+ * a sensor comparing titles letter for letter reported a window switch every half second, for as
+ * long as the command ran. An editor does the same quieter, with a dot or an asterisk for unsaved
+ * work. None of that is the person moving to another window.
+ *
+ * Digits are kept, so "(3) general" and "(11) general" read as a change although they are one
+ * window: an unread count is the part of such a title that means something, and being wrong this
+ * way costs one event rather than a stream of them. A title that is nothing but decoration — a
+ * bare spinner — has nothing left to tell two readings apart, which is right: it is one window.
+ */
+const TITLE_DECORATION = /[^\p{L}\p{N}]+/gu;
+
+function titleKey(title: string): string {
+  return title.replace(TITLE_DECORATION, "").toLowerCase();
+}
+
+/** Whether two readings are the same window: the same program, and the same title under its decoration. */
+export function sameWindow(a: WindowShape, b: WindowShape): boolean {
+  return a.app === b.app && titleKey(a.window) === titleKey(b.window);
+}
+
+/**
+ * Turns a stream of readings into the moments the window in front CHANGED — the same bargain the
+ * OutputTracker makes with test output. A reading that is the window already reported says
+ * nothing, however many times it arrives.
+ *
+ * A browser reading leaves the remembered window alone rather than clearing it: this sensor has
+ * nothing to say about browsers at all, including that the person went to one, and re-reporting
+ * the editor on the way back would be announcing a switch it is not allowed to have seen.
+ */
+export class WindowTracker {
+  private current: WindowShape | null = null;
+
+  feed(line: string): Signal | null {
+    const read = parseWindowLine(line);
+    if (!read) return null;
+    const shape = windowShape(read.app, read.title);
+    if (!shape) return null;
+    if (this.current && sameWindow(this.current, shape)) return null;
+    this.current = shape;
+    return { type: "user.focused_window", source: "user", severity: "debug", payload: { ...shape } };
+  }
+}
+
+/** Whether the active-window sensor runs, and what to tell the person if it does not. */
+export type WindowSensorDecision = { run: boolean; note: string | null };
+
+/**
+ * The window in front is read through the Windows UI Automation API. Everywhere else this sense
+ * is simply absent — the agent's other senses are untouched — and the only thing worth saying is
+ * said to the person who asked for it, once.
+ */
+export function windowSensor(platform: string, requested: boolean): WindowSensorDecision {
+  if (!requested) return { run: false, note: null };
+  if (platform !== "win32") {
+    return { run: false, note: `[particle-agent] the window in front is read through Windows UI Automation; nothing is sensed on ${platform}` };
+  }
+  return { run: true, note: null };
+}
+
+const TRUE_WORDS = new Set(["1", "true", "yes", "on"]);
+const FALSE_WORDS = new Set(["", "0", "false", "no", "off"]);
+
+/**
+ * A switch somebody put in the environment.
+ *
+ * Nothing means off, the way an env file says nothing. A value that is present but says no means
+ * off too: read as "anything non-empty is yes", DM_WATCH_WINDOWS=0 would start watching the
+ * desktop — the same shape of mistake as reading an empty value as zero. A value that says
+ * neither is refused at startup rather than guessed at.
+ */
+export function envFlag(raw: unknown, name: string): boolean {
+  if (raw === undefined || raw === null) return false;
+  const text = String(raw).trim().toLowerCase();
+  if (TRUE_WORDS.has(text)) return true;
+  if (FALSE_WORDS.has(text)) return false;
+  throw new Error(`${name} must be one of 1/true/yes/on or 0/false/no/off; got ${JSON.stringify(text)}`);
+}
+
+/**
+ * The script that reads the window in front, once every interval, and prints the program name and
+ * the window title.
+ *
+ * It is PowerShell because that is how this agent reaches UI Automation without taking a native
+ * dependency — the agent has no runtime dependencies on purpose, since somebody runs it on their
+ * own machine and what it can do should be readable in one file.
+ *
+ * The interval and the agent's own process id are the only things this process puts into a script
+ * another program runs, so both are refused unless they are whole numbers. A string would be a way
+ * into this machine.
+ *
+ * What the script may read is the whole privacy story of this sense: a window handle, the process
+ * behind it, and the name the window gives itself. Not its contents, not its text patterns, not
+ * the clipboard.
+ */
+export function windowScript(intervalMs: number, parentPid: number): string {
+  for (const [label, value] of [["polling interval", intervalMs], ["parent process id", parentPid]] as const) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+      throw new Error(`window ${label} must be a whole number; got ${JSON.stringify(value)}`);
+    }
+  }
+  return [
+    // the titles on this desktop are not ASCII; without this they arrive here as question marks
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+    "Add-Type -AssemblyName UIAutomationClient",
+    "Add-Type -AssemblyName UIAutomationTypes",
+    "Add-Type -Namespace ParticleAgent -Name Window -MemberDefinition @\"",
+    "[DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow();",
+    "\"@",
+    "while ($true) {",
+    // this reader sees the whole desktop and nobody can see IT: when the agent is gone, so is it
+    `  if (-not (Get-Process -Id ${parentPid} -ErrorAction SilentlyContinue)) { break }`,
+    "  $app = $null",
+    "  $title = $null",
+    "  try {",
+    "    $handle = [ParticleAgent.Window]::GetForegroundWindow()",
+    "    if ($handle -ne [IntPtr]::Zero) {",
+    "      $element = [System.Windows.Automation.AutomationElement]::FromHandle($handle)",
+    "      $owner = Get-Process -Id $element.Current.ProcessId -ErrorAction SilentlyContinue",
+    "      if ($owner) { $app = $owner.ProcessName; $title = $element.Current.Name }",
+    "    }",
+    // a window that closed between the handle and the read is read next tick; a sensor that
+    // cannot see something says nothing about it rather than stopping
+    "  } catch { }",
+    // outside that catch on purpose: a write that fails is the agent's end of the pipe gone,
+    // and this process ending is the right answer to it
+    "  if ($app) { Write-Output (\"{0}`t{1}\" -f $app, $title) }",
+    `  Start-Sleep -Milliseconds ${intervalMs}`,
+    "}",
+  ].join("\n");
+}
