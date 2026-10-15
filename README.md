@@ -3,16 +3,24 @@
 [![CI](https://github.com/yehsb123/particle-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/yehsb123/particle-AI/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An AI **layer over your computer**: it watches how you work — clicks, dwell, tab switches,
-undo, idle time, and the *shape* of your traffic (host · status · latency, never content) —
-keeps a continuous guess about what you are trying to do, and reshapes its own interface
-around you **before and without anything breaking**.
+An AI **layer over your computer**: it watches how you work, keeps a continuous guess about
+what you are trying to do, and reshapes its own interface around you **before and without
+anything breaking**.
 
 Instead of asking AI to use software, the AI **becomes** the software.
 
 > ⚠️ Experimental research software. Not production-ready.
 
 [한국어 README →](README.ko.md) · **[Quickstart — feel it in 5 minutes →](QUICKSTART.md)**
+
+## Where this is going
+
+The product is being redefined. The target is a layer that reads **every** application, not
+only the ones that emit developer signals, and that acts on your behalf when you ask it to.
+The plan, the four decisions it forces, and the order of work are in
+[`docs/DESIGN_V2.md`](docs/DESIGN_V2.md).
+
+**Nothing in that plan is built yet.** Everything described below is what runs today.
 
 ## The idea
 
@@ -33,46 +41,18 @@ opens, then closes itself on recovery. Errors (a failing build, an HTTP 500) are
 case** of this: the user never typed "show me the error dashboard." And undo is feedback —
 dismiss the same kind of change twice and it stops being offered.
 
-Where the senses come from (each layer opt-in, shape only):
+## What it senses today
 
-| Layer | Sensor | What it observes |
-|---|---|---|
-| this page | `apps/web` | clicks, dwell, idle, tab visibility |
-| the browser | `apps/extension` (MV3) | tab focus, site hostnames, interaction counts; traffic shape (opt-in) |
-| the desktop | `apps/agent` (Node, opt-in) | file saves (relative paths), git branch switches, test/build pass↔fail |
+Three sensors, all **shape only**: no file contents, no page contents, no message text.
 
-The body always shows *what is currently being sensed*, from what the sensors themselves report.
+| Sensor | Senses |
+|---|---|
+| Web body | clicks, dwell, idle time, visibility |
+| Browser extension (MV3) | tab focus, navigation hostnames, and opt-in traffic shape (host, status, latency) |
+| Desktop agent (opt-in) | file **saves** (relative paths) and test/build pass↔fail transitions |
 
-```
-   the page          the browser            the desktop
-  apps/web        apps/extension (MV3)     apps/agent (opt-in)
-  clicks·dwell    tabs·hosts·traffic       file saves·git branch
-  idle·returns    shape (opt-in)           test/build transitions
-      │                  │                        │            shape only,
-      └────────────── ordered, serialized events ─┘            never content
-                             ▼
-                ┌─ Particle AI runtime (local) ─┐
-                │ world model → significance    │   every decision audited,
-                │ → intent (always on) → brain  │   every change reversible,
-                │ → permissions → capabilities  │   event-sourced replay
-                │ → morph guard → reconcile     │
-                └───────────────┬───────────────┘
-                                ▼
-                    the BODY (apps/web / side panel)
-              reshapes itself before anything breaks;
-              learns from your dismissals; shows honestly
-              what it senses
-```
-
-Reliability guardrails make this safe:
-
-- The model only emits **validated UI data** (`UIBlueprint` / `UIPatch`), never executable code.
-- A **Morph Guard** prevents the UI from jumping around: cooldowns, dwell times, focus protection.
-- Every morph is **reversible** (undo) and every decision is **auditable**.
-- The whole thing runs in **deterministic mock mode** with no API key.
-- Providers are abstract — swap Anthropic / OpenAI / a local model without touching the core.
-
-![Particle AI — the body in the extension side panel (dark)](docs/store/sidepanel-dark.png)
+The signals are developer-flavoured today: HTTP 500, build failed, vulnerability found. That
+is the limitation `DESIGN_V2.md` sets out to remove.
 
 ## Quick start
 
@@ -83,7 +63,8 @@ pnpm dev           # web (3000) + runtime (8787) together — or `pnpm web` / `p
 ```
 
 Ports and settings come from env (`PORT`, `DM_PORT`, …) and are passed through turbo, so
-`DM_PORT=8790 PORT=3010 pnpm dev` works. See `.env.example` for every variable.
+`DM_PORT=8790 PORT=3010 pnpm dev` works. See `.env.example` for every variable — it lists
+every variable the code reads, and nothing it does not.
 
 No API key is required — the runtime uses a deterministic mock provider by default.
 To enable a real provider, copy `.env.example` to `.env` and fill in a key.
@@ -134,17 +115,21 @@ sensors; the runtime trusts the body, the extension and token holders.
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
 [`docs/RUNTIME_LOOP.md`](docs/RUNTIME_LOOP.md). Design decisions live in
 [`docs/adr/`](docs/adr/). Current progress is tracked in
-[`docs/STATUS.md`](docs/STATUS.md).
+[`docs/STATUS.md`](docs/STATUS.md). The next direction is in
+[`docs/DESIGN_V2.md`](docs/DESIGN_V2.md).
 
 ## Status
 
 Phases 0–8 (runtime, UI matter, capabilities, memory, persistence, reliability) are done, and
 Concept v2 — the behavior layer — is implemented end to end: intent engine (P1), browser
 extension + traffic-shape incidents (P2), desktop agent (P3), learning from dismissals (P4),
-honest sensing indicator. Unit/integration suite, 15 Playwright E2E tests across 14 specs (including a real
-extension test against the live runtime and a Korean options page) and CI are green. Details: [`docs/STATUS.md`](docs/STATUS.md),
-[`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
+honest sensing indicator. 1517 unit/integration tests, 17 Playwright E2E tests across 15 specs
+(including a real extension test against the live runtime and a Korean options page) and CI are
+green. Details: [`docs/STATUS.md`](docs/STATUS.md), [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
 
 ## License
 
 [MIT](LICENSE) — © 2026 Particle AI contributors. Experimental research software.
+
+`DESIGN_V2.md` proposes a screen-capture sensor built on OBS, which is GPL v2 or later.
+Linking it would make this repository GPL as well. That decision has not been made.
