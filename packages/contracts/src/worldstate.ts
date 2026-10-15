@@ -48,6 +48,8 @@ export const SENSING_LAYERS = [
   "files",
   "git",
   "output",
+  // the window somebody is actually in, read through the operating system
+  "windows",
 ] as const;
 export type SensingLayer = (typeof SENSING_LAYERS)[number];
 

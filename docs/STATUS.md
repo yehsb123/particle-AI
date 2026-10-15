@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1517 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1570 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,21 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **The first three pieces of design v2** (2026-10-15): three agents in parallel, each in its own
+  worktree so they could not collide. The desktop agent can now say which window somebody is
+  actually in, read through the operating system's accessibility interface rather than by
+  capturing the screen. It is a separate opt-in from file watching, because the window title of a
+  chat app carries the other person's name and that is a wider consent than watching one
+  repository. The title of a terminal flickers with its spinner, so comparing titles literally
+  would have sent twenty events in twenty five seconds where this sends one. Browser windows are
+  skipped, since the extension already reports them more precisely and one fact must not arrive
+  from two sensors. Alongside it, an AI account is no longer only an API key: a logged-in browser
+  session can be declared, and the four places it reports being unusable keep it from pretending
+  otherwise, because nothing drives a browser yet. And the Postgres this repository has always
+  expected is finally documented, verified by writing an event, destroying the container and
+  reading it back from a fresh process. Found while doing it, not fixed: `/api/sessions/:id/events`
+  reads the in-memory mirror rather than the database, so it comes back empty after a restart.
+  52 tests. 1570 unit/integration total.
 - **A sensor that loses an event said nothing about it** (2026-09-20): chasing the flaky extension
   end-to-end run by instrumenting it rather than guessing — six clean rounds on an idle machine,
   zero misses, so the failing runs were not logic — pointed at the send path, where three things

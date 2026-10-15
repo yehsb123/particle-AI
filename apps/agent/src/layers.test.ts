@@ -6,7 +6,7 @@ import { SENSING_LAYERS } from "@particle/contracts";
  * body shows each by name. The words live with the body, so a layer named here that the shared
  * vocabulary does not know would appear there as a bare identifier.
  */
-const LAYERS_THIS_AGENT_REPORTS = ["files", "git", "output"];
+const LAYERS_THIS_AGENT_REPORTS = ["files", "git", "output", "windows"];
 
 describe("the layers this sensor can report", () => {
   it("are all in the vocabulary the body reads", () => {
