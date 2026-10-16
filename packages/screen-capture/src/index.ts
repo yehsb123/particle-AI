@@ -1,0 +1,34 @@
+/**
+ * @particle/screen-capture — one window, one picture. MIT.
+ *
+ * This package is the MIT side of the capture boundary. Everything it links ships with Windows,
+ * so adding it to a build adds no third-party licence. The OBS backend is GPL and lives in
+ * `@particle/screen-capture-obs`: nothing here imports it, and a process only has it if its own
+ * code imported that package and handed the backend to `createCaptureRegistry`. `boundary.test.ts`
+ * holds this file and every file beside it to that.
+ *
+ * What this package does NOT do: it takes no picture by itself, sends nothing anywhere, and is
+ * imported by no app in this repository. A capture happens when somebody calls for one, with
+ * DM_CAPTURE on, and the picture stays on their disk.
+ */
+export * from "./capture";
+export * from "./config";
+export * from "./request";
+export * from "./script";
+export * from "./reading";
+export * from "./windows";
+
+import type { CaptureBackend, CaptureRegistry } from "./capture";
+import { createCaptureRegistry } from "./capture";
+import { windowsCaptureBackend } from "./windows";
+
+/**
+ * The backends a process has unless it says otherwise: the Windows one, plus whatever its own
+ * code chose to hand in.
+ *
+ * Handing one in is the opt-in. There is no name, no environment variable and no setting that
+ * makes a backend appear in a process that did not import it.
+ */
+export function defaultCaptureRegistry(extra: readonly CaptureBackend[] = []): CaptureRegistry {
+  return createCaptureRegistry([windowsCaptureBackend(), ...extra]);
+}

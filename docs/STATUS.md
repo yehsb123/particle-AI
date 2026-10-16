@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1575 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1672 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -195,6 +195,20 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   ceiling at all. Verified against a real Postgres: an event in, the process killed by pid, a fresh
   process, the listing hands it back. 5 tests, and 2 more that only run with a database.
   1575 unit/integration total.
+- **A window one pixel across was a successful capture** (2026-10-16): the screen capture this
+  design needs for the windows the accessibility interface cannot read, split so the licence is
+  too. The Windows backend is the default and stays MIT; the OBS backend is GPL and lives in its
+  own package, so it only reaches somebody who asks for it. Measured on a real machine, and the
+  measurement is the point: KakaoTalk keeps nine visible windows, and the two a person uses were
+  minimised, leaving seven internal ones sized 0x0 and 1x1. The search took the biggest of those,
+  drew it, wrote a 120 byte file, and reported success. A caller cannot tell that from a picture.
+  Two places refuse it now, the search and the reader, because the search runs in a separate
+  process and a future script is not bound by this one. Restored, the same window captures at
+  784x527; a Chrome window at 1453x865 with its text legible, which is also the clearest evidence
+  for why the consent wording has to change before a frame is allowed to leave the machine.
+  Three existing tests used 10x10 as an ordinary window and were moved to 640x480; a fourth
+  asserted that an impossible size answers null, and now asserts it answers a refusal with a
+  reason, which is the same rationale by a better route. 6 tests. 1672 unit/integration total.
 - **The first three pieces of design v2** (2026-10-15): three agents in parallel, each in its own
   worktree so they could not collide. The desktop agent can now say which window somebody is
   actually in, read through the operating system's accessibility interface rather than by

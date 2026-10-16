@@ -97,6 +97,25 @@ pnpm test 2>&1 | pnpm agent      # sense a run's transitions (output is passed t
 
 See [`apps/agent/README.md`](apps/agent/README.md).
 
+## Screen capture (off by default, not a sensor)
+
+The agent's window sensor reads a window through the Windows accessibility API, which works only
+when the program answers. Measured on a Windows 11 machine: Hancell names every menu and button;
+KakaoTalk gives six unnamed panes and no conversation list, because it never implemented the
+functions that answer. A window like that can only be read as a picture.
+
+`packages/screen-capture` takes one picture of one window and writes a png. It is attached to no
+sensor, imported by no app, sends nothing anywhere, and refuses until `DM_CAPTURE=1`. With nothing
+configured the repository behaves exactly as before.
+
+```bash
+DM_CAPTURE=1 pnpm --filter @particle/screen-capture exec tsx src/bin.ts --app KakaoTalk
+```
+
+A frame travels as a **filename**: the pixels stay on the machine that took them. Reading a
+captured screen with a model, and the consent wording that would have to be rewritten first, are
+not built. See [`packages/screen-capture/README.md`](packages/screen-capture/README.md).
+
 ## Runtime access control
 
 The runtime holds a shape-level record of what you did, so by default it only talks to you:
@@ -158,6 +177,11 @@ green. Details: [`docs/STATUS.md`](docs/STATUS.md), [`docs/CONCEPT_V2.md`](docs/
 ## License
 
 [MIT](LICENSE) — © 2026 Particle AI contributors. Experimental research software.
+
+The capture backends are deliberately split so the licence is too. `packages/screen-capture` is
+the default path, is MIT, and uses the Windows drawing API. `packages/screen-capture-obs` drives
+OBS Studio, which is GPL v2 or later, so that package carries its own GPL licence and nothing in
+the default build imports it. Using it is a choice that brings GPL with it.
 
 `DESIGN_V2.md` proposes a screen-capture sensor built on OBS, which is GPL v2 or later.
 Linking it would make this repository GPL as well. That decision has not been made.

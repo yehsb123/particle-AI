@@ -117,6 +117,18 @@ pnpm test 2>&1 | pnpm agent      # 실행 결과 전이 감지 (출력은 그대
 
 바디: `http://localhost:3000/?connect=1&session=desktop`. 자세한 내용: [`apps/agent/README.md`](apps/agent/README.md)
 
+## 화면 캡처 (기본 꺼짐, 센서가 아닙니다)
+
+에이전트의 창 감시는 윈도우 접근성 창구로 창을 읽는데, 그 프로그램이 답할 때만 됩니다. 윈도우 11에서 실측한 결과입니다. 한셀은 메뉴와 버튼 이름이 전부 나옵니다. 카카오톡은 이름 없는 상자 여섯 개만 나오고 대화 목록도 메시지도 안 나옵니다. 답하는 함수를 만들어 두지 않았기 때문입니다. 그런 창은 그림으로 읽는 수밖에 없습니다.
+
+`packages/screen-capture` 는 창 하나를 찍어 png 로 씁니다. 어떤 센서에도 붙어 있지 않고, 어느 앱도 import 하지 않고, 아무 데로도 보내지 않고, `DM_CAPTURE=1` 이 없으면 거부합니다. 아무 설정도 안 하면 저장소는 지금까지와 똑같이 동작합니다.
+
+```bash
+DM_CAPTURE=1 pnpm --filter @particle/screen-capture exec tsx src/bin.ts --app KakaoTalk
+```
+
+찍은 그림은 파일 이름으로만 돌아다닙니다. 픽셀은 찍은 컴퓨터에 남습니다. 찍은 화면을 모델로 읽는 기능과, 그 전에 다시 써야 하는 동의 문구는 아직 만들지 않았습니다.
+
 ## 런타임 접근 제어
 
 런타임은 당신이 한 일의 형태 기록을 갖고 있으므로 기본적으로 **당신에게만** 응답합니다:
@@ -150,6 +162,10 @@ DATABASE_URL=postgres://dm:dm@127.0.0.1:5432/digital_matter pnpm runtime
 마이그레이션 파일은 없습니다. 런타임이 접속할 때 `events`와 `snapshots` 테이블을 직접 만듭니다(`packages/persistence/src/pg.ts`의 `ensureSchema`, `CREATE TABLE IF NOT EXISTS`). 빈 데이터베이스에 처음 붙을 때도 따로 할 일이 없습니다.
 
 윈도우에서는 `localhost` 대신 `127.0.0.1`을 씁니다. `localhost`는 IPv6 `::1`로 풀릴 수 있고 거기에는 컨테이너가 떠 있지 않습니다. 5432 포트가 이미 쓰이고 있으면 `DM_PG_PORT`에 비어 있는 포트를 지정하고 `DATABASE_URL`에도 같은 포트를 적습니다.
+
+## 라이선스
+
+[MIT](LICENSE) 입니다. 캡처 기반 두 가지는 라이선스가 갈리도록 일부러 패키지를 나눴습니다. `packages/screen-capture` 가 기본 경로이고 MIT 이며 윈도우 그리기 API 를 씁니다. `packages/screen-capture-obs` 는 OBS Studio 를 쓰는데 OBS 는 GPL v2 이상이라, 그 패키지가 자기 GPL 라이선스를 따로 들고 있고 기본 빌드는 그 패키지를 import 하지 않습니다. 쓰기로 정하면 GPL 이 함께 따라옵니다.
 
 ## 아키텍처
 
