@@ -151,7 +151,11 @@ export async function buildServer(): Promise<BuildResult> {
   app.get("/api/sessions", async () => ({ sessions: runtime.core.listSessions() }));
 
   app.get<{ Params: { id: string } }>("/api/sessions/:id/state", async (req) => runtime.peekWorld(req.params.id));
-  app.get<{ Params: { id: string } }>("/api/sessions/:id/events", async (req) => ({ events: runtime.store.listBySession(req.params.id) }));
+  // Read from the log that outlives the process, not from this run's mirror. The mirror is empty
+  // at startup, so a restarted runtime answered for every session it had ever served with an empty
+  // trail while the rows sat in the database — and the trail is what a person opens to find out
+  // why their body changed. With no DATABASE_URL both are the same in-memory log anyway.
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/events", async (req) => ({ events: await persistence.events.listBySession(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/ui", async (req) => runtime.peekUI(req.params.id));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/decisions", async (req) => ({ audit: runtime.audit.list(req.params.id) }));
   app.get<{ Params: { id: string } }>("/api/sessions/:id/traces", async (req) => ({ traces: runtime.traces.list(req.params.id) }));
