@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { eq, and, asc, lt } from "drizzle-orm";
-import type { MatterEvent } from "@particle/contracts";
+import { eq, and, asc, desc, lt } from "drizzle-orm";
+import { MatterEvent as MatterEventSchema, type MatterEvent } from "@particle/contracts";
 import { events, snapshots } from "./schema";
 import type { EventLogStore, Snapshot, SnapshotStore } from "./index";
 
@@ -33,21 +33,54 @@ export async function ensureSchema(sql: postgres.Sql): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS snapshots_session_idx ON snapshots (session_id)`;
 }
 
+/**
+ * The events among a set of stored rows. A row holds whatever build was running when it was
+ * written, so what comes back out is outside data: casting it to a MatterEvent only promised it
+ * was one, and a row from an older shape travelled on into the listing, the world state and the
+ * prompt as though the schema had seen it. Snapshots are already read back this way (see
+ * `RuntimeCore.hydrate`). A row that does not parse is left out and the rest still come back —
+ * one unreadable row must not cost a session its whole trail.
+ */
+export function eventsFromRows(rows: readonly { data: unknown }[]): MatterEvent[] {
+  const out: MatterEvent[] = [];
+  for (const row of rows) {
+    const parsed = MatterEventSchema.safeParse(row.data);
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
 export class PgEventLogStore implements EventLogStore {
-  constructor(private readonly db: PostgresJsDatabase) {}
+  /**
+   * `limit` is what one session's listing may hand back at once, matching the in-memory log's
+   * bound. A session running for months has no ceiling in this table, and a reader asking for its
+   * events was handed every row it ever wrote — through a REST answer and into a browser.
+   */
+  constructor(
+    private readonly db: PostgresJsDatabase,
+    private readonly limit = 10_000,
+  ) {}
   async append(event: MatterEvent): Promise<void> {
     await this.db
       .insert(events)
       .values({ id: event.id, sessionId: event.sessionId, timestamp: event.timestamp, data: event })
       .onConflictDoNothing();
   }
+  /** The newest events of a session, up to the bound, oldest first (as the in-memory log reads). */
   async listBySession(sessionId: string): Promise<MatterEvent[]> {
-    const rows = await this.db.select().from(events).where(eq(events.sessionId, sessionId));
-    return rows.map((r) => r.data as MatterEvent);
+    const rows = await this.db
+      .select()
+      .from(events)
+      .where(eq(events.sessionId, sessionId))
+      // newest first so the bound keeps the recent ones; id breaks a tie, since two events of one
+      // session can carry the same timestamp and Postgres orders nothing on its own
+      .orderBy(desc(events.timestamp), desc(events.id))
+      .limit(this.limit);
+    return eventsFromRows(rows.reverse());
   }
   async all(): Promise<MatterEvent[]> {
     const rows = await this.db.select().from(events);
-    return rows.map((r) => r.data as MatterEvent);
+    return eventsFromRows(rows);
   }
 }
 

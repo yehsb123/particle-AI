@@ -11,7 +11,7 @@ agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) —
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
 from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1570 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1575 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -182,6 +182,19 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   capability failed. What the body reads from browser storage besides its event log was probed and
   left alone: the theme and the language are each checked against the values they can be. 8 tests.
   1417 unit/integration total.
+- **A restarted runtime could not say what a session had done** (2026-10-16): the events listing
+  read the in-memory mirror, which is only ever as old as the process, so a runtime brought back up
+  answered with an empty trail for every session it had ever served while the rows sat in Postgres.
+  That is the listing a person opens to find out why their body changed. It reads the durable log
+  now; with no DATABASE_URL both are the same in-memory log, so nothing changes there. Two things
+  on the same path went with it. A stored row is parsed back through the event schema rather than
+  cast to it, the way snapshots already are, since the row was written by whichever build was
+  running then: one that does not parse is left out and the rest still come back, because an
+  unreadable row must not cost a session its whole trail. And one session's listing is bounded at
+  ten thousand, newest kept, matching the in-memory log, where a session running for months had no
+  ceiling at all. Verified against a real Postgres: an event in, the process killed by pid, a fresh
+  process, the listing hands it back. 5 tests, and 2 more that only run with a database.
+  1575 unit/integration total.
 - **The first three pieces of design v2** (2026-10-15): three agents in parallel, each in its own
   worktree so they could not collide. The desktop agent can now say which window somebody is
   actually in, read through the operating system's accessibility interface rather than by
