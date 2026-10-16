@@ -1,0 +1,14 @@
+{
+  "name": "@particle/screen-capture-obs",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "GPL-2.0-or-later",
+  "description": "GPL-2.0-or-later. An OBS Studio capture backend for @particle/screen-capture, kept out of the MIT tree. Nothing in the default build imports this package.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": { "@particle/screen-capture": "workspace:*" },
+  "devDependencies": { "@types/node": "^22.10.0", "tsx": "^4.19.2", "typescript": "^5.7.2", "vitest": "^2.1.8" }
+}
