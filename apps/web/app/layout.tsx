@@ -4,7 +4,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Particle AI",
   description:
-    "A runtime that watches the shape of your work, never its content, and reshapes the interface around it.",
+    "A runtime that reshapes the interface around your work: ten sensing layers read shape only, never content, " +
+    "and an eleventh reads the screen when you turn it on.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

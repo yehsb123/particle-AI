@@ -50,6 +50,17 @@ export const SENSING_LAYERS = [
   "output",
   // the window somebody is actually in, read through the operating system
   "windows",
+  /**
+   * The one layer that reads what is IN a window rather than the shape of it.
+   *
+   * Everything above sends a host, a status, a path, an app name — never what the thing said. A
+   * picture of a window says everything on it, so this layer is separate, off unless somebody
+   * turns it on, and pointed at apps they listed rather than at the whole screen. A sensor may
+   * name the app it is photographing by declaring the layer as "screen:<app>", because the
+   * indicator has to say which window is being taken, not merely that one is. See
+   * `docs/CONSENT_V2.md`.
+   */
+  "screen",
 ] as const;
 export type SensingLayer = (typeof SENSING_LAYERS)[number];
 

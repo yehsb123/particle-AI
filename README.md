@@ -43,7 +43,10 @@ dismiss the same kind of change twice and it stops being offered.
 
 ## What it senses today
 
-Three sensors, all **shape only**: no file contents, no page contents, no message text.
+Three sensors, all **shape only**: no file contents, no page contents, no message text. A
+fourth way of sensing exists and is **off** — screen capture reads what is in a window, is
+turned on by hand, and is not attached to any of these. See
+[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads what.
 
 | Sensor | Senses |
 |---|---|
@@ -112,9 +115,12 @@ configured the repository behaves exactly as before.
 DM_CAPTURE=1 pnpm --filter @particle/screen-capture exec tsx src/bin.ts --app KakaoTalk
 ```
 
-A frame travels as a **filename**: the pixels stay on the machine that took them. Reading a
-captured screen with a model, and the consent wording that would have to be rewritten first, are
-not built. See [`packages/screen-capture/README.md`](packages/screen-capture/README.md).
+A frame travels as a **filename**: the pixels stay on the machine that took them, in
+`DM_CAPTURE_DIR` or the temp directory, until you delete them. Reading a captured screen with a
+model is not built. The consent wording this layer needs is written — `screen` is a sensing
+layer with its own words in the body, the extension's options page names it as not its own, and
+[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind both. See
+[`packages/screen-capture/README.md`](packages/screen-capture/README.md).
 
 ## Runtime access control
 
@@ -127,7 +133,8 @@ The runtime holds a shape-level record of what you did, so by default it only ta
 | `DM_INGEST_TOKEN` | *(empty)* | optional shared secret — when set, every read and write needs `x-particle-token` (WS: `?token=`); the extension takes it in its options page, the agent from the same env var |
 
 Reads never create sessions, so unknown ids cannot evict real ones. Shape-only is enforced at the
-sensors; the runtime trusts the body, the extension and token holders.
+three sensors above; the runtime trusts the body, the extension and token holders. Screen capture
+is not one of those sensors and is enforced by being off.
 
 ## Persistence (optional)
 

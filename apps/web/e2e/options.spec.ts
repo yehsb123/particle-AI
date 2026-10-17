@@ -24,6 +24,10 @@ test("extension options page localizes to Korean and saves consent atomically", 
     await page.goto(`chrome-extension://${extId}/options.html`);
     await expect(page.getByText("Particle AI가 감지할 수 있는 것")).toBeVisible();
     await expect(page.getByText("통신 형태 (L2) — 옵트인")).toBeVisible();
+    // the page is the consent, so the layer that reads what is in a window is named here even
+    // though this extension does not have it — otherwise the three layers listed read as the
+    // whole promise (docs/CONSENT_V2.md)
+    await expect(page.getByText(/화면 캡처는 창 안의 내용을 읽고/)).toBeVisible();
     // defaults: interactions+tabs on, network OFF (the widest layer is opt-in)
     await expect(page.locator("#interactions")).toBeChecked();
     await expect(page.locator("#network")).not.toBeChecked();

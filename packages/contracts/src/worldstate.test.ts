@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { WorldState, emptyWorldState, EMPTY_BEHAVIOR } from "./index";
+import { WorldState, emptyWorldState, EMPTY_BEHAVIOR, SENSING_LAYERS } from "./index";
 
 /**
  * The world state is what the runtime believes is going on, and the copies of it that come back
@@ -110,5 +110,32 @@ describe("a snapshot that is not a belief", () => {
     for (const junk of [null, undefined, 42, "a world", [], true]) {
       expect(WorldState.safeParse(junk).success, JSON.stringify(junk) ?? "undefined").toBe(false);
     }
+  });
+});
+
+/**
+ * The layer list is what the body has words for, and the one place a person reads to find out
+ * what is being observed about them. Ten of them send the shape of something and nothing of what
+ * is in it. The eleventh reads what is in a window, which is why it is listed separately here
+ * rather than appended quietly: a change to either group has to be deliberate (docs/CONSENT_V2.md).
+ */
+describe("the layers a sensor may declare", () => {
+  const SHAPE_ONLY = [
+    "interactions", "idle", "visibility", "dwell", "tabs", "network", "files", "git", "output", "windows",
+  ];
+
+  it("still carries the ten that send shape and nothing of the content", () => {
+    expect(SENSING_LAYERS.slice(0, SHAPE_ONLY.length)).toEqual(SHAPE_ONLY);
+  });
+
+  it("carries the screen layer, the one that reads what is in a window", () => {
+    expect(SENSING_LAYERS).toContain("screen");
+  });
+
+  it("keeps a layer that names the window it is pointed at", () => {
+    // the indicator has to say WHICH app is being photographed, so the name travels with the
+    // layer; a colon is not a control character and must survive the trim a snapshot goes through
+    const parsed = WorldState.parse({ ...full, sensing: { agent: ["windows", "screen:KakaoTalk"] } });
+    expect(parsed.sensing.agent).toEqual(["windows", "screen:KakaoTalk"]);
   });
 });

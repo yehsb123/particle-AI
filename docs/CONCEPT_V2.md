@@ -18,6 +18,12 @@ understood the **person** — only the outcome. Errors are a weak, late proxy fo
 
 ## Consistency table (input → understanding → output)
 
+> Scope, added 2026-10-17: the five layers below are the ones that send shape and nothing of
+> the content, and that is still true of them. A sixth layer, `screen`, was added later and
+> reads what is in a window. It is off unless somebody turns it on and is not covered by the
+> "never content" in this table. `DESIGN_V2.md` is the decision; `CONSENT_V2.md` is the
+> wording.
+
 | Layer | What is sensed (shape only, never content) | What it tells us | How the body responds |
 |---|---|---|---|
 | **L0 Interaction** | clicks, scroll, hover dwell, typing rhythm, idle, undo/redo, repeated actions | attention, hesitation, frustration, flow | emphasize/de-emphasize, hold morphs while typing |
@@ -63,12 +69,17 @@ The structured UI protocol (blueprint/patch/guard/undo) is unchanged. Where it r
 
 Sensing "everything" is only acceptable if:
 
-1. **Shape, never content** — hosts/status/latency/counts/dwell, never URL queries, bodies,
-   keystroke text, page text, or screenshots.
+1. **Shape, never content, in every layer but one** — hosts/status/latency/counts/dwell, never
+   URL queries, bodies, keystroke text or page text. The exception is the `screen` layer added
+   in `DESIGN_V2.md`: it photographs a window somebody listed and therefore reads what is in
+   it. It is off by default, named separately wherever sensing is shown, and its own consent
+   wording is in `CONSENT_V2.md`.
 2. **Local-first** — events are processed by the local runtime; nothing leaves the machine
    unless the user enables a remote provider.
 3. **Layer consent** — L0–L2 (own app + own traffic shape) on by default; L3 and L4 require an
-   explicit switch each, and the UI always shows *"currently sensing: …"*.
+   explicit switch each; `screen` requires a switch of its own **and** a list of which apps may
+   be photographed, with no choice that takes the whole screen. The UI always shows *"currently
+   sensing: …"*, and for `screen` it names the app being photographed.
 4. **Autonomy levels apply to sensing depth**, not only to actions.
 
 ## Phases (each independently valuable)
