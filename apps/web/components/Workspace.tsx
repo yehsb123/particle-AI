@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createReplayClock } from "../lib/replayClock";
 import { describeHold } from "../lib/hold";
 import { describeMorphStep } from "../lib/morphStep";
-import { describeSensor, describeLayer } from "../lib/sensing";
+import { describeSensor, describeLayer, sensesContent } from "../lib/sensing";
 import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
 import { describeRisk, riskBadgeClass, describeAutonomy } from "../lib/risk";
 import { describeIntent } from "../lib/intent";
@@ -87,6 +87,13 @@ export function Workspace() {
     if (!reported.length) return t("sensingNone", lang);
     return reported.map(([s, ls]) => `${describeSensor(s, lang)}: ${ls.map((l) => describeLayer(l, lang)).join(", ")}`).join(" · ");
   }, [debug.worldState, lang]);
+  // The caption after that line used to say "shape only" about everything in it. One layer reads
+  // what is in a window, so the caption only keeps that claim for the rest and names the exception
+  // when a sensor has actually reported it (docs/CONSENT_V2.md).
+  const screenIsSensing = useMemo(
+    () => Object.values(debug.worldState?.sensing ?? {}).some((ls) => sensesContent(ls as string[])),
+    [debug.worldState],
+  );
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
   const [held, setHeld] = useState<{ codes: string[]; at: number; retryMs?: number } | null>(null);
@@ -719,8 +726,18 @@ export function Workspace() {
                     <span>{describeIntent(debug.worldState?.inferredIntent?.label, lang) || "—"}</span>
                   </div>
                   <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }} data-testid="sensing-line">
-                    {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)})
+                    {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)}
+                    {screenIsSensing ? `; ${t("sensingScreenExcepted", lang)}` : ""})
                   </p>
+                  <div className="divider" style={{ margin: "10px 0" }} />
+                  <div className="k muted" style={{ fontSize: 12 }}>{t("screenConsentTitle", lang)}</div>
+                  <div data-testid="screen-consent">
+                    {["screenConsentWhat", "screenConsentWhere", "screenConsentLeaves", "screenConsentOff"].map((key) => (
+                      <p key={key} className="muted" style={{ fontSize: 11.5, margin: "6px 0 0" }}>
+                        {t(key, lang)}
+                      </p>
+                    ))}
+                  </div>
                   {(debug.memory?.preferences ?? []).some((p) => p.key.startsWith("dismissed:")) ? (
                     <>
                       <div className="divider" style={{ margin: "10px 0" }} />

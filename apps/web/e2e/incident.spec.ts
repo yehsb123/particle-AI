@@ -52,6 +52,10 @@ test.describe("Particle AI — autonomous incident morph", () => {
     await page.getByRole("button", { name: /^AI ·/ }).click();
     await expect(page.getByText("What is the AI doing?")).toBeVisible();
     await expect(page.locator(".presence-pop").getByText(/Problem detected|no morph yet/)).toBeVisible();
+    // ...and what it can see. The caption claims shape only for the layers it just listed, not
+    // for the product, and the layer that reads a window carries its own consent wording.
+    await expect(page.getByTestId("sensing-line")).toContainText("these layers read shape only — never content");
+    await expect(page.getByTestId("screen-consent")).toContainText("DM_CAPTURE");
     // Escape closes the popover (keyboard accessibility)
     await page.keyboard.press("Escape");
     await expect(page.getByText("What is the AI doing?")).toHaveCount(0);

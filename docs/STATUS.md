@@ -9,9 +9,10 @@ Behavior (clicks, dwell, idle, returns, repeats, alternation) and traffic *shape
 latency, opt-in) flow from three sensors — the page, an MV3 browser extension, an opt-in desktop
 agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) — into one runtime
 that keeps a continuous intent, prepares the screen before and without anything breaking, learns
-from dismissals (persisted across reloads/restarts), reports honestly what it senses, reconciles
+from dismissals (persisted across reloads/restarts), reports honestly what it senses — naming
+the one layer that reads what is in a window rather than the shape of it — reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1672 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1692 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -209,6 +210,28 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   Three existing tests used 10x10 as an ordinary window and were moved to 640x480; a fourth
   asserted that an impossible size answers null, and now asserts it answers a refusal with a
   reason, which is the same rationale by a better route. 6 tests. 1672 unit/integration total.
+- **The repository promised something the capture work had made untrue** (2026-10-17): nearly
+  thirty places said the product sees the shape of your work and never its content, while
+  `packages/screen-capture` photographed a Chrome window at 1936x1048 with the row counts, lot
+  numbers and defect rates on it legible. The fix is a boundary rather than a rewrite, because
+  flattening every promise to "it reads content now" would be false about the sensors that are
+  running: a file save still carries a relative path, traffic still carries a host and a status,
+  a window still carries an app name and a title. `SENSING_LAYERS` gains an eleventh layer,
+  `screen`, and it is the only one that reads what is in a window. The other ten are untouched.
+  A layer may now say what it is pointed at — `screen:KakaoTalk` — so the indicator names the
+  app being photographed rather than saying only that something is. The caption beside that line
+  used to speak for the whole product and now speaks for the layers listed next to it, with the
+  screen layer named as the exception, and the screen layer's own consent wording says what it
+  takes, where it lands (`DM_CAPTURE_DIR` or the temp directory, until somebody deletes it),
+  where it goes (nowhere — a file name, never the pixels) and how to stop it, in English and
+  Korean. The scattered wording was read one at a time rather than replaced by pattern: 23 lines
+  across 17 files were left alone because they are scoped to a sensor that still senses shape,
+  and 13 across 10 files had their scope written in because they stood for the product — the
+  store description, the page metadata, the extension's options page, both READMEs, the pitch
+  page and the privacy rules in `CONCEPT_V2.md`. Two dated records were left as written. Not
+  done, deliberately: capture is still attached to no sensor and still refuses without
+  `DM_CAPTURE`, and reading a captured screen with a model is not built. 20 tests.
+  1692 unit/integration total.
 - **The first three pieces of design v2** (2026-10-15): three agents in parallel, each in its own
   worktree so they could not collide. The desktop agent can now say which window somebody is
   actually in, read through the operating system's accessibility interface rather than by

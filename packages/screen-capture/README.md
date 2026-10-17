@@ -15,9 +15,13 @@ sensor, and it refuses until `DM_CAPTURE` says yes. With no configuration at all
 behaves exactly as it did before this package existed.
 
 A capture result travels as a **filename**. The pixels stay on the disk of the machine that took
-them, because the consent wording in this repository still says content is never collected and
-rewriting it is a separate piece of work. Reading a captured screen with a model is not built
-either.
+them — under `DM_CAPTURE_DIR`, or the temp directory when that names nothing — until somebody
+deletes them. Reading a captured screen with a model is not built.
+
+The consent wording is written. `screen` is a layer in `SENSING_LAYERS`, the body has words for
+it and names the app being photographed, and the extension's options page says this layer is
+the runtime's rather than its own. The reasoning is in `docs/CONSENT_V2.md`. What is still not
+done is attaching capture to a sensor: nothing in this repository imports this package.
 
 ## Taking one
 
