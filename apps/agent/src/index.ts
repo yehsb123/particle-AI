@@ -8,19 +8,28 @@
  *      (transitions only — the output itself is passed through to your terminal untouched)
  *   3. The window in front, with DM_WATCH_WINDOWS → `user.focused_window { app, window }`
  *      (Windows only, changes only — the program name and the window title, never what is in it)
+ *   4. A picture of a LISTED app's window, with DM_CAPTURE=1 and DM_CAPTURE_APPS
+ *      → `sensor.captured_window { app, window, path, … }` (the file stays on this machine)
  *
  *   DM_WATCH_PATHS=. pnpm agent
  *   pnpm test 2>&1 | pnpm agent
  *   DM_WATCH_WINDOWS=1 pnpm agent
+ *   DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent
+ *
+ * The fourth sense is the only one that reads what is IN a window rather than the shape of one,
+ * so it is the only one that takes two switches and a list of apps (docs/CONSENT_V2.md). What it
+ * sends is that it photographed, which app, and where the file landed — never the picture.
  *
  * Nothing runs unless you opt in with DM_WATCH_PATHS, DM_WATCH_WINDOWS or a pipe. Events go to
  * the LOCAL runtime.
  */
 import { watch, existsSync, statSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, type Signal } from "./shape";
+import { captureFileName, captureWith, defaultCaptureRegistry, readCaptureConfig } from "@particle/screen-capture";
+import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, type Signal, type WindowShape } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -31,6 +40,12 @@ const TOKEN = process.env.DM_INGEST_TOKEN ?? "";
 // the widest of this agent's senses — the window in front is the whole desktop, not one repository
 const WANT_WINDOWS = envFlag(process.env.DM_WATCH_WINDOWS, "DM_WATCH_WINDOWS");
 const WINDOW_MS = envNumber(process.env.DM_AGENT_WINDOW_MS, 1_000, "DM_AGENT_WINDOW_MS", 100, 600_000);
+// the one sense that reads what is IN a window: the apps somebody listed, and nothing else
+const CAPTURE_APPS = captureApps(process.env.DM_CAPTURE_APPS, "DM_CAPTURE_APPS");
+// a minute between two pictures of one app; the window in front is read every second, so the
+// floor is what stands between an afternoon in a chat window and an afternoon of pictures of it
+const CAPTURE_MS = envNumber(process.env.DM_AGENT_CAPTURE_MS, 60_000, "DM_AGENT_CAPTURE_MS", 1_000, 86_400_000);
+const CAPTURE = readCaptureConfig(process.env);
 
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
 // parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
@@ -145,7 +160,7 @@ function watchGitBranch(root: string): boolean {
  * without ever running it — measured here, and a sensor that silently never reports is the worst
  * way for this to fail.
  */
-function watchWindows(intervalMs: number): boolean {
+function watchWindows(intervalMs: number, onReading?: (shape: WindowShape) => void): boolean {
   const tracker = new WindowTracker();
   const encoded = Buffer.from(windowScript(intervalMs, process.pid), "utf16le").toString("base64");
   let child: ReturnType<typeof spawn>;
@@ -177,11 +192,70 @@ function watchWindows(intervalMs: number): boolean {
   }
   readings.setEncoding("utf8");
   createInterface({ input: readings, crlfDelay: Infinity }).on("line", (line) => {
-    const sig: Signal | null = tracker.feed(line);
+    const read = parseWindowLine(line);
+    const shape = read ? windowShape(read.app, read.title) : null;
+    if (!shape) return;
+    // every reading, not only the changes: the screen layer photographs the window somebody is
+    // sitting in, which is the same window reading after reading
+    onReading?.(shape);
+    const sig: Signal | null = tracker.feedShape(shape);
     if (sig) void send(matterEvent(SESSION, sig.source, sig.type, sig.severity, sig.payload));
   });
   process.stderr.write(`[particle-agent] sensing the window in front every ${intervalMs}ms (program name and window title only)\n`);
   return true;
+}
+
+/**
+ * One picture of one listed app's window.
+ *
+ * The window is asked for BY PROGRAM NAME rather than as "whatever is in front", although the
+ * reading that led here was a foreground reading: the picture is taken moments later, and in
+ * those moments the person may have switched to a window they never listed. Naming the program
+ * means the only window this can come back with belongs to an app they did.
+ *
+ * The frame stays on this machine. What is sent is that a picture was taken, of which app, and
+ * where it landed — the absolute path, which is the one place in this agent a path is not made
+ * relative, because a file nobody can find is the opposite of what this layer owes a person who
+ * turned it on. Deleting them is `DM_CAPTURE_DIR`'s directory, or the temp directory.
+ */
+const cameras = defaultCaptureRegistry();
+let photographing = false;
+async function photograph(app: string): Promise<void> {
+  // a floor of one second is allowed, and a capture takes longer than that on first use: two
+  // PowerShell processes each compiling .NET to draw the same window is nobody's intention
+  if (photographing) {
+    process.stderr.write(`[particle-agent] no picture of ${app}: another one is still being taken\n`);
+    return;
+  }
+  photographing = true;
+  try {
+    const target = { kind: "app", app } as const;
+    const path = join(CAPTURE.dir || tmpdir(), captureFileName(target, new Date()));
+    const result = await captureWith(CAPTURE, cameras, { target, path });
+    if (!result.ok) {
+      process.stderr.write(`[particle-agent] no picture of ${app}: ${result.reason}\n`);
+      return;
+    }
+    const { frame } = result;
+    void send(
+      matterEvent(SESSION, "sensor", "sensor.captured_window", "debug", {
+        app: identifier(frame.app),
+        window: identifier(frame.window),
+        path: frame.path,
+        width: frame.width,
+        height: frame.height,
+        bytes: frame.bytes,
+        backend: frame.backend,
+      }),
+    );
+    process.stderr.write(`[particle-agent] photographed ${frame.app} · ${frame.width}x${frame.height} → ${frame.path}\n`);
+  } catch (err) {
+    // a sense that cannot see something says so; it does not take the agent down with it, and an
+    // unhandled rejection out of a background capture would do exactly that
+    process.stderr.write(`[particle-agent] no picture of ${app}: ${(err as Error).message}\n`);
+  } finally {
+    photographing = false;
+  }
 }
 
 function pipeOutput(): void {
@@ -199,6 +273,9 @@ const piped = !process.stdin.isTTY;
 const windows = windowSensor(process.platform, WANT_WINDOWS);
 // asked for on a machine that cannot read it: said once, to the person who asked
 if (windows.note) process.stderr.write(windows.note + "\n");
+const screen = screenSensor(process.platform, CAPTURE.enabled, CAPTURE_APPS, windows.run);
+// listing apps and getting no pictures is never silent; listing none is
+if (screen.note) process.stderr.write(screen.note + "\n");
 if (WATCH.length === 0 && !piped && !windows.run) {
   process.stdout.write(
     [
@@ -206,6 +283,8 @@ if (WATCH.length === 0 && !piped && !windows.run) {
       "  DM_WATCH_PATHS=.   pnpm agent          # file saves (relative paths only)",
       "  pnpm test 2>&1 | pnpm agent            # test/build pass↔fail transitions",
       "  DM_WATCH_WINDOWS=1 pnpm agent          # the window in front (Windows; app + title only)",
+      "  DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent",
+      "                                         # a picture of those apps' windows, kept on this machine",
       `runtime: ${RUNTIME}   session: ${SESSION}   (open the body with ?connect=1&session=${SESSION})`,
       "",
     ].join("\n"),
@@ -223,12 +302,24 @@ void fetch(`${RUNTIME}/health`, { signal: AbortSignal.timeout(2_000) })
 if (WATCH.length > 0) watchPaths(WATCH);
 const gitRoots = WATCH.map((p) => resolve(p)).filter((r) => watchGitBranch(r));
 if (piped) pipeOutput();
-const sensingWindows = windows.run && watchWindows(WINDOW_MS);
+const schedule = screen.run ? new CaptureSchedule(CAPTURE_APPS, CAPTURE_MS) : null;
+const sensingWindows =
+  windows.run &&
+  watchWindows(WINDOW_MS, schedule ? (shape) => {
+    const app = schedule.claim(shape.app, Date.now());
+    if (app) void photograph(app);
+  } : undefined);
+// the reader failing to start takes the screen layer with it: it has nothing to photograph from
+const sensingScreen = sensingWindows && screen.run;
+if (sensingScreen) {
+  process.stderr.write(`[particle-agent] photographing ${CAPTURE_APPS.join(", ")} at most every ${CAPTURE_MS}ms into ${CAPTURE.dir || tmpdir()} (the files stay there)\n`);
+}
 // tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
 const layers = [
   ...(WATCH.length ? ["files"] : []),
   ...(gitRoots.length ? ["git"] : []),
   ...(piped ? ["output"] : []),
   ...(sensingWindows ? ["windows"] : []),
+  ...(sensingScreen ? screenLayers(CAPTURE_APPS) : []),
 ];
 void send(matterEvent(SESSION, "sensor", "sensor.layers_changed", "debug", { sensor: "agent", layers }));

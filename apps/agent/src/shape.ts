@@ -349,11 +349,143 @@ export class WindowTracker {
     const read = parseWindowLine(line);
     if (!read) return null;
     const shape = windowShape(read.app, read.title);
-    if (!shape) return null;
+    return shape ? this.feedShape(shape) : null;
+  }
+
+  /**
+   * The same decision from a reading somebody already parsed.
+   *
+   * The screen layer rides on the same line stream and needs every reading, not only the ones
+   * that are a change, so the caller parses once and both senses are handed the result.
+   */
+  feedShape(shape: WindowShape): Signal | null {
     if (this.current && sameWindow(this.current, shape)) return null;
     this.current = shape;
     return { type: "user.focused_window", source: "user", severity: "debug", payload: { ...shape } };
   }
+}
+
+// ── the screen layer: a picture of a listed app's window ──
+
+/**
+ * How many programs somebody may list for photographing.
+ *
+ * A ceiling rather than a preference. The point of this layer is the few windows the
+ * accessibility interface cannot read, and a list long enough to cover a desktop is the
+ * photograph-everything option `docs/CONSENT_V2.md` refuses, arrived at by another route. It also
+ * keeps the agent's declared layers inside the sixteen a sensor may declare (MAX_SENSOR_LAYERS),
+ * which the other four senses share.
+ */
+export const MAX_CAPTURE_APPS = 8;
+
+/** Letters in any alphabet, digits, and the three characters a program name actually uses. */
+const PROGRAM_NAME = /^[\p{L}\p{N}._\- ]+$/u;
+
+/**
+ * The programs somebody listed for photographing, or none.
+ *
+ * Nothing means none, which is this layer's whole default: with no list the sensor does not run,
+ * no picture is taken and the agent behaves exactly as it did before. A name that is not a
+ * program name is refused out loud rather than skipped — somebody who typed one meant it, and
+ * quietly photographing a shorter list than they wrote is the worse answer. So is quietly
+ * photographing a longer one: a name is matched against the program behind a window, so a path or
+ * a wildcard in the list is a misunderstanding about what this layer takes, not a target.
+ */
+export function captureApps(raw: unknown, name = "DM_CAPTURE_APPS"): string[] {
+  if (raw === undefined || raw === null) return [];
+  const written = String(raw).split(",").map((s) => s.trim()).filter(Boolean);
+  const apps: string[] = [];
+  const seen = new Set<string>();
+  for (const app of written) {
+    if (app.length > MAX_NAME || !PROGRAM_NAME.test(app)) {
+      throw new Error(`${name} lists programs by name — letters, digits, dots, dashes, underscores or spaces, at most ${MAX_NAME} characters; got ${JSON.stringify(app)}`);
+    }
+    // a program is matched by name without regard to case, so two spellings of one program are
+    // one program, and declaring both would say the camera is pointed at two windows
+    const key = app.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    apps.push(app);
+  }
+  if (apps.length > MAX_CAPTURE_APPS) {
+    throw new Error(`${name} names ${apps.length} programs; this layer photographs the few windows that cannot be read any other way, so it takes at most ${MAX_CAPTURE_APPS}`);
+  }
+  return apps;
+}
+
+/**
+ * How this sensor declares the screen layer: one entry per app it may photograph.
+ *
+ * `screen` alone would say a camera is on without saying what it is pointed at, and which window
+ * is being photographed is the part a person needs (docs/CONSENT_V2.md). The words for this live
+ * with the body, which splits the app off the layer name.
+ */
+export function screenLayers(apps: readonly string[]): string[] {
+  return apps.map((app) => `screen:${app}`);
+}
+
+/**
+ * Which readings of the window in front lead to a picture.
+ *
+ * Two rules, both narrowing. A program nobody listed is never photographed, whatever is in front.
+ * And a listed program is photographed at most once per interval: the window in front is read
+ * every second, so without a floor an afternoon in a chat window would be an afternoon of
+ * pictures of it. The interval is counted per program, and from the moment a picture is asked for
+ * rather than finished, which is also what keeps two captures of one window from overlapping.
+ */
+export class CaptureSchedule {
+  /** lower-cased program name → the spelling the person wrote, which is what gets photographed */
+  private readonly listed = new Map<string, string>();
+  private readonly lastClaimed = new Map<string, number>();
+
+  constructor(apps: readonly string[], private readonly minIntervalMs: number) {
+    for (const app of apps) this.listed.set(app.toLowerCase(), app);
+  }
+
+  /**
+   * The listed program to photograph for this reading, or null — and a claim is remembered, so
+   * the next reading inside the interval asks for nothing.
+   */
+  claim(app: unknown, now: number): string | null {
+    if (typeof app !== "string") return null;
+    const key = app.trim().toLowerCase();
+    const wanted = this.listed.get(key);
+    if (!wanted) return null;
+    const last = this.lastClaimed.get(key);
+    if (last !== undefined && now - last < this.minIntervalMs) return null;
+    this.lastClaimed.set(key, now);
+    return wanted;
+  }
+}
+
+/** Whether the screen layer runs, and what to tell the person if it does not. */
+export type ScreenSensorDecision = { run: boolean; note: string | null };
+
+/**
+ * The one sense that reads what is IN a window, so three things have to be true at once.
+ *
+ * Somebody has to list the apps, because this layer never photographs a window they did not name.
+ * The camera has to be turned on separately with DM_CAPTURE, which is the second deliberate act
+ * `docs/CONSENT_V2.md` asks of this layer and the switch the capture package already refuses
+ * without. And the window reader has to be up, because what is photographed is the listed app the
+ * person just switched into: turning that reader on from here instead would start sending the
+ * title of every window they open, which is wider than the consent they gave.
+ *
+ * Listing nothing is silence, the way the other senses are silent when nobody asked for them.
+ * Listing apps and getting no pictures is not: that is said once, to the person who asked.
+ */
+export function screenSensor(platform: string, captureOn: boolean, apps: readonly string[], windowsRunning: boolean): ScreenSensorDecision {
+  if (apps.length === 0) return { run: false, note: null };
+  if (platform !== "win32") {
+    return { run: false, note: `[particle-agent] a window is photographed through the Windows API; nothing is photographed on ${platform}` };
+  }
+  if (!captureOn) {
+    return { run: false, note: "[particle-agent] DM_CAPTURE_APPS names apps but the camera is off; set DM_CAPTURE=1 to let this layer photograph them" };
+  }
+  if (!windowsRunning) {
+    return { run: false, note: "[particle-agent] the screen layer photographs the listed app you are in, so it needs the window reader; set DM_WATCH_WINDOWS=1" };
+  }
+  return { run: true, note: null };
 }
 
 /** Whether the active-window sensor runs, and what to tell the person if it does not. */

@@ -43,16 +43,16 @@ dismiss the same kind of change twice and it stops being offered.
 
 ## What it senses today
 
-Three sensors, all **shape only**: no file contents, no page contents, no message text. A
-fourth way of sensing exists and is **off** — screen capture reads what is in a window, is
-turned on by hand, and is not attached to any of these. See
+Three sensors. Ten of their eleven layers are **shape only**: no file contents, no page contents,
+no message text. The eleventh reads what is in a window — the desktop agent photographs the apps
+you list, and it is **off** until you turn it on and name them. See
 [`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads what.
 
 | Sensor | Senses |
 |---|---|
 | Web body | clicks, dwell, idle time, visibility |
 | Browser extension (MV3) | tab focus, navigation hostnames, and opt-in traffic shape (host, status, latency) |
-| Desktop agent (opt-in) | file **saves** (relative paths) and test/build pass↔fail transitions |
+| Desktop agent (opt-in) | file **saves** (relative paths), test/build pass↔fail transitions, the window in front, and — with `DM_CAPTURE=1` and `DM_CAPTURE_APPS` — a picture of those apps' windows |
 
 The signals are developer-flavoured today: HTTP 500, build failed, vulnerability found. That
 is the limitation `DESIGN_V2.md` sets out to remove.
@@ -100,26 +100,36 @@ pnpm test 2>&1 | pnpm agent      # sense a run's transitions (output is passed t
 
 See [`apps/agent/README.md`](apps/agent/README.md).
 
-## Screen capture (off by default, not a sensor)
+## Screen capture (off by default)
 
 The agent's window sensor reads a window through the Windows accessibility API, which works only
 when the program answers. Measured on a Windows 11 machine: Hancell names every menu and button;
 KakaoTalk gives six unnamed panes and no conversation list, because it never implemented the
 functions that answer. A window like that can only be read as a picture.
 
-`packages/screen-capture` takes one picture of one window and writes a png. It is attached to no
-sensor, imported by no app, sends nothing anywhere, and refuses until `DM_CAPTURE=1`. With nothing
-configured the repository behaves exactly as before.
+`packages/screen-capture` takes one picture of one window and writes a png. By hand:
 
 ```bash
 DM_CAPTURE=1 pnpm --filter @particle/screen-capture exec tsx src/bin.ts --app KakaoTalk
 ```
 
+As a sense, it is the desktop agent's screen layer, and it takes two switches and a list:
+
+```bash
+DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent
+```
+
+It photographs a listed app's window while you are in it, at most once a minute per app, and
+never a window of a program you did not list. With nothing configured the repository behaves
+exactly as before.
+
 A frame travels as a **filename**: the pixels stay on the machine that took them, in
-`DM_CAPTURE_DIR` or the temp directory, until you delete them. Reading a captured screen with a
-model is not built. The consent wording this layer needs is written — `screen` is a sensing
-layer with its own words in the body, the extension's options page names it as not its own, and
-[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind both. See
+`DM_CAPTURE_DIR` or the temp directory, until you delete them. What the runtime is told is that a
+picture was taken, of which app, and where it landed (`sensor.captured_window`). Reading a
+captured screen with a model is not built. While the layer runs the body says so by name —
+`screen: KakaoTalk` in the sensing indicator — and carries this layer's own consent wording.
+[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind it. See
+[`apps/agent/README.md`](apps/agent/README.md) and
 [`packages/screen-capture/README.md`](packages/screen-capture/README.md).
 
 ## Runtime access control

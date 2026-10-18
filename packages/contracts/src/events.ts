@@ -176,6 +176,10 @@ export const KNOWN_EVENT_TYPES = [
   "security.vulnerability_patched",
   "external.alert",
   "sensor.layers_changed",
+  // the screen layer: a picture of one listed app's window was written to a file on that machine.
+  // The pixels are not in it and never travel — the sensor reports that it photographed, which
+  // app, and where the file landed. See `docs/CONSENT_V2.md`.
+  "sensor.captured_window",
   // the runtime's own bookkeeping
   "runtime.reconcile",
 ] as const;

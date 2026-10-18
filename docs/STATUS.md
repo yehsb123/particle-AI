@@ -7,12 +7,14 @@ Updated at the end of each phase.
 **Where it stands (end of the 2026-08-31 overnight run):** the thesis is implemented end to end.
 Behavior (clicks, dwell, idle, returns, repeats, alternation) and traffic *shape* (host · status ·
 latency, opt-in) flow from three sensors — the page, an MV3 browser extension, an opt-in desktop
-agent (file saves, git branch via `.git/HEAD`, piped test/build transitions) — into one runtime
-that keeps a continuous intent, prepares the screen before and without anything breaking, learns
-from dismissals (persisted across reloads/restarts), reports honestly what it senses — naming
-the one layer that reads what is in a window rather than the shape of it — reconciles
+agent (file saves, git branch via `.git/HEAD`, piped test/build transitions, the window in front,
+and — off until somebody turns it on and lists apps — a picture of those apps' windows) — into one
+runtime that keeps a continuous intent, prepares the screen before and without anything breaking,
+learns from dismissals (persisted across reloads/restarts), reports honestly what it senses —
+naming the one layer that reads what is in a window rather than the shape of it, and which app it
+is pointed at — reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1692 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1710 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
@@ -232,6 +234,32 @@ and two adversarial review passes (25 findings fixed). Remaining ideas live in t
   done, deliberately: capture is still attached to no sensor and still refuses without
   `DM_CAPTURE`, and reading a captured screen with a model is not built. 20 tests.
   1692 unit/integration total.
+- **The camera was wired to nothing** (2026-10-18): the consent wording landed first, on purpose,
+  so attaching capture to a sensor was the piece left. The desktop agent gains a fifth sense, the
+  screen layer, and it is the only one that reads what is in a window. Three things have to be
+  true before a single picture exists: `DM_CAPTURE=1` turns the camera on, `DM_CAPTURE_APPS`
+  names the programs it may point at, and `DM_WATCH_WINDOWS=1` runs the window reader the layer
+  rides on. With nothing set the agent behaves exactly as it did. There is no whole-screen
+  option and no "every app" option: a picture is always of one window of one named program, found
+  by process name, and the list is capped at eight, because a list long enough to cover a desktop
+  is the whole-screen option by another route. The layer declares itself as `screen:<app>` per
+  listed app, so the body says which window is being photographed rather than only that one is.
+  The window reader was NOT turned on implicitly when apps are listed; the agent refuses and says
+  which switch is missing, because that reader sends the title of every window somebody opens,
+  which is wider than the consent they gave by naming two apps. The frames do not travel: the
+  event is `sensor.captured_window { app, window, path, width, height, bytes, backend }` and the
+  pixels stay in `DM_CAPTURE_DIR` or the temp directory until somebody deletes them. One picture
+  per app per `DM_AGENT_CAPTURE_MS` (default a minute), because the window in front is read every
+  second and an afternoon in a chat window would otherwise be an afternoon of pictures of it.
+  Verified live rather than argued: with the agent pointed at a throwaway runtime, KakaoTalk
+  brought to the front produced `screen:KakaoTalk` in the declared layers and one
+  `sensor.captured_window` at 507x568, a 192,931 byte png on disk; the same run with `DM_CAPTURE`
+  cleared, with the app list cleared, and with the window reader off each produced no picture and
+  the matching note. A measured surprise worth writing down: the picture was of KakaoTalk's
+  largest open window, not the chat window that was in front, because a window is found by
+  program rather than by handle — which is what keeps a picture taken moments after a reading
+  from being of an app nobody listed. 18 tests. 1710 unit/integration total. Not done: reading a
+  captured screen with a model, which stays the next piece.
 - **The first three pieces of design v2** (2026-10-15): three agents in parallel, each in its own
   worktree so they could not collide. The desktop agent can now say which window somebody is
   actually in, read through the operating system's accessibility interface rather than by
