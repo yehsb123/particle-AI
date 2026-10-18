@@ -55,7 +55,9 @@ test.describe("Particle AI — autonomous incident morph", () => {
     // ...and what it can see. The caption claims shape only for the layers it just listed, not
     // for the product, and the layer that reads a window carries its own consent wording.
     await expect(page.getByTestId("sensing-line")).toContainText("these layers read shape only — never content");
-    await expect(page.getByTestId("screen-consent")).toContainText("DM_CAPTURE");
+    // both switches, because the camera needs both: the layer is on, and these apps are listed
+    await expect(page.getByTestId("screen-consent")).toContainText("DM_CAPTURE_APPS");
+    await expect(page.getByTestId("screen-consent")).toContainText("DM_CAPTURE_DIR");
     // Escape closes the popover (keyboard accessibility)
     await page.keyboard.press("Escape");
     await expect(page.getByText("What is the AI doing?")).toHaveCount(0);

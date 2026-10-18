@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Particle AI desktop agent (opt-in): sends file-save and build/test shape to the local runtime, never file contents.",
   "bin": { "particle-agent": "./src/index.ts" },
+  "dependencies": {
+    "@particle/screen-capture": "workspace:*"
+  },
   "scripts": {
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",

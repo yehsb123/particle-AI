@@ -10,9 +10,8 @@ A window like that can only be read as a picture. This package takes the picture
 
 ## It is off, and it is not a sensor
 
-Nothing in this repository imports this package. It sends nothing anywhere, it is attached to no
-sensor, and it refuses until `DM_CAPTURE` says yes. With no configuration at all the repository
-behaves exactly as it did before this package existed.
+This package sends nothing anywhere and refuses until `DM_CAPTURE` says yes. With no
+configuration at all the repository behaves exactly as it did before this package existed.
 
 A capture result travels as a **filename**. The pixels stay on the disk of the machine that took
 them — under `DM_CAPTURE_DIR`, or the temp directory when that names nothing — until somebody
@@ -20,8 +19,12 @@ deletes them. Reading a captured screen with a model is not built.
 
 The consent wording is written. `screen` is a layer in `SENSING_LAYERS`, the body has words for
 it and names the app being photographed, and the extension's options page says this layer is
-the runtime's rather than its own. The reasoning is in `docs/CONSENT_V2.md`. What is still not
-done is attaching capture to a sensor: nothing in this repository imports this package.
+the runtime's rather than its own. The reasoning is in `docs/CONSENT_V2.md`.
+
+The one caller in this repository is the desktop agent. With `DM_CAPTURE=1` and apps named in
+`DM_CAPTURE_APPS` it photographs those apps' windows while somebody is in them and reports the
+file name — see `apps/agent/README.md`. What is still not done is reading a captured screen with
+a model.
 
 ## Taking one
 

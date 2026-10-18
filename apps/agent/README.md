@@ -8,6 +8,7 @@ day that happens in an editor and a terminal — still **shape only**.
 | File saves under `DM_WATCH_PATHS` | `user.opened_file { path: "src/db.ts" }` (relative) | file contents, absolute paths, ignored dirs (`node_modules`, `.git`, `dist`, `.next`, …) |
 | Git branch switches (any watched root with `.git`) | `user.action { key: "branch:<name>" }` — alternating branches reads as **switching** | diffs, commits, remotes |
 | The window in front (`DM_WATCH_WINDOWS`, Windows only) | `user.focused_window { app, window }` — the program name and the window title, on change | what is inside the window, and browser windows (the extension reports those tabs by host) |
+| A picture of a listed app's window (`DM_CAPTURE=1` + `DM_CAPTURE_APPS`, Windows only) | `sensor.captured_window { app, window, path, width, height, bytes, backend }` — that a picture was taken, of which app, and where the file is | **the picture itself** — the pixels stay on this machine, and no model reads them |
 | Piped tool output (`… \| pnpm agent`) | `development.test_failed { failing }`, `development.test_passed`, `development.build_failed { errors }`, `development.build_succeeded` — **transitions only** | the output lines themselves (they are passed through to your terminal untouched) |
 
 What the runtime does with it: repeated saves of the same file read as **stuck** (context card);
@@ -22,6 +23,7 @@ pnpm runtime                                  # local runtime :8787
 DM_WATCH_PATHS=. pnpm agent                   # sense file saves in this repo
 pnpm test 2>&1 | pnpm agent                   # sense pass↔fail transitions of a run
 DM_WATCH_WINDOWS=1 pnpm agent                 # sense which window is in front (app + title)
+DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent   # photograph those windows
 ```
 
 Open the body for this session: `http://localhost:3000/?connect=1&session=desktop`.
@@ -29,9 +31,41 @@ Open the body for this session: `http://localhost:3000/?connect=1&session=deskto
 Env (all optional): `DM_RUNTIME_URL` (default `http://localhost:8787`), `DM_AGENT_SESSION`
 (default `desktop`), `DM_WATCH_PATHS` (comma-separated; **required to watch files**),
 `DM_AGENT_DEBOUNCE_MS` (default 400), `DM_WATCH_WINDOWS` (**required to sense windows**;
-1/true/yes/on), `DM_AGENT_WINDOW_MS` (default 1000).
+1/true/yes/on), `DM_AGENT_WINDOW_MS` (default 1000), `DM_CAPTURE` + `DM_CAPTURE_APPS`
+(**both required to photograph anything**), `DM_AGENT_CAPTURE_MS` (default 60000),
+`DM_CAPTURE_DIR` (where the pictures land; default the system temp directory).
 
 With nothing configured and no pipe, the agent prints how to opt in and exits.
+
+## The screen layer
+
+This is the one sense that reads what is **in** a window rather than the shape of one, so it is
+the one sense with its own rules. `docs/CONSENT_V2.md` is the decision behind them.
+
+- **Off by default, and on by two separate acts.** `DM_CAPTURE=1` turns the camera on at all;
+  `DM_CAPTURE_APPS` says which programs it may point at. Either one alone photographs nothing.
+- **There is no whole-screen option.** A picture is always of one window of one listed program,
+  found by process name. At most eight programs, because a list long enough to cover a desktop
+  is the whole-screen option by another route.
+- **It photographs the listed app you are in**, which is why it needs `DM_WATCH_WINDOWS=1`. Set
+  the list without the window reader and the agent says so and photographs nothing — turning that
+  reader on from here would start sending the title of every window you open, which is wider than
+  the consent you gave.
+- **A program can own several windows**, and the picture is of the biggest one it has open, not
+  necessarily the one you were just typing in. Measured: switching into KakaoTalk's "상석님" chat
+  produced a picture of its larger conversation window instead.
+- **Browsers are never photographed**, whatever the list says — the window reader leaves browser
+  windows to the extension, so a browser never reaches this layer.
+- **One picture per app per `DM_AGENT_CAPTURE_MS`** (default a minute). The window in front is
+  read every second; without the floor, an afternoon in a chat window would be an afternoon of
+  pictures of it.
+- **Which apps are worth listing**: the ones the accessibility interface cannot read. Measured on
+  a Windows 11 machine — Hancell names every menu and button, so a picture of it adds nothing a
+  cheaper sense does not already have; KakaoTalk answers with six unnamed panes and no
+  conversation list, so a picture is the only way to read it. The agent does not make this
+  judgement for you, and listing a readable app only costs disk.
+- **The pixels do not travel.** The runtime is handed the file name, the size and the program
+  name. The files stay in `DM_CAPTURE_DIR` (or the system temp directory) until you delete them.
 
 ## Notes
 
