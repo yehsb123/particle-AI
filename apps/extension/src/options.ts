@@ -1,7 +1,7 @@
 import { DEFAULT_CONSENT, runtimeUrlFrom, type Consent } from "./shape";
 import { KO } from "./wording";
 
-const ids: (keyof Consent)[] = ["interactions", "tabs", "network"];
+const ids: (keyof Consent)[] = ["interactions", "tabs", "network", "page"];
 const box = (id: string) => document.getElementById(id) as HTMLInputElement;
 
 function localize(): void {
@@ -40,7 +40,12 @@ function showDestination(stored: unknown): void {
 
 /** Read the whole form synchronously and write it as one object — no read-modify-write race. */
 function save(): void {
-  const consent: Consent = { interactions: box("interactions").checked, tabs: box("tabs").checked, network: box("network").checked };
+  const consent: Consent = {
+    interactions: box("interactions").checked,
+    tabs: box("tabs").checked,
+    network: box("network").checked,
+    page: box("page").checked,
+  };
   const token = box("token").value.trim();
   const runtimeUrl = box("runtimeUrl").value.trim();
   // the line below redraws from storage.onChanged, once the write has actually landed

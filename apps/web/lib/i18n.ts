@@ -152,14 +152,17 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   // and the screen layer is named as the exception rather than covered by it (docs/CONSENT_V2.md).
   sensingShapeOnly: { en: "these layers read shape only — never content", ko: "이 계층들은 형태만 읽고 내용은 보지 않습니다" },
   sensingScreenExcepted: { en: "except screen capture, which reads what is in the window it names", ko: "화면 캡처만 예외입니다. 이름이 적힌 창 안의 내용을 읽습니다" },
+  // The browser's counterpart to that exception: the extension's page layer reads the names on
+  // the page somebody is on, so the caption may not sweep it into "shape only" either.
+  sensingPageExcepted: { en: "except page structure, which reads the names on the page you are on", ko: "페이지 구조 계층도 예외입니다. 보고 있는 페이지의 제목과 이름들을 읽습니다" },
   // The screen layer's own consent wording: what it takes, where it lands, where it goes, how to
   // stop it. Shown in the presence popover whether or not capture is running, because wording a
   // person only meets once the camera is already on is wording they never agreed to.
   screenConsentTitle: { en: "Screen capture (off until DM_CAPTURE and DM_CAPTURE_APPS are both set)", ko: "화면 캡처 (DM_CAPTURE 와 DM_CAPTURE_APPS 를 둘 다 채우기 전까지는 꺼져 있습니다)" },
   screenConsentWhat: { en: "What it takes: a picture of one window of an app you listed. It reads what is in that window — text, numbers, messages. No other layer does.", ko: "무엇을 찍는가: 목록에 적은 앱의 창 하나를 그림으로 찍습니다. 그 창 안의 글자와 숫자와 메시지를 읽습니다. 다른 계층은 이렇게 하지 않습니다." },
   screenConsentWhere: { en: "Where it lands: a png on this machine, under DM_CAPTURE_DIR, or the system temp directory when that names nothing.", ko: "어디에 저장되는가: 이 컴퓨터에 png 로 저장됩니다. 위치는 DM_CAPTURE_DIR 이고, 비어 있으면 시스템 임시 폴더입니다." },
-  screenConsentLeaves: { en: "Where it goes: nowhere. The runtime is handed the file name, never the pixels, and no model reads a captured screen.", ko: "어디로 나가는가: 어디로도 나가지 않습니다. 런타임에는 파일 이름만 전달되고 픽셀은 가지 않으며, 찍은 화면을 읽는 모델도 없습니다." },
-  screenConsentOff: { en: "How to stop it: clear DM_CAPTURE_APPS to drop one app or all of them, or clear DM_CAPTURE to turn the camera off. Pictures already taken stay in that directory until you delete them.", ko: "어떻게 끄는가: DM_CAPTURE_APPS 에서 앱을 빼거나 전부 지우면 그 앱은 더 찍지 않고, DM_CAPTURE 를 지우면 카메라 자체가 꺼집니다. 이미 찍은 그림은 직접 지우기 전까지 그 폴더에 남습니다." },
+  screenConsentLeaves: { en: "Where it goes: the runtime is handed the file name, never the pixels. With DM_SCREEN_READ set the picture itself is handed to a model, which is a separate switch and off until you set it; with it unset the picture stays on this disk, unread.", ko: "어디로 나가는가: 런타임에는 파일 이름만 전달되고 픽셀은 가지 않습니다. DM_SCREEN_READ 를 채우면 그림 자체가 모델로 갑니다. 이 스위치는 캡처와 별개이고 채우기 전까지는 꺼져 있습니다. 비워 두면 그림은 이 디스크에 남고 아무도 읽지 않습니다." },
+  screenConsentOff: { en: "How to stop it: clear DM_SCREEN_READ to stop a model being handed the pictures, clear DM_CAPTURE_APPS to drop one app or all of them, or clear DM_CAPTURE to turn the camera off. Pictures already taken stay in that directory until you delete them.", ko: "어떻게 끄는가: DM_SCREEN_READ 를 지우면 그림이 모델로 가지 않고, DM_CAPTURE_APPS 에서 앱을 빼거나 전부 지우면 그 앱은 더 찍지 않고, DM_CAPTURE 를 지우면 카메라 자체가 꺼집니다. 이미 찍은 그림은 직접 지우기 전까지 그 폴더에 남습니다." },
   sensor_web: { en: "this page", ko: "이 페이지" },
   sensor_extension: { en: "browser extension", ko: "브라우저 확장" },
   sensor_agent: { en: "desktop agent", ko: "데스크톱 에이전트" },
@@ -175,6 +178,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_git: { en: "git branch", ko: "git 브랜치" },
   layer_windows: { en: "active window", ko: "활성 창" },
   layer_screen: { en: "screen capture", ko: "화면 캡처" },
+  layer_page: { en: "page structure", ko: "페이지 구조" },
   sensingNone: { en: "nothing reported yet", ko: "아직 보고된 센서 없음" },
   sessionsTitle: { en: "Sensed on this computer", ko: "이 컴퓨터에서 감지 중" },
   sessionsProblems: { en: "open", ko: "열림" },

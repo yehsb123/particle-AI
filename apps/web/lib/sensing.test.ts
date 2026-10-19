@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { SENSOR_NAMES, SENSING_LAYERS } from "@particle/contracts";
-import { describeSensor, describeLayer, sensesContent } from "./sensing";
+import { describeSensor, describeLayer, sensesContent, contentExceptions } from "./sensing";
 import { t } from "./i18n";
 
 /**
@@ -123,6 +123,42 @@ describe("the layer that reads a window rather than its shape", () => {
 });
 
 /**
+ * Two layers read content and they read different things. A caption that named one of them and
+ * meant both would tell somebody running only the extension's page layer that a camera is on,
+ * and somebody running only capture that their pages are being read — each of them a thing that
+ * is not happening (docs/CONSENT_V2.md).
+ */
+describe("the layer that reads the page somebody is on", () => {
+  it("is one of the layers a sensor may declare", () => {
+    expect(SENSING_LAYERS as readonly string[]).toContain("page");
+  });
+
+  it("turns the caption on, the same as capture does", () => {
+    expect(sensesContent(["tabs", "page"])).toBe(true);
+  });
+
+  it("names the exception that is actually running, and not the other one", () => {
+    expect(contentExceptions(["tabs", "page"])).toEqual(["sensingPageExcepted"]);
+    expect(contentExceptions(["windows", "screen:KakaoTalk"])).toEqual(["sensingScreenExcepted"]);
+    expect(contentExceptions(["page", "screen"])).toEqual(["sensingScreenExcepted", "sensingPageExcepted"]);
+    expect(contentExceptions(["interactions", "network"])).toEqual([]);
+  });
+
+  it("says something different for each exception, in both languages", () => {
+    for (const key of contentExceptions(["page", "screen"])) {
+      for (const lang of ["en", "ko"] as const) expect(t(key, lang), `${lang}:${key}`).not.toBe(key);
+      expect(t(key, "en"), key).not.toBe(t(key, "ko"));
+    }
+    expect(t("sensingPageExcepted", "en")).not.toBe(t("sensingScreenExcepted", "en"));
+    expect(t("sensingPageExcepted", "ko")).not.toBe(t("sensingScreenExcepted", "ko"));
+  });
+
+  it("is not confused by a layer whose name merely begins the same way", () => {
+    expect(sensesContent(["pages", "page_rank"])).toBe(false);
+  });
+});
+
+/**
  * A key nobody wrote words for falls back to the English, so Korean and English coming out
  * identical is how a missing phrase shows itself — asking whether the lookup returned the key is
  * not, because an English label IS its own key here.
@@ -145,6 +181,16 @@ describe("both languages actually say something", () => {
       expect(t(key, "en"), key).not.toBe(t(key, "ko"));
       expect(t(key, "en"), key).not.toBe(key);
       expect(t(key, "ko"), key).not.toBe(key);
+    }
+  });
+
+  // the wording promised for months that no model read a captured screen, and stayed on the page
+  // for a while after DM_SCREEN_READ made that untrue. What the body says a layer does has to
+  // move in the same commit as the layer, so the switch is named here rather than described.
+  it("names the switch that hands a picture to a model, in both languages", () => {
+    for (const lang of ["en", "ko"] as const) {
+      expect(t("screenConsentLeaves", lang), lang).toContain("DM_SCREEN_READ");
+      expect(t("screenConsentOff", lang), lang).toContain("DM_SCREEN_READ");
     }
   });
 

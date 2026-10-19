@@ -43,16 +43,19 @@ dismiss the same kind of change twice and it stops being offered.
 
 ## What it senses today
 
-Three sensors. Ten of their eleven layers are **shape only**: no file contents, no page contents,
-no message text. The eleventh reads what is in a window — the desktop agent photographs the apps
-you list, and it is **off** until you turn it on and name them. See
-[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads what.
+Three sensors. Ten of their twelve layers are **shape only**: no file contents, no page contents,
+no message text. Two of them read content, and both are **off** until you turn them on: the browser
+extension reads the names on the page you are on (its title, a few headings, box labels, button
+names, never a value you typed and never a box that could hold a password or a card), and the
+desktop agent photographs the apps you list. Having a model read one of those pictures is **a third
+switch again**, off by default, and it is the only thing in this repository that sends pixels
+anywhere. See [`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads what.
 
 | Sensor | Senses |
 |---|---|
 | Web body | clicks, dwell, idle time, visibility |
-| Browser extension (MV3) | tab focus, navigation hostnames, and opt-in traffic shape (host, status, latency) |
-| Desktop agent (opt-in) | file **saves** (relative paths), test/build pass↔fail transitions, the window in front, and — with `DM_CAPTURE=1` and `DM_CAPTURE_APPS` — a picture of those apps' windows |
+| Browser extension (MV3) | tab focus, navigation hostnames, opt-in traffic shape (host, status, latency), and, opt-in, the structure of the page in front of you |
+| Desktop agent (opt-in) | file **saves** (relative paths), test/build pass↔fail transitions, the window in front, and, with `DM_CAPTURE=1` and `DM_CAPTURE_APPS`, a picture of those apps' windows, which `DM_SCREEN_READ=1` additionally has a model read |
 
 The signals are developer-flavoured today: HTTP 500, build failed, vulnerability found. That
 is the limitation `DESIGN_V2.md` sets out to remove.
@@ -125,12 +128,31 @@ exactly as before.
 
 A frame travels as a **filename**: the pixels stay on the machine that took them, in
 `DM_CAPTURE_DIR` or the temp directory, until you delete them. What the runtime is told is that a
-picture was taken, of which app, and where it landed (`sensor.captured_window`). Reading a
-captured screen with a model is not built. While the layer runs the body says so by name —
-`screen: KakaoTalk` in the sensing indicator — and carries this layer's own consent wording.
-[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind it. See
-[`apps/agent/README.md`](apps/agent/README.md) and
+picture was taken, of which app, and where it landed (`sensor.captured_window`). While the layer
+runs the body says so by name — `screen: KakaoTalk` in the sensing indicator — and carries this
+layer's own consent wording. [`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind it.
+See [`apps/agent/README.md`](apps/agent/README.md) and
 [`packages/screen-capture/README.md`](packages/screen-capture/README.md).
+
+## Reading a picture with a model (a third switch, also off)
+
+```bash
+DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk DM_SCREEN_READ=1 pnpm agent
+```
+
+With `DM_SCREEN_READ` set, each picture the layer takes is handed to a model, which answers with
+a **validated reading** — what situation the window is in (`messaging`, `error`, `waiting`, …),
+one sentence, a few topics, whether it is waiting on you, and how sure it is. That reading is
+sent as `sensor.screen_read`; a model that answers with prose, with a word outside the
+vocabulary, or with an instruction aimed at your terminal produces no reading and nothing is
+sent. The schema is `packages/contracts/src/screen.ts`.
+
+This is a separate switch from the camera because it is a separate thing to agree to: **this is
+where the pixels leave the disk they were written to.** With no API key configured the model is
+the deterministic one, which answers without looking at the picture, so nothing leaves the
+machine; with a key, the picture goes to that provider. The agent prints which brains may read
+before it starts and names the one that read after each picture. Unset `DM_SCREEN_READ` and
+pictures are taken and never read.
 
 ## Runtime access control
 
@@ -143,8 +165,10 @@ The runtime holds a shape-level record of what you did, so by default it only ta
 | `DM_INGEST_TOKEN` | *(empty)* | optional shared secret — when set, every read and write needs `x-particle-token` (WS: `?token=`); the extension takes it in its options page, the agent from the same env var |
 
 Reads never create sessions, so unknown ids cannot evict real ones. Shape-only is enforced at the
-three sensors above; the runtime trusts the body, the extension and token holders. Screen capture
-is not one of those sensors and is enforced by being off.
+sensors, for the ten layers that claim it; the runtime trusts the body, the extension and token
+holders. The two layers that read content are enforced by being off until somebody turns them on,
+and the page layer additionally by what it refuses to describe (`isSecretField` in
+`apps/extension/src/shape.ts`).
 
 ## Persistence (optional)
 
@@ -187,9 +211,11 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in
 Phases 0–8 (runtime, UI matter, capabilities, memory, persistence, reliability) are done, and
 Concept v2 — the behavior layer — is implemented end to end: intent engine (P1), browser
 extension + traffic-shape incidents (P2), desktop agent (P3), learning from dismissals (P4),
-honest sensing indicator. 1517 unit/integration tests, 17 Playwright E2E tests across 15 specs
-(including a real extension test against the live runtime and a Korean options page) and CI are
-green. Details: [`docs/STATUS.md`](docs/STATUS.md), [`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
+honest sensing indicator. On top of it the two content layers: the extension reads the names on
+the page you are on, and a model reads a photographed window. Unit/integration tests, Playwright
+E2E (including a real extension test against the live runtime and a Korean options page) and CI
+are green; the counts are in [`docs/STATUS.md`](docs/STATUS.md). See also
+[`docs/CONCEPT_V2.md`](docs/CONCEPT_V2.md).
 
 ## License
 

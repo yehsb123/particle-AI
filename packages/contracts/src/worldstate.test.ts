@@ -116,20 +116,35 @@ describe("a snapshot that is not a belief", () => {
 /**
  * The layer list is what the body has words for, and the one place a person reads to find out
  * what is being observed about them. Ten of them send the shape of something and nothing of what
- * is in it. The eleventh reads what is in a window, which is why it is listed separately here
- * rather than appended quietly: a change to either group has to be deliberate (docs/CONSENT_V2.md).
+ * is in it. Two read content: `screen` reads what is in a window, `page` reads the names on the
+ * page in front of somebody. They are listed apart from the ten and from each other rather than
+ * appended quietly, and the whole list is held here by equality: a layer added to either group
+ * fails this file, which is what makes the addition deliberate (docs/CONSENT_V2.md).
+ *
+ * The first version of this block only checked the ten and that `screen` was somewhere in the
+ * list, so `page` — a second layer that reads content — arrived without a single assertion
+ * noticing. That is the thing this block exists to stop.
  */
 describe("the layers a sensor may declare", () => {
   const SHAPE_ONLY = [
     "interactions", "idle", "visibility", "dwell", "tabs", "network", "files", "git", "output", "windows",
   ];
+  const READS_CONTENT = ["screen", "page"];
 
   it("still carries the ten that send shape and nothing of the content", () => {
     expect(SENSING_LAYERS.slice(0, SHAPE_ONLY.length)).toEqual(SHAPE_ONLY);
   });
 
-  it("carries the screen layer, the one that reads what is in a window", () => {
-    expect(SENSING_LAYERS).toContain("screen");
+  it("carries these two that read content and no others", () => {
+    // equality, not `toContain`: a third layer that reads content has to be added here, and
+    // adding it here is reading the paragraph above about what that costs a person
+    expect(SENSING_LAYERS.slice(SHAPE_ONLY.length)).toEqual(READS_CONTENT);
+  });
+
+  it("names the browser's content layer too, not only the window's", () => {
+    // the page layer was the one that got in unasserted; it is named here so that losing it, or
+    // renaming it, reads as a change to what a person was told rather than as a passing test
+    expect(SENSING_LAYERS).toContain("page");
   });
 
   it("keeps a layer that names the window it is pointed at", () => {

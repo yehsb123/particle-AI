@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { KO } from "./wording";
+import { DEFAULT_CONSENT } from "./shape";
 
 /**
  * The options page IS the consent, so a phrase that reaches only half the readers is a phrase
@@ -36,6 +37,51 @@ describe("the consent page reads in both languages", () => {
     for (const key of keysOnThePage()) {
       expect(KO[key], key).not.toBe(englishFor(key));
     }
+  });
+});
+
+/**
+ * The page layer reads the page somebody is on, which is more than the rest of this extension
+ * does. The options page is where that is agreed to, so a layer that can be switched on without
+ * a switch and words of its own on this page is a layer nobody consented to.
+ */
+describe("every layer this sensor can be switched on", () => {
+  it("has a switch on the consent page, and words in both languages beside it", () => {
+    for (const layer of Object.keys(DEFAULT_CONSENT)) {
+      expect(HTML, layer).toContain(`id="${layer}"`);
+      expect(keysOnThePage(), layer).toContain(layer);
+      expect(Object.hasOwn(KO, layer), layer).toBe(true);
+    }
+  });
+});
+
+describe("the layer that reads the page", () => {
+  it("says what it takes off the page and what it will not take", () => {
+    const english = englishFor("page_desc").toLowerCase();
+    expect(english).toContain("never what you type");
+    expect(english).toContain("password");
+    expect(KO.page_desc).toContain("입력한 값은");
+    expect(KO.page_desc).toContain("비밀번호");
+  });
+
+  /**
+   * The title and the headings are read, and on a document editor they are not words the site
+   * wrote: a heading somebody typed is a real h1, and a tool that names the browser tab after
+   * the document puts the name they gave it in the title. "Never what you type into a box" is
+   * true and does not cover that, so the wording says it rather than leaving it to be found.
+   */
+  it("says a title or a heading can be something the person wrote", () => {
+    const english = englishFor("page_desc").toLowerCase();
+    expect(english).toContain("document editor");
+    expect(english).toContain("heading");
+    expect(KO.page_desc).toContain("문서 편집기");
+    expect(KO.page_desc).toContain("제목");
+  });
+
+  it("is named in the line that used to speak for every layer at once", () => {
+    // "shape only, for every layer below" became untrue the moment this layer existed
+    expect(englishFor("lead").toLowerCase()).toContain("reads the page you are on");
+    expect(KO.lead).toContain("페이지를 읽으며");
   });
 });
 
