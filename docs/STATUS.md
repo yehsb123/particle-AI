@@ -6,15 +6,18 @@ Updated at the end of each phase.
 
 **Where it stands (end of the 2026-08-31 overnight run):** the thesis is implemented end to end.
 Behavior (clicks, dwell, idle, returns, repeats, alternation) and traffic *shape* (host · status ·
-latency, opt-in) flow from three sensors — the page, an MV3 browser extension, an opt-in desktop
+latency, opt-in) flow from three sensors — the page, an MV3 browser extension (which also reads,
+once somebody switches it on, the names on the page in front of them: its title, a few headings,
+the labels of its boxes, the captions of its buttons), an opt-in desktop
 agent (file saves, git branch via `.git/HEAD`, piped test/build transitions, the window in front,
-and — off until somebody turns it on and lists apps — a picture of those apps' windows) — into one
+and — off until somebody turns it on and lists apps — a picture of those apps' windows, handed to
+a model to read only when a second switch is set too) — into one
 runtime that keeps a continuous intent, prepares the screen before and without anything breaking,
 learns from dismissals (persisted across reloads/restarts), reports honestly what it senses —
-naming the one layer that reads what is in a window rather than the shape of it, and which app it
-is pointed at — reconciles
+naming the two layers that read content rather than shape, which app a picture is of, and which
+model read it — reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1790 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1810 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`

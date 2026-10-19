@@ -64,6 +64,20 @@ describe("the layer that reads the page", () => {
     expect(KO.page_desc).toContain("비밀번호");
   });
 
+  /**
+   * The title and the headings are read, and on a document editor they are not words the site
+   * wrote: a heading somebody typed is a real h1, and a tool that names the browser tab after
+   * the document puts the name they gave it in the title. "Never what you type into a box" is
+   * true and does not cover that, so the wording says it rather than leaving it to be found.
+   */
+  it("says a title or a heading can be something the person wrote", () => {
+    const english = englishFor("page_desc").toLowerCase();
+    expect(english).toContain("document editor");
+    expect(english).toContain("heading");
+    expect(KO.page_desc).toContain("문서 편집기");
+    expect(KO.page_desc).toContain("제목");
+  });
+
   it("is named in the line that used to speak for every layer at once", () => {
     // "shape only, for every layer below" became untrue the moment this layer existed
     expect(englishFor("lead").toLowerCase()).toContain("reads the page you are on");
