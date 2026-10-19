@@ -14,7 +14,7 @@ learns from dismissals (persisted across reloads/restarts), reports honestly wha
 naming the one layer that reads what is in a window rather than the shape of it, and which app it
 is pointed at — reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1710 unit/integration tests,
+Everything is event-sourced and replays deterministically. Verified by 1790 unit/integration tests,
 17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
 and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
