@@ -4,8 +4,13 @@ import type {
   ModelCapability,
   ProviderHealth,
 } from "@particle/contracts";
-import type { IntelligenceProvider } from "./provider";
+import type { VisionProvider, VisionRequest } from "./provider";
 import { jsonFromText, postJson } from "./http";
+
+/** The words of one request: what was asked, and the structured context it is about. */
+function userText(request: IntelligenceRequest): string {
+  return [request.prompt ?? "", request.context ? `\n\nCONTEXT:\n${JSON.stringify(request.context)}` : ""].join("");
+}
 
 export type AnthropicOptions = {
   apiKey?: string;
@@ -18,7 +23,7 @@ export type AnthropicOptions = {
  * Anthropic Messages API adapter (plain fetch, no SDK dependency). Only used when an API key
  * is configured; otherwise the router falls back to the mock provider.
  */
-export class AnthropicProvider implements IntelligenceProvider {
+export class AnthropicProvider implements VisionProvider {
   readonly id = "anthropic";
   readonly capabilities: ModelCapability[] = [
     "reason.general",
@@ -40,9 +45,34 @@ export class AnthropicProvider implements IntelligenceProvider {
   }
 
   async evaluate(request: IntelligenceRequest): Promise<IntelligenceResult> {
+    return this.ask(request, userText(request));
+  }
+
+  /**
+   * The same request with pictures in front of the words.
+   *
+   * The Messages API takes a user turn as a list of blocks, and an image is one of them; the
+   * image goes first because a model reads the instruction as being about what it has just been
+   * shown. Nothing else about the request changes, which is the point of widening the
+   * abstraction rather than writing a second adapter.
+   */
+  async evaluateVision(request: VisionRequest): Promise<IntelligenceResult> {
+    if (request.images.length === 0) {
+      throw new Error("AnthropicProvider: a vision request with no picture in it");
+    }
+    return this.ask(request, [
+      ...request.images.map((image) => ({
+        type: "image",
+        source: { type: "base64", media_type: image.mediaType, data: image.base64 },
+      })),
+      { type: "text", text: userText(request) },
+    ]);
+  }
+
+  /** One user turn, however it is spelled: a string of text, or a list of blocks with a picture in it. */
+  private async ask(request: IntelligenceRequest, content: unknown): Promise<IntelligenceResult> {
     if (!this.apiKey) throw new Error("AnthropicProvider: no API key");
     const started = Date.now();
-    const userContent = [request.prompt ?? "", request.context ? `\n\nCONTEXT:\n${JSON.stringify(request.context)}` : ""].join("");
     const res = (await postJson(
       this.baseUrl,
       { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
@@ -50,7 +80,7 @@ export class AnthropicProvider implements IntelligenceProvider {
         model: this.model,
         max_tokens: this.maxTokens,
         system: request.system,
-        messages: [{ role: "user", content: userContent }],
+        messages: [{ role: "user", content }],
       },
       request.latencyTargetMs ?? 30_000,
     )) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };

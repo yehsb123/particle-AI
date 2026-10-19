@@ -177,9 +177,13 @@ export const KNOWN_EVENT_TYPES = [
   "external.alert",
   "sensor.layers_changed",
   // the screen layer: a picture of one listed app's window was written to a file on that machine.
-  // The pixels are not in it and never travel — the sensor reports that it photographed, which
-  // app, and where the file landed. See `docs/CONSENT_V2.md`.
+  // The pixels are not in it and never reach the runtime — the sensor reports that it
+  // photographed, which app, and where the file landed. See `docs/CONSENT_V2.md`.
   "sensor.captured_window",
+  // a model read one of those pictures and said what situation the window is in. Separate from
+  // the capture above because reading is a separate switch: with DM_SCREEN_READ unset a picture
+  // is taken and nobody reads it. See `./screen.ts` for what a model may say.
+  "sensor.screen_read",
   // the runtime's own bookkeeping
   "runtime.reconcile",
 ] as const;

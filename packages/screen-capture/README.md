@@ -13,9 +13,10 @@ A window like that can only be read as a picture. This package takes the picture
 This package sends nothing anywhere and refuses until `DM_CAPTURE` says yes. With no
 configuration at all the repository behaves exactly as it did before this package existed.
 
-A capture result travels as a **filename**. The pixels stay on the disk of the machine that took
-them — under `DM_CAPTURE_DIR`, or the temp directory when that names nothing — until somebody
-deletes them. Reading a captured screen with a model is not built.
+A capture result travels as a **filename**. This package writes the file and hands back its name;
+it reads no pixels, sends none anywhere, and knows nothing about models. The file stays on the
+disk of the machine that took it — under `DM_CAPTURE_DIR`, or the temp directory when that names
+nothing — until somebody deletes it, or until a caller that has its own reason to opens it.
 
 The consent wording is written. `screen` is a layer in `SENSING_LAYERS`, the body has words for
 it and names the app being photographed, and the extension's options page says this layer is
@@ -23,8 +24,9 @@ the runtime's rather than its own. The reasoning is in `docs/CONSENT_V2.md`.
 
 The one caller in this repository is the desktop agent. With `DM_CAPTURE=1` and apps named in
 `DM_CAPTURE_APPS` it photographs those apps' windows while somebody is in them and reports the
-file name — see `apps/agent/README.md`. What is still not done is reading a captured screen with
-a model.
+file name. With `DM_SCREEN_READ=1` as well it opens the file it just wrote and hands the pixels
+to a model through `@particle/intelligence` — a third switch, off by default, and not this
+package's business: see `apps/agent/README.md`.
 
 ## Taking one
 

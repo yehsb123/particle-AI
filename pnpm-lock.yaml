@@ -26,6 +26,9 @@ importers:
 
   apps/agent:
     dependencies:
+      '@particle/intelligence':
+        specifier: workspace:*
+        version: link:../../packages/intelligence
       '@particle/screen-capture':
         specifier: workspace:*
         version: link:../../packages/screen-capture
