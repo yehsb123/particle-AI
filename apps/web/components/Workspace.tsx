@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createReplayClock } from "../lib/replayClock";
 import { describeHold } from "../lib/hold";
 import { describeMorphStep } from "../lib/morphStep";
-import { describeSensor, describeLayer, sensesContent } from "../lib/sensing";
+import { describeSensor, describeLayer, contentExceptions } from "../lib/sensing";
 import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
 import { describeRisk, riskBadgeClass, describeAutonomy } from "../lib/risk";
 import { describeIntent } from "../lib/intent";
@@ -87,13 +87,16 @@ export function Workspace() {
     if (!reported.length) return t("sensingNone", lang);
     return reported.map(([s, ls]) => `${describeSensor(s, lang)}: ${ls.map((l) => describeLayer(l, lang)).join(", ")}`).join(" · ");
   }, [debug.worldState, lang]);
-  // The caption after that line used to say "shape only" about everything in it. One layer reads
-  // what is in a window, so the caption only keeps that claim for the rest and names the exception
-  // when a sensor has actually reported it (docs/CONSENT_V2.md).
-  const screenIsSensing = useMemo(
-    () => Object.values(debug.worldState?.sensing ?? {}).some((ls) => sensesContent(ls as string[])),
-    [debug.worldState],
-  );
+  // The caption after that line used to say "shape only" about everything in it. Two layers read
+  // content — a window photographed, a page read — so the caption keeps that claim for the rest
+  // and names whichever of them a sensor has actually reported (docs/CONSENT_V2.md).
+  const contentExceptionKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const layers of Object.values(debug.worldState?.sensing ?? {})) {
+      for (const key of contentExceptions(layers as string[])) keys.add(key);
+    }
+    return [...keys];
+  }, [debug.worldState]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
   const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
   const [held, setHeld] = useState<{ codes: string[]; at: number; retryMs?: number } | null>(null);
@@ -727,7 +730,7 @@ export function Workspace() {
                   </div>
                   <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }} data-testid="sensing-line">
                     {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)}
-                    {screenIsSensing ? `; ${t("sensingScreenExcepted", lang)}` : ""})
+                    {contentExceptionKeys.map((key) => `; ${t(key, lang)}`).join("")})
                   </p>
                   <div className="divider" style={{ margin: "10px 0" }} />
                   <div className="k muted" style={{ fontSize: 12 }}>{t("screenConsentTitle", lang)}</div>

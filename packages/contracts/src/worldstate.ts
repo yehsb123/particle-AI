@@ -61,6 +61,15 @@ export const SENSING_LAYERS = [
    * `docs/CONSENT_V2.md`.
    */
   "screen",
+  /**
+   * The browser's half of the same thing: what is ON the page somebody is looking at, rather
+   * than the host they went to. The extension reads the page's own names — its title, a few
+   * headings, the labels of its boxes, the names of its buttons — and sends nothing anybody
+   * typed and nothing about a box that could hold a password or a card. Off until somebody
+   * turns it on, like `screen`, and named apart from the shape layers wherever sensing is
+   * shown. See `docs/CONSENT_V2.md`.
+   */
+  "page",
 ] as const;
 export type SensingLayer = (typeof SENSING_LAYERS)[number];
 

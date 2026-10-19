@@ -1,7 +1,10 @@
 /**
  * Particle AI — background service worker (MV3).
- * Sensors (L2/L3) → shaped MatterEvents → local runtime (POST /api/events).
- * Shape only: hostnames, status codes, latency, tab focus. No URLs, no page content.
+ * Sensors → shaped MatterEvents → local runtime (POST /api/events).
+ * Three of the four layers are shape: hostnames, status codes, latency, tab focus — no URLs and
+ * nothing off the page. The fourth is the page layer, which relays the names the content script
+ * read off the page somebody is on; it is off unless consented and it is the one layer here that
+ * does read content (docs/CONSENT_V2.md).
  *
  * MV3 kills this worker after ~30 s idle and restarts it on the next event, so module state is
  * ephemeral: consent is re-read from storage on every start and NOTHING is sent before that read
@@ -30,16 +33,16 @@ import {
 let runtimeUrl = DEFAULT_RUNTIME_URL;
 const SESSION = "ext";
 
-const NONE: Consent = { interactions: false, tabs: false, network: false };
+const NONE: Consent = { interactions: false, tabs: false, network: false, page: false };
 let consent: Consent = { ...NONE };
 let token = "";
 
 function applySettings(v: Record<string, unknown>): void {
-  // Consent decides what may leave this machine, so it is three booleans and nothing else —
+  // Consent decides what may leave this machine, so it is four booleans and nothing else —
   // storage syncs across devices and can hold whatever an older build wrote there.
   const stored = (v.consent && typeof v.consent === "object" ? v.consent : {}) as Record<string, unknown>;
   const layer = (k: keyof Consent) => (typeof stored[k] === "boolean" ? (stored[k] as boolean) : DEFAULT_CONSENT[k]);
-  consent = { interactions: layer("interactions"), tabs: layer("tabs"), network: layer("network") };
+  consent = { interactions: layer("interactions"), tabs: layer("tabs"), network: layer("network"), page: layer("page") };
   token = typeof v.token === "string" ? v.token : "";
   runtimeUrl = runtimeUrlFrom(v.runtimeUrl).url;
 }
@@ -163,11 +166,14 @@ chrome.webRequest.onErrorOccurred.addListener((d) => {
 chrome.runtime.onMessage.addListener((msg: { kind?: string; payload?: Record<string, unknown> }) => {
   void (async () => {
     await ready;
-    if (!consent.interactions || !msg?.kind) return;
+    if (!msg?.kind) return;
+    // each relayed kind is gated by the layer it belongs to: the page layer is its own consent,
+    // not a wider reading of the interaction one, because it is the one that reads the page
+    if (!(msg.kind === "page" ? consent.page : consent.interactions)) return;
     const kind = Object.hasOwn(RELAY_KINDS, msg.kind) ? RELAY_KINDS[msg.kind] : undefined;
     const payload = relayPayload(msg.kind, msg.payload);
     if (!kind || !payload) return;
-    void send(matterEvent(SESSION, "user", kind.type, kind.severity, payload));
+    void send(matterEvent(SESSION, kind.source, kind.type, kind.severity, payload));
   })();
 });
 

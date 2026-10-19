@@ -32,8 +32,9 @@ describe("extension shaping (privacy)", () => {
   });
   it("announces exactly the layers consent enables (the indicator can only be honest)", () => {
     expect(consentLayers(DEFAULT_CONSENT)).toEqual(["interactions", "idle", "visibility", "tabs"]);
-    expect(consentLayers({ interactions: false, tabs: false, network: true })).toEqual(["network"]);
-    expect(consentLayers({ interactions: false, tabs: false, network: false })).toEqual([]);
+    expect(consentLayers({ interactions: false, tabs: false, network: true, page: false })).toEqual(["network"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: false, page: true })).toEqual(["page"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: false, page: false })).toEqual([]);
   });
 });
 

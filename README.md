@@ -43,15 +43,17 @@ dismiss the same kind of change twice and it stops being offered.
 
 ## What it senses today
 
-Three sensors. Ten of their eleven layers are **shape only**: no file contents, no page contents,
-no message text. The eleventh reads what is in a window — the desktop agent photographs the apps
-you list, and it is **off** until you turn it on and name them. See
-[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads what.
+Three sensors. Ten of their twelve layers are **shape only**: no file contents, no page contents,
+no message text. Two read content and both are **off** until you turn them on: the desktop agent
+photographs the apps you list, and the browser extension reads the names on the page you are on
+(its title, a few headings, box labels, button names — never a value you typed, never a box that
+could hold a password or a card). See [`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer
+reads what.
 
 | Sensor | Senses |
 |---|---|
 | Web body | clicks, dwell, idle time, visibility |
-| Browser extension (MV3) | tab focus, navigation hostnames, and opt-in traffic shape (host, status, latency) |
+| Browser extension (MV3) | tab focus, navigation hostnames, opt-in traffic shape (host, status, latency), and — opt-in — the structure of the page in front of you |
 | Desktop agent (opt-in) | file **saves** (relative paths), test/build pass↔fail transitions, the window in front, and — with `DM_CAPTURE=1` and `DM_CAPTURE_APPS` — a picture of those apps' windows |
 
 The signals are developer-flavoured today: HTTP 500, build failed, vulnerability found. That
@@ -143,8 +145,10 @@ The runtime holds a shape-level record of what you did, so by default it only ta
 | `DM_INGEST_TOKEN` | *(empty)* | optional shared secret — when set, every read and write needs `x-particle-token` (WS: `?token=`); the extension takes it in its options page, the agent from the same env var |
 
 Reads never create sessions, so unknown ids cannot evict real ones. Shape-only is enforced at the
-three sensors above; the runtime trusts the body, the extension and token holders. Screen capture
-is not one of those sensors and is enforced by being off.
+sensors, for the ten layers that claim it; the runtime trusts the body, the extension and token
+holders. The two layers that read content are enforced by being off until somebody turns them on,
+and the page layer additionally by what it refuses to describe (`isSecretField` in
+`apps/extension/src/shape.ts`).
 
 ## Persistence (optional)
 

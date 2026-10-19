@@ -180,6 +180,10 @@ export const KNOWN_EVENT_TYPES = [
   // The pixels are not in it and never travel — the sensor reports that it photographed, which
   // app, and where the file landed. See `docs/CONSENT_V2.md`.
   "sensor.captured_window",
+  // the page layer: the names on the page somebody is looking at — its title, a few headings,
+  // the labels of its boxes, the names of its buttons. Never a value anybody typed and never a
+  // box that could hold a password or a card. See `docs/CONSENT_V2.md`.
+  "sensor.read_page",
   // the runtime's own bookkeeping
   "runtime.reconcile",
 ] as const;

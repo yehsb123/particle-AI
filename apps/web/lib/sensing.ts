@@ -35,14 +35,36 @@ export function describeLayer(name: string, lang: Lang): string {
   return target ? `${layer}: ${target}` : layer;
 }
 
+/** The browser's counterpart: what is ON the page somebody is on, rather than where they went. */
+export const PAGE_LAYER = "page";
+
 /**
- * Is one of these layers reading what is in a window, rather than the shape of it?
+ * The layers that read what is in something, and the phrase that says so about each.
+ *
+ * Two layers read content now and they read different things, so the caption cannot name one of
+ * them and mean both: somebody running only the extension's page layer would be told a camera is
+ * on, and somebody running only capture would be told their pages are read.
+ */
+const CONTENT_LAYERS: readonly (readonly [string, string])[] = [
+  [SCREEN_LAYER, "sensingScreenExcepted"],
+  [PAGE_LAYER, "sensingPageExcepted"],
+];
+
+/**
+ * Which exceptions the caption beside a layer list has to name, as keys for the words.
  *
  * The list comes off a world state, which a snapshot can have written, so a name that is not a
  * name is answered rather than thrown on — the same rule the rest of this file follows.
  */
+export function contentExceptions(layers: readonly string[]): string[] {
+  return CONTENT_LAYERS.filter(([layer]) =>
+    layers.some((l) => typeof l === "string" && (l === layer || l.startsWith(`${layer}:`))),
+  ).map(([, key]) => key);
+}
+
+/** Is one of these layers reading what is in a window or on a page, rather than the shape of it? */
 export function sensesContent(layers: readonly string[]): boolean {
-  return layers.some((l) => typeof l === "string" && (l === SCREEN_LAYER || l.startsWith(`${SCREEN_LAYER}:`)));
+  return contentExceptions(layers).length > 0;
 }
 
 function readable(key: string, name: string, lang: Lang): string {

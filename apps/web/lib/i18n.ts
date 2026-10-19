@@ -152,6 +152,9 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   // and the screen layer is named as the exception rather than covered by it (docs/CONSENT_V2.md).
   sensingShapeOnly: { en: "these layers read shape only — never content", ko: "이 계층들은 형태만 읽고 내용은 보지 않습니다" },
   sensingScreenExcepted: { en: "except screen capture, which reads what is in the window it names", ko: "화면 캡처만 예외입니다. 이름이 적힌 창 안의 내용을 읽습니다" },
+  // The browser's counterpart to that exception: the extension's page layer reads the names on
+  // the page somebody is on, so the caption may not sweep it into "shape only" either.
+  sensingPageExcepted: { en: "except page structure, which reads the names on the page you are on", ko: "페이지 구조 계층도 예외입니다. 보고 있는 페이지의 제목과 이름들을 읽습니다" },
   // The screen layer's own consent wording: what it takes, where it lands, where it goes, how to
   // stop it. Shown in the presence popover whether or not capture is running, because wording a
   // person only meets once the camera is already on is wording they never agreed to.
@@ -175,6 +178,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_git: { en: "git branch", ko: "git 브랜치" },
   layer_windows: { en: "active window", ko: "활성 창" },
   layer_screen: { en: "screen capture", ko: "화면 캡처" },
+  layer_page: { en: "page structure", ko: "페이지 구조" },
   sensingNone: { en: "nothing reported yet", ko: "아직 보고된 센서 없음" },
   sessionsTitle: { en: "Sensed on this computer", ko: "이 컴퓨터에서 감지 중" },
   sessionsProblems: { en: "open", ko: "열림" },

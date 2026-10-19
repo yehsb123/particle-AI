@@ -9,7 +9,7 @@ import { consentLayers, DEFAULT_CONSENT } from "./shape";
  */
 describe("the layers this sensor can report", () => {
   it("are all in the vocabulary the body reads", () => {
-    const every = consentLayers({ interactions: true, tabs: true, network: true });
+    const every = consentLayers({ interactions: true, tabs: true, network: true, page: true });
     expect(every.length).toBeGreaterThan(0);
     for (const layer of every) {
       expect(SENSING_LAYERS as readonly string[], layer).toContain(layer);
@@ -18,9 +18,10 @@ describe("the layers this sensor can report", () => {
 
   it("are still all known with only some consent given", () => {
     for (const consent of [
-      { interactions: true, tabs: false, network: false },
-      { interactions: false, tabs: true, network: false },
-      { interactions: false, tabs: false, network: true },
+      { interactions: true, tabs: false, network: false, page: false },
+      { interactions: false, tabs: true, network: false, page: false },
+      { interactions: false, tabs: false, network: true, page: false },
+      { interactions: false, tabs: false, network: false, page: true },
       DEFAULT_CONSENT,
     ]) {
       for (const layer of consentLayers(consent)) {
