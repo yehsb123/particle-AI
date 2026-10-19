@@ -497,6 +497,21 @@ export function screenSensor(platform: string, captureOn: boolean, apps: readonl
 export type ScreenReaderDecision = { run: boolean; note: string | null };
 
 /**
+ * Brains that read a picture without it going anywhere.
+ *
+ * The deterministic brain runs inside this process and answers without looking at a pixel, so a
+ * reading it produced cost nothing off this machine — which is what `.env.example` and the agent
+ * README promise for the no-key case. Every other brain the router can offer is reached over the
+ * network.
+ *
+ * The id is spelled here rather than asked of the provider because the provider interface has no
+ * word for where a brain runs, and this is the only place that needs to know: the one line a
+ * person reads at the moment they turn reading on. A new brain that runs locally belongs in this
+ * set, and leaving it out costs a sentence that is too careful rather than one that is untrue.
+ */
+const IN_PROCESS_BRAINS = new Set(["mock"]);
+
+/**
  * Taking a picture and reading one are two things to agree to, not one.
  *
  * Until here a frame stayed on the disk it was written to. A model reads it by being handed the
@@ -519,9 +534,14 @@ export function screenReader(readOn: boolean, screenRunning: boolean, brains: re
   if (brains.length === 0) {
     return { run: false, note: "[particle-agent] DM_SCREEN_READ is on but no brain in this process can be handed a picture; pictures stay on disk unread" };
   }
+  const hosted = brains.filter((id) => !IN_PROCESS_BRAINS.has(id));
+  const where =
+    hosted.length === 0
+      ? "Every brain here runs in this process and looks at no pixels, so no picture leaves this machine."
+      : `${hosted.join(", ")} ${hosted.length === 1 ? "reads" : "read"} the pixels off this machine.`;
   return {
     run: true,
-    note: `[particle-agent] DM_SCREEN_READ is on: every picture is handed to a model to read (brains here: ${brains.join(", ")}). A hosted brain reads the pixels off this machine. Unset DM_SCREEN_READ and pictures stay on disk, unread.`,
+    note: `[particle-agent] DM_SCREEN_READ is on: every picture is handed to a model to read (brains here: ${brains.join(", ")}). ${where} Unset DM_SCREEN_READ and pictures stay on disk, unread.`,
   };
 }
 

@@ -54,6 +54,30 @@ describe("whether a picture is read at all", () => {
     expect(decision.note).toContain("mock, anthropic");
     expect(decision.note).toContain("DM_SCREEN_READ");
   });
+
+  /**
+   * The line a person reads at the moment they consent has to say which of the two happened.
+   * With no key the only brain that may be handed a picture is the deterministic one, which runs
+   * in this process and looks at no pixels, and `.env.example` and the agent README both say
+   * nothing leaves the machine in that case.
+   */
+  it("says nothing leaves the machine when every brain that may read runs in this process", () => {
+    const decision = screenReader(true, true, ["mock"]);
+    expect(decision.run).toBe(true);
+    expect(decision.note).toContain("no picture leaves this machine");
+    expect(decision.note).not.toContain("off this machine");
+  });
+
+  it("names the hosted brain, and only it, when a picture would leave the machine", () => {
+    const decision = screenReader(true, true, ["anthropic", "mock"]);
+    expect(decision.note).toContain("off this machine");
+    expect(decision.note).toContain("anthropic reads the pixels off this machine");
+  });
+
+  it("names every hosted brain when more than one could be handed a picture", () => {
+    const decision = screenReader(true, true, ["anthropic", "openai", "mock"]);
+    expect(decision.note).toContain("anthropic, openai read the pixels off this machine");
+  });
 });
 
 describe("what a reading reports to the runtime", () => {
