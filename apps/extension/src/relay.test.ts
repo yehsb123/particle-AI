@@ -67,17 +67,24 @@ describe("what a relayed message may carry", () => {
     }
   });
 
-  it("declares an event type and a severity for each kind it accepts", () => {
-    expect(Object.keys(RELAY_KINDS).sort()).toEqual(["idle", "interaction", "visibility"]);
+  it("declares an event type, a severity and a source for each kind it accepts", () => {
+    expect(Object.keys(RELAY_KINDS).sort()).toEqual(["idle", "interaction", "page", "visibility"]);
     for (const [kind, meta] of Object.entries(RELAY_KINDS)) {
-      expect(meta.type, kind).toMatch(/^user\./);
+      // what a person did is reported as theirs; what was read off a page is the sensor's doing
+      expect(meta.type, kind).toMatch(meta.source === "user" ? /^user\./ : /^sensor\./);
       expect(["debug", "info"], kind).toContain(meta.severity);
+      expect(["user", "sensor"], kind).toContain(meta.source);
       expect(relayPayload(kind, {}), kind).not.toBeNull();
     }
   });
 
   it("never returns a field the runtime did not ask for, whatever arrives", () => {
-    const allowed: Record<string, string[]> = { interaction: ["count", "host"], idle: ["seconds"], visibility: ["visible", "awaySeconds"] };
+    const allowed: Record<string, string[]> = {
+      interaction: ["count", "host"],
+      idle: ["seconds"],
+      visibility: ["visible", "awaySeconds"],
+      page: ["host", "title", "headings", "fields", "actions", "omitted"],
+    };
     const hostile = { count: 1, host: "a.com", seconds: 1, visible: true, awaySeconds: 1, __proto__: { polluted: true }, constructor: "x", body: "<html>…</html>" };
     for (const kind of Object.keys(RELAY_KINDS)) {
       const out = relayPayload(kind, hostile)!;
@@ -92,8 +99,13 @@ describe("consent as it ships", () => {
     expect(consentLayers(DEFAULT_CONSENT)).not.toContain("network");
   });
 
+  it("leaves the layer that reads the page off until somebody turns it on", () => {
+    expect(DEFAULT_CONSENT.page).toBe(false);
+    expect(consentLayers(DEFAULT_CONSENT)).not.toContain("page");
+  });
+
   it("has a setting for each layer, and each is a boolean", () => {
-    expect(Object.keys(DEFAULT_CONSENT).sort()).toEqual(["interactions", "network", "tabs"]);
+    expect(Object.keys(DEFAULT_CONSENT).sort()).toEqual(["interactions", "network", "page", "tabs"]);
     for (const v of Object.values(DEFAULT_CONSENT)) expect(typeof v).toBe("boolean");
   });
 });

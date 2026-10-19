@@ -127,15 +127,144 @@ export function createSendQueue(
   };
 }
 
-/** What a relayed message may carry, per kind: counts, seconds, a hostname. Nothing else. */
-export const RELAY_KINDS: Record<string, { type: string; severity: "debug" | "info" }> = {
-  interaction: { type: "user.interaction", severity: "debug" },
-  idle: { type: "user.idle", severity: "debug" },
-  visibility: { type: "user.visibility", severity: "info" },
+/**
+ * The page layer: how much of a page this sensor will describe.
+ *
+ * Measured rather than guessed. A probe read the structure of real pages — a store checkout, a
+ * login form, a wiki front page, a news front page — and found at most eight headings, six
+ * buttons and a handful of labelled boxes, with the longest single name at thirty-six
+ * characters. These counts sit just above what was there, and `item` leaves room for a name half
+ * as long again before it is shortened.
+ *
+ * One field of the payload is held to MAX_NAME, which is the runtime's own MAX_IDENTIFIER: a
+ * payload string longer than that is trimmed by the runtime before the belief, the snapshot or
+ * any prompt ever sees it, so sending more would be sending something that is cut somewhere else
+ * without anybody being told. A whole page therefore arrives as four names of at most a hundred
+ * and twenty characters and one count — around six hundred characters, which is small enough
+ * for a person to read the whole of it and decide whether that much is all right.
+ */
+export const PAGE_LIMITS = { headings: 5, fields: 8, actions: 6, item: 60 } as const;
+
+/** What the content script found out about one box on a page. Never its value. */
+export type PageField = { type?: unknown; autocomplete?: unknown; name?: unknown; id?: unknown; label?: unknown };
+
+/**
+ * Words that mean this box can hold a secret: a password, or a card.
+ *
+ * A box matching this is left out of the payload entirely — not its value, which this sensor
+ * never reads at all, but its label too. Over-matching costs one label; under-matching sends the
+ * name of a box somebody is about to type a card number into, and the two are not comparable.
+ */
+const SECRET_FIELD =
+  /password|passwd|비밀번호|암호|card.?number|cardnumber|credit.?card|\bcard\b|\bcvc\b|\bcvv\b|security.code|카드번호|유효기간|보안코드/i;
+
+/** Is this a box whose very existence this sensor keeps to itself? */
+export function isSecretField(field: PageField): boolean {
+  const f = (field && typeof field === "object" ? field : {}) as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const autocomplete = str(f.autocomplete).trim().toLowerCase();
+  // the autocomplete tokens for a card are all spelled cc-something (cc-number, cc-exp, cc-csc)
+  if (autocomplete.startsWith("cc-")) return true;
+  if (str(f.type).trim().toLowerCase() === "password") return true;
+  return SECRET_FIELD.test(`${autocomplete} ${str(f.name)} ${str(f.id)} ${str(f.label)}`);
+}
+
+/**
+ * The last thing done to a name before it leaves: a long run of digits becomes nothing.
+ *
+ * Nine digits in a row is not a heading or a button anybody reads — it is a card, an account or
+ * a phone number that got into a label. The numbers a page really shows a person (a year, a
+ * price, a count of articles) are shorter than that or carry separators, so they survive.
+ */
+export function maskLongDigits(text: unknown): string {
+  return typeof text === "string" ? text.replace(/\d{9,}/g, "…") : "";
+}
+
+/** A name fit to send: no control characters, no long digit run, no longer than `cap`. */
+function pageName(raw: unknown, cap: number): string {
+  const clean = maskLongDigits(identifier(raw));
+  return clean.length > cap ? `${clean.slice(0, cap - 1)}…` : clean;
+}
+
+const SEPARATOR = " · ";
+
+/**
+ * One payload field: the names of up to `max` things, in the order the page had them.
+ *
+ * It stops before a name rather than cutting one in half, so what arrives is always a whole list
+ * of whole names — a reader can tell there was more, and cannot be shown half a word as if it
+ * were the word.
+ */
+export function nameList(names: readonly unknown[], max: number): string {
+  if (!Array.isArray(names)) return "";
+  const out: string[] = [];
+  let length = 0;
+  for (const raw of names) {
+    if (out.length >= max) break;
+    const name = pageName(raw, PAGE_LIMITS.item);
+    if (!name || out.includes(name)) continue; // a page repeats its own button names
+    const grown = out.length === 0 ? name.length : length + SEPARATOR.length + name.length;
+    if (grown > MAX_NAME) break;
+    out.push(name);
+    length = grown;
+  }
+  return out.join(SEPARATOR);
+}
+
+/**
+ * A page as this sensor will describe it: what it is called, what it says in large letters, what
+ * it asks for, and what it offers to do. Enough for the runtime to tell a job board from a
+ * ticket queue; far short of the page itself.
+ *
+ * `omitted` is how many boxes were left undescribed for being able to hold a password or a card.
+ * Without it a login page and a page with no boxes at all would look the same, and somebody
+ * reading the event could not tell that something had been held back.
+ */
+export function pageShape(raw: { title?: unknown; headings?: unknown; fields?: unknown; actions?: unknown }): {
+  title: string;
+  headings: string;
+  fields: string;
+  actions: string;
+  omitted: number;
+} {
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const described: unknown[] = [];
+  let omitted = 0;
+  for (const field of Array.isArray(source.fields) ? source.fields : []) {
+    if (isSecretField(field as PageField)) {
+      omitted += 1;
+      continue;
+    }
+    described.push((field as PageField | null)?.label);
+  }
+  return {
+    title: pageName(source.title, MAX_NAME),
+    headings: nameList(source.headings as unknown[], PAGE_LIMITS.headings),
+    fields: nameList(described, PAGE_LIMITS.fields),
+    actions: nameList(source.actions as unknown[], PAGE_LIMITS.actions),
+    omitted,
+  };
+}
+
+/**
+ * What a relayed message may carry, per kind: counts, seconds, a hostname, the names on a page.
+ * Nothing else. `source` is who the runtime hears it from — a person did the interacting, a
+ * sensor did the reading.
+ */
+export const RELAY_KINDS: Record<string, { type: string; severity: "debug" | "info"; source: "user" | "sensor" }> = {
+  interaction: { type: "user.interaction", severity: "debug", source: "user" },
+  idle: { type: "user.idle", severity: "debug", source: "user" },
+  visibility: { type: "user.visibility", severity: "info", source: "user" },
+  page: { type: "sensor.read_page", severity: "info", source: "sensor" },
 };
 
 function count(v: unknown, fallback: number): number {
   return typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), 1_000_000) : fallback;
+}
+
+/** A hostname as a browser spells one, or nothing. Never a path, a scheme or anything with a slash. */
+function hostname(v: unknown): string {
+  return typeof v === "string" && /^[A-Za-z0-9.\-[\]:]{1,253}$/.test(v) ? v.toLowerCase() : "";
 }
 
 /**
@@ -148,8 +277,24 @@ export function relayPayload(kind: string, payload: unknown): Record<string, unk
   if (!Object.hasOwn(RELAY_KINDS, kind)) return null;
   const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
   if (kind === "interaction") {
-    const host = typeof p.host === "string" && /^[A-Za-z0-9.\-[\]:]{1,253}$/.test(p.host) ? p.host.toLowerCase() : undefined;
+    const host = hostname(p.host);
     return { count: count(p.count, 1), ...(host ? { host } : {}) };
+  }
+  if (kind === "page") {
+    // The page the content script read, rebuilt from its names. A page can run its own code in
+    // the same world as the content script, so the shaping done there is re-done here, at the
+    // edge: lengths held, digit runs masked, and a name the page did not have left out rather
+    // than sent empty. What cannot be re-done here is the rule about boxes that hold secrets —
+    // only the side holding the element knows what kind of box it was — so that one is kept
+    // where the DOM is read, in content.ts, and tested there.
+    const out: Record<string, unknown> = { omitted: count(p.omitted, 0) };
+    const host = hostname(p.host);
+    if (host) out.host = host;
+    for (const key of ["title", "headings", "fields", "actions"] as const) {
+      const name = pageName(p[key], MAX_NAME);
+      if (name) out[key] = name;
+    }
+    return out;
   }
   if (kind === "idle") return { seconds: count(p.seconds, 0) };
   return { visible: p.visible === true, awaySeconds: count(p.awaySeconds, 0) };
@@ -162,9 +307,16 @@ export function networkSeverity(shape: NetworkShape): "info" | "warning" {
   return shape.error || (shape.status ?? 0) >= 500 ? "warning" : "info";
 }
 
-/** Sensing layers the user can consent to. Network is OFF by default (it is the widest). */
-export type Consent = { interactions: boolean; tabs: boolean; network: boolean };
-export const DEFAULT_CONSENT: Consent = { interactions: true, tabs: true, network: false };
+/**
+ * Sensing layers the user can consent to.
+ *
+ * Network is off by default for being the widest of the shape layers. Page is off for a
+ * different reason: it is the only one here that reads what is on a page rather than the shape
+ * of the browsing around it, so it is not a wider version of the others and is never on because
+ * nobody said no (docs/CONSENT_V2.md).
+ */
+export type Consent = { interactions: boolean; tabs: boolean; network: boolean; page: boolean };
+export const DEFAULT_CONSENT: Consent = { interactions: true, tabs: true, network: false, page: false };
 
 /** Small helper to build a MatterEvent-shaped object without importing the monorepo. */
 export function matterEvent(
@@ -279,6 +431,8 @@ export function consentLayers(c: Consent): string[] {
   if (c.interactions) out.push("interactions", "idle", "visibility");
   if (c.tabs) out.push("tabs");
   if (c.network) out.push("network");
+  // last, and named apart from the rest: the indicator in the body says this one reads content
+  if (c.page) out.push("page");
   return out;
 }
 

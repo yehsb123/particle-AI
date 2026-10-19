@@ -3,16 +3,26 @@
 Chrome/Edge MV3 extension that turns the whole browser into Particle AI's senses,
 and puts the **body** in a side panel on any page.
 
-## What it senses (shape only — never content)
+## What it senses
+
+Three of the four layers are **shape only — never content**. The fourth, `page`, reads the page
+you are on; it is off until you switch it on, and it is named as the exception wherever sensing
+is shown. See [`docs/CONSENT_V2.md`](../../docs/CONSENT_V2.md) for the decision behind that line.
 
 | Layer | Signal | Event | Default |
 |---|---|---|---|
 | L0 | clicks / scroll / typing **counts** + idle | `user.interaction`, `user.idle`, `user.visibility` | on |
 | L3 | window focus, navigation **hostnames** | `user.visibility`, `user.action`, `user.opened_file` | on |
 | L2 | request **hostname · status · latency** | `network.request` | **off (opt-in)** |
+| page | the page's **title, a few headings, box labels, button names** | `sensor.read_page` | **off (opt-in)** |
 
-Never sent: URLs paths/queries, request/response bodies, keystroke content, page text,
-form values. Consent is per layer in the options page (`chrome.storage.sync`).
+Never sent by any layer, including `page`: URL paths and queries, request/response bodies,
+keystroke content, the text of a page, and **anything typed into a box**. A box that could hold
+a password or a card number is left out of `page` entirely — its label too, not only its value —
+and the event carries how many were left out. One page arrives as four names of at most 120
+characters each plus that count; the bounds are `PAGE_LIMITS` in `src/shape.ts`.
+
+Consent is per layer in the options page (`chrome.storage.sync`).
 
 ## Build & load
 
@@ -36,7 +46,8 @@ no network events without consent, side panel body connected. Runs in CI.
 ## Files
 
 - `src/background.ts` — service worker: focus/navigation/webRequest → shape events → runtime.
-- `src/content.ts` — interaction counts, idle, visibility (no content access).
+- `src/content.ts` — interaction counts, idle, visibility (no content access), and the opt-in
+  page layer: the only place in this extension that touches the DOM of a page.
 - `src/options.ts` — consent toggles.
 - `src/shape.ts` — pure helpers (`hostOf`, `networkSeverity`, `matterEvent`) — unit tested.
 - `build.mjs` — esbuild bundle + asset copy (file-by-file: `fs.cpSync` recursive segfaults on

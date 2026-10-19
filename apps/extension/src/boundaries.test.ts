@@ -92,16 +92,22 @@ describe("isTransientError — normal browsing is not a failing dependency", () 
 
 describe("consentLayers — the indicator can only say what consent allows", () => {
   it("maps each switch to the layers it enables", () => {
-    expect(consentLayers({ interactions: true, tabs: false, network: false })).toEqual(["interactions", "idle", "visibility"]);
-    expect(consentLayers({ interactions: false, tabs: true, network: false })).toEqual(["tabs"]);
-    expect(consentLayers({ interactions: false, tabs: false, network: true })).toEqual(["network"]);
-    expect(consentLayers({ interactions: true, tabs: true, network: true })).toEqual(["interactions", "idle", "visibility", "tabs", "network"]);
-    expect(consentLayers({ interactions: false, tabs: false, network: false })).toEqual([]);
+    expect(consentLayers({ interactions: true, tabs: false, network: false, page: false })).toEqual(["interactions", "idle", "visibility"]);
+    expect(consentLayers({ interactions: false, tabs: true, network: false, page: false })).toEqual(["tabs"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: true, page: false })).toEqual(["network"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: false, page: true })).toEqual(["page"]);
+    expect(consentLayers({ interactions: true, tabs: true, network: true, page: true })).toEqual(["interactions", "idle", "visibility", "tabs", "network", "page"]);
+    expect(consentLayers({ interactions: false, tabs: false, network: false, page: false })).toEqual([]);
   });
 
-  it("ships with traffic sensing off — the widest layer is opt-in", () => {
+  it("ships with traffic sensing off — the widest of the shape layers is opt-in", () => {
     expect(DEFAULT_CONSENT.network).toBe(false);
     expect(consentLayers(DEFAULT_CONSENT)).not.toContain("network");
+  });
+
+  it("ships with the page layer off — the one layer here that reads the page is opt-in", () => {
+    expect(DEFAULT_CONSENT.page).toBe(false);
+    expect(consentLayers(DEFAULT_CONSENT)).not.toContain("page");
   });
 });
 

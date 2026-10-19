@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { SENSOR_NAMES, SENSING_LAYERS } from "@particle/contracts";
-import { describeSensor, describeLayer, sensesContent } from "./sensing";
+import { describeSensor, describeLayer, sensesContent, contentExceptions } from "./sensing";
 import { t } from "./i18n";
 
 /**
@@ -119,6 +119,42 @@ describe("the layer that reads a window rather than its shape", () => {
     const junk = [null, 42, { screen: true }, undefined] as unknown as string[];
     expect(sensesContent(junk)).toBe(false);
     expect(sensesContent([...junk, "screen"] as string[])).toBe(true);
+  });
+});
+
+/**
+ * Two layers read content and they read different things. A caption that named one of them and
+ * meant both would tell somebody running only the extension's page layer that a camera is on,
+ * and somebody running only capture that their pages are being read — each of them a thing that
+ * is not happening (docs/CONSENT_V2.md).
+ */
+describe("the layer that reads the page somebody is on", () => {
+  it("is one of the layers a sensor may declare", () => {
+    expect(SENSING_LAYERS as readonly string[]).toContain("page");
+  });
+
+  it("turns the caption on, the same as capture does", () => {
+    expect(sensesContent(["tabs", "page"])).toBe(true);
+  });
+
+  it("names the exception that is actually running, and not the other one", () => {
+    expect(contentExceptions(["tabs", "page"])).toEqual(["sensingPageExcepted"]);
+    expect(contentExceptions(["windows", "screen:KakaoTalk"])).toEqual(["sensingScreenExcepted"]);
+    expect(contentExceptions(["page", "screen"])).toEqual(["sensingScreenExcepted", "sensingPageExcepted"]);
+    expect(contentExceptions(["interactions", "network"])).toEqual([]);
+  });
+
+  it("says something different for each exception, in both languages", () => {
+    for (const key of contentExceptions(["page", "screen"])) {
+      for (const lang of ["en", "ko"] as const) expect(t(key, lang), `${lang}:${key}`).not.toBe(key);
+      expect(t(key, "en"), key).not.toBe(t(key, "ko"));
+    }
+    expect(t("sensingPageExcepted", "en")).not.toBe(t("sensingScreenExcepted", "en"));
+    expect(t("sensingPageExcepted", "ko")).not.toBe(t("sensingScreenExcepted", "ko"));
+  });
+
+  it("is not confused by a layer whose name merely begins the same way", () => {
+    expect(sensesContent(["pages", "page_rank"])).toBe(false);
   });
 });
 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Particle AI",
   "version": "0.1.0",
-  "description": "This extension watches the shape of your browsing, never its content, and reshapes a side-panel workspace around what you do.",
+  "description": "This extension senses the shape of your browsing, reshapes a side panel around it, and reads the page itself only if you say so.",
   "permissions": [
     "webNavigation",
     "webRequest",

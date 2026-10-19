@@ -2,7 +2,7 @@
   "name": "digital-matter",
   "version": "0.0.1",
   "private": true,
-  "description": "An experimental runtime that reshapes the interface around your work: ten sensing layers read shape only, never content, and an eleventh reads the screen when you turn it on.",
+  "description": "An experimental runtime that reshapes the interface around your work: ten sensing layers read shape only, never content, and two more read a screen and a page when you turn them on.",
   "packageManager": "pnpm@10.33.3",
   "engines": {
     "node": ">=20"
