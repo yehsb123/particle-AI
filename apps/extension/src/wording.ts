@@ -7,11 +7,11 @@
  * browser. `wording.test.ts` holds the two halves against each other.
  */
 export const KO: Record<string, string> = {
-  title: "Particle AI가 감지할 수 있는 것",
+  title: "Particle AI 가 감지하는 범위",
   lead: "아래 앞의 세 계층은 형태만 읽고 내용은 보지 않습니다. 네 번째 계층은 보고 있는 페이지를 읽으며, 직접 켜기 전까지는 꺼져 있습니다. 런타임에서 원격 모델을 켜지 않는 한 이 컴퓨터 밖으로 아무것도 나가지 않습니다.",
   interactions: "상호작용 (L0)",
   interactions_desc: "클릭, 스크롤, 입력이 <em>있었다</em>는 사실과 시각만. <em>무엇을</em> 했는지는 절대 아님",
-  tabs: "탭·포커스 (L3)",
+  tabs: "탭과 포커스 (L3)",
   tabs_desc: "이동한 사이트의 호스트명과 비운 시간. 전체 URL이나 페이지 내용은 절대 아님",
   network: "통신 형태 (L2), 옵트인",
   network_desc: "요청의 호스트명, 상태 코드, 지연시간. 경로와 쿼리, 본문은 절대 아님",

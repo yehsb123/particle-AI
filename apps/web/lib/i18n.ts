@@ -2,7 +2,7 @@ export type Lang = "en" | "ko";
 
 /** UI chrome strings (the React shell) keyed by a short id. */
 const CHROME: Record<string, { en: string; ko: string }> = {
-  tagline: { en: "adaptive runtime · integrated loop", ko: "적응형 런타임 · 통합 루프" },
+  tagline: { en: "adaptive runtime · integrated loop", ko: "적응형 런타임, 통합 루프" },
   simLab: { en: "Simulation lab", ko: "시뮬레이션 랩" },
   simIntro: {
     en: "You never ask for a dashboard. Emit an event; the runtime judges significance, decides, runs read-only capabilities, and reshapes its own body — reversibly.",
@@ -84,7 +84,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   presenceTitle: { en: "What is the AI doing?", ko: "AI가 지금 하는 일" },
   presenceState: { en: "state", ko: "상태" },
   presenceWatching: { en: "observing", ko: "관찰 대상" },
-  presenceWatchingValue: { en: "workspace events (builds, tests, runtime)", ko: "워크스페이스 이벤트 (빌드·테스트·런타임)" },
+  presenceWatchingValue: { en: "workspace events (builds, tests, runtime)", ko: "워크스페이스 이벤트 (빌드, 테스트, 런타임)" },
   presenceLastReason: { en: "why the UI changed", ko: "UI가 바뀐 이유" },
   presenceNoReason: { en: "no morph yet — emit an event", ko: "아직 변형 없음. 이벤트를 발생시켜 보세요" },
   presencePlanned: { en: "awaiting your approval", ko: "승인 대기 중" },
@@ -171,7 +171,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   layer_idle: { en: "idle", ko: "유휴" },
   layer_visibility: { en: "visibility", ko: "탭 가시성" },
   layer_dwell: { en: "dwell", ko: "체류" },
-  layer_tabs: { en: "tabs & focus", ko: "탭·포커스" },
+  layer_tabs: { en: "tabs & focus", ko: "탭과 포커스" },
   layer_network: { en: "communication shape", ko: "통신 형태" },
   layer_files: { en: "file saves", ko: "파일 저장" },
   layer_output: { en: "test/build output", ko: "테스트/빌드 출력" },
