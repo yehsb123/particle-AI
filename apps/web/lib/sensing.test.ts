@@ -184,6 +184,16 @@ describe("both languages actually say something", () => {
     }
   });
 
+  // the wording promised for months that no model read a captured screen, and stayed on the page
+  // for a while after DM_SCREEN_READ made that untrue. What the body says a layer does has to
+  // move in the same commit as the layer, so the switch is named here rather than described.
+  it("names the switch that hands a picture to a model, in both languages", () => {
+    for (const lang of ["en", "ko"] as const) {
+      expect(t("screenConsentLeaves", lang), lang).toContain("DM_SCREEN_READ");
+      expect(t("screenConsentOff", lang), lang).toContain("DM_SCREEN_READ");
+    }
+  });
+
   it("scopes the caption to the layers it is true of, and names the exception", () => {
     for (const lang of ["en", "ko"] as const) {
       expect(t("sensingShapeOnly", lang), lang).not.toBe("sensingShapeOnly");
