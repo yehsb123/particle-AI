@@ -45,14 +45,16 @@ dismiss the same kind of change twice and it stops being offered.
 
 Three sensors. Ten of their eleven layers are **shape only**: no file contents, no page contents,
 no message text. The eleventh reads what is in a window — the desktop agent photographs the apps
-you list, and it is **off** until you turn it on and name them. See
-[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads what.
+you list, and it is **off** until you turn it on and name them. Having a model read one of those
+pictures is **a third switch again**, off by default, and it is the only thing in this repository
+that sends pixels anywhere. See [`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) for which layer reads
+what.
 
 | Sensor | Senses |
 |---|---|
 | Web body | clicks, dwell, idle time, visibility |
 | Browser extension (MV3) | tab focus, navigation hostnames, and opt-in traffic shape (host, status, latency) |
-| Desktop agent (opt-in) | file **saves** (relative paths), test/build pass↔fail transitions, the window in front, and — with `DM_CAPTURE=1` and `DM_CAPTURE_APPS` — a picture of those apps' windows |
+| Desktop agent (opt-in) | file **saves** (relative paths), test/build pass↔fail transitions, the window in front, and — with `DM_CAPTURE=1` and `DM_CAPTURE_APPS` — a picture of those apps' windows, which `DM_SCREEN_READ=1` additionally has a model read |
 
 The signals are developer-flavoured today: HTTP 500, build failed, vulnerability found. That
 is the limitation `DESIGN_V2.md` sets out to remove.
@@ -125,12 +127,31 @@ exactly as before.
 
 A frame travels as a **filename**: the pixels stay on the machine that took them, in
 `DM_CAPTURE_DIR` or the temp directory, until you delete them. What the runtime is told is that a
-picture was taken, of which app, and where it landed (`sensor.captured_window`). Reading a
-captured screen with a model is not built. While the layer runs the body says so by name —
-`screen: KakaoTalk` in the sensing indicator — and carries this layer's own consent wording.
-[`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind it. See
-[`apps/agent/README.md`](apps/agent/README.md) and
+picture was taken, of which app, and where it landed (`sensor.captured_window`). While the layer
+runs the body says so by name — `screen: KakaoTalk` in the sensing indicator — and carries this
+layer's own consent wording. [`docs/CONSENT_V2.md`](docs/CONSENT_V2.md) is the decision behind it.
+See [`apps/agent/README.md`](apps/agent/README.md) and
 [`packages/screen-capture/README.md`](packages/screen-capture/README.md).
+
+## Reading a picture with a model (a third switch, also off)
+
+```bash
+DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk DM_SCREEN_READ=1 pnpm agent
+```
+
+With `DM_SCREEN_READ` set, each picture the layer takes is handed to a model, which answers with
+a **validated reading** — what situation the window is in (`messaging`, `error`, `waiting`, …),
+one sentence, a few topics, whether it is waiting on you, and how sure it is. That reading is
+sent as `sensor.screen_read`; a model that answers with prose, with a word outside the
+vocabulary, or with an instruction aimed at your terminal produces no reading and nothing is
+sent. The schema is `packages/contracts/src/screen.ts`.
+
+This is a separate switch from the camera because it is a separate thing to agree to: **this is
+where the pixels leave the disk they were written to.** With no API key configured the model is
+the deterministic one, which answers without looking at the picture, so nothing leaves the
+machine; with a key, the picture goes to that provider. The agent prints which brains may read
+before it starts and names the one that read after each picture. Unset `DM_SCREEN_READ` and
+pictures are taken and never read.
 
 ## Runtime access control
 

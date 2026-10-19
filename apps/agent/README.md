@@ -1,14 +1,16 @@
 # @particle/agent — desktop layer (Concept v2, P3, opt-in)
 
 The browser extension covers what happens in tabs. This small Node agent covers the part of the
-day that happens in an editor and a terminal — still **shape only**.
+day that happens in an editor and a terminal — **shape only**, with one exception at the bottom
+of this page: the screen layer photographs the apps you list, and reads them if you ask it to.
 
 | Sense | Signal sent | Never sent |
 |---|---|---|
 | File saves under `DM_WATCH_PATHS` | `user.opened_file { path: "src/db.ts" }` (relative) | file contents, absolute paths, ignored dirs (`node_modules`, `.git`, `dist`, `.next`, …) |
 | Git branch switches (any watched root with `.git`) | `user.action { key: "branch:<name>" }` — alternating branches reads as **switching** | diffs, commits, remotes |
 | The window in front (`DM_WATCH_WINDOWS`, Windows only) | `user.focused_window { app, window }` — the program name and the window title, on change | what is inside the window, and browser windows (the extension reports those tabs by host) |
-| A picture of a listed app's window (`DM_CAPTURE=1` + `DM_CAPTURE_APPS`, Windows only) | `sensor.captured_window { app, window, path, width, height, bytes, backend }` — that a picture was taken, of which app, and where the file is | **the picture itself** — the pixels stay on this machine, and no model reads them |
+| A picture of a listed app's window (`DM_CAPTURE=1` + `DM_CAPTURE_APPS`, Windows only) | `sensor.captured_window { app, window, path, width, height, bytes, backend }` — that a picture was taken, of which app, and where the file is | **the picture itself** — with `DM_SCREEN_READ` unset the pixels stay on this machine and no model is handed them |
+| That picture read by a model (`DM_SCREEN_READ=1`, on top of the two above) | `sensor.screen_read { activity, summary, topics, needsAttention, confidence, provider, model, app, window, path }` — the situation in the window, and who read it | nothing the model said outside the schema; the pixels still do not go to the runtime, but they **do** go to whichever model reads them |
 | Piped tool output (`… \| pnpm agent`) | `development.test_failed { failing }`, `development.test_passed`, `development.build_failed { errors }`, `development.build_succeeded` — **transitions only** | the output lines themselves (they are passed through to your terminal untouched) |
 
 What the runtime does with it: repeated saves of the same file read as **stuck** (context card);
@@ -24,6 +26,7 @@ DM_WATCH_PATHS=. pnpm agent                   # sense file saves in this repo
 pnpm test 2>&1 | pnpm agent                   # sense pass↔fail transitions of a run
 DM_WATCH_WINDOWS=1 pnpm agent                 # sense which window is in front (app + title)
 DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent   # photograph those windows
+DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk DM_SCREEN_READ=1 pnpm agent   # …and read them
 ```
 
 Open the body for this session: `http://localhost:3000/?connect=1&session=desktop`.
@@ -33,7 +36,8 @@ Env (all optional): `DM_RUNTIME_URL` (default `http://localhost:8787`), `DM_AGEN
 `DM_AGENT_DEBOUNCE_MS` (default 400), `DM_WATCH_WINDOWS` (**required to sense windows**;
 1/true/yes/on), `DM_AGENT_WINDOW_MS` (default 1000), `DM_CAPTURE` + `DM_CAPTURE_APPS`
 (**both required to photograph anything**), `DM_AGENT_CAPTURE_MS` (default 60000),
-`DM_CAPTURE_DIR` (where the pictures land; default the system temp directory).
+`DM_CAPTURE_DIR` (where the pictures land; default the system temp directory), `DM_SCREEN_READ`
+(**required before any model is handed a picture**; 1/true/yes/on).
 
 With nothing configured and no pipe, the agent prints how to opt in and exits.
 
@@ -64,8 +68,30 @@ the one sense with its own rules. `docs/CONSENT_V2.md` is the decision behind th
   cheaper sense does not already have; KakaoTalk answers with six unnamed panes and no
   conversation list, so a picture is the only way to read it. The agent does not make this
   judgement for you, and listing a readable app only costs disk.
-- **The pixels do not travel.** The runtime is handed the file name, the size and the program
-  name. The files stay in `DM_CAPTURE_DIR` (or the system temp directory) until you delete them.
+- **The pixels never travel to the runtime.** It is handed the file name, the size and the
+  program name. The files stay in `DM_CAPTURE_DIR` (or the system temp directory) until you
+  delete them.
+
+## Reading the picture (`DM_SCREEN_READ`, off by default)
+
+Taking a picture and having a model read it are two things to agree to, so they are two
+switches. This is the second one, and it is the moment the pixels leave the disk they were
+written to.
+
+- **Off unless you set it**, and the camera being on does not turn it on. Set it with nothing
+  being photographed and the agent says which other switches are missing and reads nothing.
+- **Which model reads is the router's answer**, not this agent's: it asks for a brain that can
+  be handed a picture and uses the one it is given. With no API key that is the deterministic
+  brain, which answers without looking at the picture — so nothing leaves the machine and the
+  path still runs. With `ANTHROPIC_API_KEY` set, the picture goes to that provider.
+- **You are told where the pixels go.** One line at startup names every brain that may be handed
+  a picture; one line per picture names the brain that read it and what it said.
+- **What a model is allowed to say is a schema**, not prose: one of a fixed list of situations,
+  one sentence, at most five topics, whether the window is waiting on you, and a confidence
+  (`packages/contracts/src/screen.ts`). An answer outside that produces no reading and no event.
+  A window title is written by the program that owns the window, so an instruction in one reaches
+  the prompt — what protects the runtime is that whatever comes back is still only a reading.
+- **A picture larger than 4 MB is refused** before anything is sent.
 
 ## Notes
 

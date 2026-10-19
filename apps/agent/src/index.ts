@@ -10,15 +10,22 @@
  *      (Windows only, changes only — the program name and the window title, never what is in it)
  *   4. A picture of a LISTED app's window, with DM_CAPTURE=1 and DM_CAPTURE_APPS
  *      → `sensor.captured_window { app, window, path, … }` (the file stays on this machine)
+ *   5. That picture READ by a model, with DM_SCREEN_READ=1 on top of the above
+ *      → `sensor.screen_read { activity, summary, topics, … }` (the pixels go to the model)
  *
  *   DM_WATCH_PATHS=. pnpm agent
  *   pnpm test 2>&1 | pnpm agent
  *   DM_WATCH_WINDOWS=1 pnpm agent
  *   DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent
+ *   DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk DM_SCREEN_READ=1 pnpm agent
  *
  * The fourth sense is the only one that reads what is IN a window rather than the shape of one,
  * so it is the only one that takes two switches and a list of apps (docs/CONSENT_V2.md). What it
  * sends is that it photographed, which app, and where the file landed — never the picture.
+ *
+ * The fifth is the moment the picture itself leaves the disk: it is handed to a model, which is
+ * a separate switch again, off by default, and with no key configured the model is the
+ * deterministic one and the pixels go no further than this process.
  *
  * Nothing runs unless you opt in with DM_WATCH_PATHS, DM_WATCH_WINDOWS or a pipe. Events go to
  * the LOCAL runtime.
@@ -28,8 +35,11 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createInterface } from "node:readline";
-import { captureFileName, captureWith, defaultCaptureRegistry, readCaptureConfig } from "@particle/screen-capture";
-import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, type Signal, type WindowShape } from "./shape";
+import { captureFileName, captureWith, defaultCaptureRegistry, readCaptureConfig, type CaptureFrame } from "@particle/screen-capture";
+// the brains, through their own abstraction: this agent names no AI service and never will —
+// which one reads a picture is the router's answer, and with no key it is the deterministic one
+import { IntelligenceRouter, buildDefaultProviders, readScreen, supportsVision, SCREEN_READING_PURPOSE } from "@particle/intelligence";
+import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -46,6 +56,9 @@ const CAPTURE_APPS = captureApps(process.env.DM_CAPTURE_APPS, "DM_CAPTURE_APPS")
 // floor is what stands between an afternoon in a chat window and an afternoon of pictures of it
 const CAPTURE_MS = envNumber(process.env.DM_AGENT_CAPTURE_MS, 60_000, "DM_AGENT_CAPTURE_MS", 1_000, 86_400_000);
 const CAPTURE = readCaptureConfig(process.env);
+// the second deliberate act: a picture is taken with the switches above, and READ with this one.
+// Off, and with it off a frame stays on the disk it was written to and no model is handed it.
+const WANT_READ = envFlag(process.env.DM_SCREEN_READ, "DM_SCREEN_READ");
 
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
 // parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
@@ -249,6 +262,9 @@ async function photograph(app: string): Promise<void> {
       }),
     );
     process.stderr.write(`[particle-agent] photographed ${frame.app} · ${frame.width}x${frame.height} → ${frame.path}\n`);
+    // inside the lock on purpose: the next picture of this app waits for this reading to finish,
+    // so a slow brain cannot leave two readings of one window racing each other to the runtime
+    if (brain) await readWindow(frame);
   } catch (err) {
     // a sense that cannot see something says so; it does not take the agent down with it, and an
     // unhandled rejection out of a background capture would do exactly that
@@ -256,6 +272,69 @@ async function photograph(app: string): Promise<void> {
   } finally {
     photographing = false;
   }
+}
+
+/**
+ * One picture, read.
+ *
+ * This is the only place in this repository where pixels leave the disk they were written to.
+ * The frame is handed to whichever brain the router chose for a picture, and what comes back is
+ * a reading or nothing: a model that answers with prose, with a word nobody defined, or with an
+ * instruction aimed at this log produces no reading and nothing is sent.
+ *
+ * `brain` being null is this layer being off, which is its default. The router is built once, at
+ * startup, and only when somebody asked for reading.
+ */
+let brain: IntelligenceRouter | null = null;
+async function readWindow(frame: CaptureFrame): Promise<void> {
+  if (!brain) return;
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(frame.path);
+  } catch (err) {
+    process.stderr.write(`[particle-agent] ${frame.app} photographed but not read: ${(err as Error).message}\n`);
+    return;
+  }
+  // asking which brain reads is itself a step that can fail — a provider answering for its own
+  // health is free to throw — and a picture that was taken says so even when nothing read it
+  let result: Awaited<ReturnType<typeof readScreen>>;
+  try {
+    const { provider } = await brain.route({ purpose: SCREEN_READING_PURPOSE, capability: "vision" });
+    result = await readScreen(provider, {
+      bytes,
+      // this package writes png and refuses any other extension (captureEnv in screen-capture)
+      mediaType: "image/png",
+      app: frame.app,
+      window: frame.window,
+      width: frame.width,
+      height: frame.height,
+    });
+  } catch (err) {
+    process.stderr.write(`[particle-agent] ${frame.app} photographed but not read: ${(err as Error).message}\n`);
+    return;
+  }
+  if (!result.ok) {
+    process.stderr.write(`[particle-agent] ${frame.app} photographed but not read: ${result.reason}\n`);
+    return;
+  }
+  void send(
+    matterEvent(
+      SESSION,
+      "sensor",
+      "sensor.screen_read",
+      "debug",
+      screenReadPayload(result.reading, {
+        app: frame.app,
+        window: frame.window,
+        path: frame.path,
+        providerId: result.providerId,
+        ...(result.modelId === undefined ? {} : { modelId: result.modelId }),
+      }),
+    ),
+  );
+  process.stderr.write(
+    `[particle-agent] ${frame.app} read by ${result.providerId}: ${result.reading.activity} · ${result.reading.summary}\n`,
+  );
 }
 
 function pipeOutput(): void {
@@ -285,6 +364,7 @@ if (WATCH.length === 0 && !piped && !windows.run) {
       "  DM_WATCH_WINDOWS=1 pnpm agent          # the window in front (Windows; app + title only)",
       "  DM_WATCH_WINDOWS=1 DM_CAPTURE=1 DM_CAPTURE_APPS=KakaoTalk pnpm agent",
       "                                         # a picture of those apps' windows, kept on this machine",
+      "  …the same with DM_SCREEN_READ=1        # and read by a model (the pixels go to it)",
       `runtime: ${RUNTIME}   session: ${SESSION}   (open the body with ?connect=1&session=${SESSION})`,
       "",
     ].join("\n"),
@@ -314,6 +394,12 @@ const sensingScreen = sensingWindows && screen.run;
 if (sensingScreen) {
   process.stderr.write(`[particle-agent] photographing ${CAPTURE_APPS.join(", ")} at most every ${CAPTURE_MS}ms into ${CAPTURE.dir || tmpdir()} (the files stay there)\n`);
 }
+// which brains this process holds is read once; the router asks them again per picture
+const brains = WANT_READ ? buildDefaultProviders(process.env) : [];
+const reader = screenReader(WANT_READ, sensingScreen, brains.filter(supportsVision).map((p) => p.id));
+// asking for reading and getting none is never silent; not asking for it is
+if (reader.note) process.stderr.write(reader.note + "\n");
+if (reader.run) brain = new IntelligenceRouter(brains);
 // tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
 const layers = [
   ...(WATCH.length ? ["files"] : []),

@@ -65,5 +65,6 @@ OBS answers an empty authentication string by closing the socket with a code nob
 ## What this is not
 
 It does not read the picture, send it anywhere, or hook into the runtime's sensors. A frame
-travels as a filename and the file stays on the machine that took it. Reading a captured screen
-with a model, and the consent wording that would have to come first, are not built.
+travels as a filename and the file written stays on the machine that took it. Having a model
+read one is the desktop agent's own switch, `DM_SCREEN_READ`, off by default and nothing to do
+with this package (`docs/CONSENT_V2.md`, `apps/agent/README.md`).

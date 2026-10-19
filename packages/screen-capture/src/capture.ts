@@ -19,8 +19,8 @@ export type CaptureRequest = {
 
 /**
  * One picture, taken. The file is on disk at `path` and nothing here carries the pixels: a frame
- * travels as a filename, because this repository has not finished the consent design that would
- * let an image leave the machine.
+ * travels as a filename. A caller that wants the pixels opens the file itself and answers for
+ * doing so — the desktop agent's reading switch is the one place that does (docs/CONSENT_V2.md).
  */
 export type CaptureFrame = {
   path: string;

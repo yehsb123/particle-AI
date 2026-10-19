@@ -7,11 +7,12 @@
  * code imported that package and handed the backend to `createCaptureRegistry`. `boundary.test.ts`
  * holds this file and every file beside it to that.
  *
- * What this package does NOT do: it takes no picture by itself and sends nothing anywhere. A
- * capture happens when somebody calls for one, with DM_CAPTURE on, and the picture stays on
- * their disk. The desktop agent is the one caller in this repository: with DM_CAPTURE on and
- * apps listed in DM_CAPTURE_APPS it photographs those apps' windows and reports the file name,
- * never the pixels (docs/CONSENT_V2.md).
+ * What this package does NOT do: it takes no picture by itself, reads none, and sends nothing
+ * anywhere. A capture happens when somebody calls for one, with DM_CAPTURE on, and the picture
+ * is written to their disk. The desktop agent is the one caller in this repository: with
+ * DM_CAPTURE on and apps listed in DM_CAPTURE_APPS it photographs those apps' windows and
+ * reports the file name, never the pixels. Whether anything then opens that file is a separate
+ * decision taken somewhere else — the agent's DM_SCREEN_READ (docs/CONSENT_V2.md).
  */
 export * from "./capture";
 // the command line's own argument parsing, and with it the rule for what a picture is filed
