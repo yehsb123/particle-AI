@@ -6,8 +6,12 @@
  * and the names of its buttons. It is off until somebody turns it on in the options page, it
  * never reads a value anybody typed, and it never describes a box that could hold a password or
  * a card number — see `isSecretField` in shape.ts and `docs/CONSENT_V2.md`.
+ *
+ * The reading itself is in `page.ts`, where it can be held against a real page by a test; this
+ * file is the half that talks to `chrome`, keeps the consent and the clock, and sends.
  */
-import { pageShape, isSecretField, type PageField } from "./shape";
+import { pageShape } from "./shape";
+import { readPage } from "./page";
 
 let count = 0;
 let last = Date.now();
@@ -48,62 +52,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
  * events a minute per tab.
  */
 const PAGE_GAP_MS = 30_000;
-/** How many elements of one kind are looked at. A page with more than this is a page, not a form. */
-const SCAN_LIMIT = 400;
 let lastShape = "";
 let lastPageAt = 0;
-
-const textOf = (el: Element | null): string => (el ? (el.textContent ?? "").replace(/\s+/g, " ").trim() : "");
-
-/** Only what somebody can actually see is described — a hidden input is machinery, not a question. */
-const onScreen = (el: Element): boolean => el.getClientRects().length > 0;
-
-/**
- * The name a person reads beside a box.
- *
- * The element's own `name` attribute is deliberately NOT a fallback: the probe found it carries
- * machinery rather than language (`authenticity_token`, `webauthn-iuvpaa-support`), and a box
- * nobody labelled says nothing worth sending.
- */
-function labelOf(el: Element): string {
-  const aria = el.getAttribute("aria-label");
-  if (aria) return aria;
-  const id = el.getAttribute("id");
-  const tied = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null;
-  return textOf(tied) || textOf(el.closest("label")) || el.getAttribute("placeholder") || "";
-}
-
-function take<T>(selector: string, map: (el: HTMLElement) => T): T[] {
-  return Array.from(document.querySelectorAll<HTMLElement>(selector)).slice(0, SCAN_LIMIT).filter(onScreen).map(map);
-}
-
-/** What this page is, in names: read here, bounded and shaped in shape.ts. */
-function readPage(): { title: string; headings: string[]; fields: PageField[]; actions: string[] } {
-  return {
-    title: document.title,
-    headings: take("h1, h2, h3, [role=heading]", textOf),
-    fields: take("input, textarea, select", (el) => {
-      const box: PageField = {
-        type: el.getAttribute("type") ?? el.tagName,
-        autocomplete: el.getAttribute("autocomplete"),
-        name: el.getAttribute("name"),
-        id: el.getAttribute("id"),
-      };
-      // a box that can hold a secret is not labelled at all: its name is never read, only counted
-      return isSecretField(box) ? box : { ...box, label: labelOf(el) };
-    }),
-    // the caption of a button: its own words, or the value attribute an <input> button carries
-    // instead of text. That attribute is written by the page, never typed by anybody.
-    actions: take("button, [role=button], input[type=submit], input[type=button]", (el) =>
-      el.getAttribute("aria-label") || textOf(el) || el.getAttribute("value") || "",
-    ),
-  };
-}
 
 function reportPage(now: number): void {
   if (!pageConsent || document.hidden) return; // only the page somebody is actually looking at
   if (now - lastPageAt < PAGE_GAP_MS) return;
-  const shape = pageShape(readPage());
+  const shape = pageShape(readPage(document));
   const key = JSON.stringify(shape);
   if (key === lastShape) return; // the same page, unchanged, is not news
   lastShape = key;

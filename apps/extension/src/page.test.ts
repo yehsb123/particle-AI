@@ -205,15 +205,68 @@ describe("what the background will relay of a page", () => {
 });
 
 /**
- * A value is the one thing this layer must never read. The rule is cheap to keep and expensive to
- * notice the loss of, so it is pinned at the source: neither file that touches the page reads the
- * `value` property of anything.
+ * A value is the one thing this layer must never read.
+ *
+ * The rule is cheap to keep and expensive to notice the loss of, so it is pinned at the source.
+ * The first version of this pinned only `.value` in `content.ts`, which was two gaps at once: a
+ * value read as `getAttribute("value")` walked straight past it, and the reading itself has
+ * since moved into `page.ts`. What is held here now is every spelling of reading a value, over
+ * every file of the content script that holds an element, with the one exception written out:
+ * the caption of a button, which the page wrote and nobody typed.
+ *
+ * The behaviour this stands for is tested against a real page in `dom.test.ts`; this is the part
+ * that catches a value read somewhere no test happened to look.
  */
 describe("the source that touches the page", () => {
-  it("never reads a value off an element", () => {
-    // content.ts is the only file in this extension that holds an element at all; shape.ts is
-    // handed plain objects, so a value could only have been read here and passed on.
-    const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "content.ts"), "utf8");
-    expect([...source.matchAll(/\.value\b/g)].map((m) => m[0])).toEqual([]);
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const read = (name: string) => readFileSync(resolve(dir, name), "utf8");
+
+  /** The files of the content script that hold an element of somebody's page. */
+  const HOLD_AN_ELEMENT = ["content.ts", "page.ts"];
+  /** Reading what is in a box, however it is spelled. The attribute counts: a value is a value. */
+  const VALUE_READS = /\.value\b|\.defaultValue\b|getAttribute\(\s*(["'`])value\1\s*\)/g;
+  /** What only code holding an element can do. `shape.ts` is handed plain objects and does none of it. */
+  const ELEMENT_READS = /querySelector|getAttribute|getClientRects|\.closest\(|textContent|innerText|innerHTML/;
+
+  /** One named function, from its signature to the brace that closes it in the first column. */
+  function bodyOf(source: string, name: string): string {
+    const start = source.indexOf(`function ${name}(`);
+    expect(start, name).toBeGreaterThan(-1);
+    const end = source.indexOf("\n}\n", start);
+    expect(end, name).toBeGreaterThan(start);
+    return source.slice(start, end);
+  }
+
+  it("reads no value anywhere outside the caption of a button", () => {
+    for (const file of HOLD_AN_ELEMENT) {
+      const source = read(file);
+      const rest = source.includes("function actionName(") ? source.replace(bodyOf(source, "actionName"), "") : source;
+      expect([...rest.matchAll(VALUE_READS)].map((m) => m[0]), file).toEqual([]);
+    }
+  });
+
+  it("reads one value, in the one place a value is a caption the page wrote", () => {
+    const body = bodyOf(read("page.ts"), "actionName");
+    expect([...body.matchAll(VALUE_READS)].map((m) => m[0])).toEqual(['getAttribute("value")']);
+  });
+
+  /**
+   * The scan above names its files, so a new file holding an element would not be scanned at
+   * all. What stops that is this: the content script reaches exactly these, and `shape.ts` is in
+   * the reach without holding an element, which is why its own `.value` (a map iterator) is not
+   * one of these reads.
+   */
+  it("reaches no file that holds an element without being on the list", () => {
+    const reached = new Set<string>();
+    const follow = (name: string): void => {
+      if (reached.has(name)) return;
+      reached.add(name);
+      for (const [, imported] of read(name).matchAll(/from "\.\/([\w.-]+)"/g)) follow(`${imported}.ts`);
+    };
+    follow("content.ts");
+    expect([...reached].sort()).toEqual(["content.ts", "page.ts", "shape.ts"]);
+    for (const name of [...reached].filter((n) => !HOLD_AN_ELEMENT.includes(n))) {
+      expect(read(name), name).not.toMatch(ELEMENT_READS);
+    }
   });
 });
