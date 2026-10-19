@@ -6,7 +6,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   simLab: { en: "Simulation lab", ko: "시뮬레이션 랩" },
   simIntro: {
     en: "You never ask for a dashboard. Emit an event; the runtime judges significance, decides, runs read-only capabilities, and reshapes its own body — reversibly.",
-    ko: "대시보드를 요청하지 않습니다. 이벤트를 발생시키면 런타임이 중요도를 판단하고, 결정하고, 읽기 전용 능력을 실행한 뒤 스스로 몸을 재구성합니다 — 되돌릴 수 있게.",
+    ko: "대시보드를 요청하지 않습니다. 이벤트를 발생시키면 런타임이 중요도를 판단하고, 결정하고, 읽기 전용 능력을 실행한 뒤 스스로 몸을 재구성합니다. 그 변경은 되돌릴 수 있습니다.",
   },
   controls: { en: "Controls", ko: "컨트롤" },
   undo: { en: "Undo last morph", ko: "마지막 변형 취소" },
@@ -52,7 +52,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   },
   approve: { en: "Approve", ko: "승인" },
   reject: { en: "Reject", ko: "거절" },
-  inspectorTitle: { en: "Inspector — why did the UI change?", ko: "인스펙터 — UI가 왜 바뀌었나?" },
+  inspectorTitle: { en: "Inspector — why did the UI change?", ko: "인스펙터: UI가 바뀐 이유" },
   significance: { en: "significance", ko: "중요도" },
   deliberated: { en: "deliberated", ko: "심의됨" },
   provider: { en: "provider", ko: "프로바이더" },
@@ -73,20 +73,20 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   memEpisodic: { en: "Episodic", ko: "에피소드" },
   memPreferences: { en: "Preferences (reinforced)", ko: "선호 (강화됨)" },
   memPatterns: { en: "Pattern candidates (reusable-template suggestions)", ko: "패턴 후보 (재사용 템플릿 제안)" },
-  memNone: { en: "No experience yet — emit a few events.", ko: "아직 경험이 없습니다 — 이벤트를 몇 개 발생시켜 보세요." },
+  memNone: { en: "No experience yet — emit a few events.", ko: "아직 경험이 없습니다. 이벤트를 몇 개 발생시켜 보세요." },
   langButton: { en: "한국어", ko: "English" },
   coachText: {
     en: "👉 Click a button on the right (try HTTP 500). You never ask for a screen — the AI notices the event and rebuilds the workspace by itself.",
-    ko: "👉 오른쪽 버튼을 눌러보세요 (HTTP 500 추천). 화면을 요청하지 않아도 — AI가 이벤트를 감지해 워크스페이스를 스스로 재구성합니다.",
+    ko: "오른쪽 버튼을 눌러보세요 (HTTP 500 추천). 화면을 요청하지 않아도 AI가 이벤트를 감지해 워크스페이스를 스스로 재구성합니다.",
   },
   coachDismiss: { en: "Got it", ko: "확인" },
   // AI presence inspector popover (spec §23)
-  presenceTitle: { en: "What is the AI doing?", ko: "AI가 무엇을 하고 있나?" },
+  presenceTitle: { en: "What is the AI doing?", ko: "AI가 지금 하는 일" },
   presenceState: { en: "state", ko: "상태" },
   presenceWatching: { en: "observing", ko: "관찰 대상" },
   presenceWatchingValue: { en: "workspace events (builds, tests, runtime)", ko: "워크스페이스 이벤트 (빌드·테스트·런타임)" },
   presenceLastReason: { en: "why the UI changed", ko: "UI가 바뀐 이유" },
-  presenceNoReason: { en: "no morph yet — emit an event", ko: "아직 변형 없음 — 이벤트를 발생시켜 보세요" },
+  presenceNoReason: { en: "no morph yet — emit an event", ko: "아직 변형 없음. 이벤트를 발생시켜 보세요" },
   presencePlanned: { en: "awaiting your approval", ko: "승인 대기 중" },
   presenceNothingPlanned: { en: "nothing pending", ko: "대기 중인 작업 없음" },
   presenceAutonomy: { en: "autonomy level", ko: "자율성 레벨" },
@@ -107,8 +107,8 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   learnedOk: { en: "Got it", ko: "확인" },
   // replay (spec §21)
   replayBtn: { en: "Replay & verify", ko: "리플레이 & 검증" },
-  replayIdentical: { en: "deterministic ✓ — replaying the event log reproduced this exact UI", ko: "결정론 ✓ — 이벤트 로그 리플레이가 현재 UI를 정확히 재현했습니다" },
-  replayDiffers: { en: "differs — undo/approvals are not events, so the replay diverged (expected)", ko: "불일치 — undo/승인은 이벤트가 아니므로 리플레이가 달라짐 (정상)" },
+  replayIdentical: { en: "deterministic ✓ — replaying the event log reproduced this exact UI", ko: "결정론 확인: 이벤트 로그 리플레이가 현재 UI를 정확히 재현했습니다" },
+  replayDiffers: { en: "differs — undo/approvals are not events, so the replay diverged (expected)", ko: "불일치: undo 와 승인은 이벤트가 아니므로 리플레이가 달라짐 (정상)" },
   replayNone: { en: "no events to replay yet", ko: "리플레이할 이벤트가 없습니다" },
   // session persistence (local mode)
   resetSession: { en: "Reset session", ko: "세션 초기화" },
@@ -119,17 +119,17 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   historyEmpty: { en: "no morphs yet", ko: "아직 변형 없음" },
   // morph held (guard) explanations
   heldTitle: { en: "Morph held", ko: "변형 보류" },
-  held_cooldown_active: { en: "the interface just changed — waiting a moment so it doesn't jump around", ko: "방금 화면이 바뀌어서 — 튀지 않도록 잠시 기다리는 중" },
-  held_major_dwell_active: { en: "a major change happened recently — letting it settle first", ko: "최근 큰 변경이 있어 — 먼저 안정될 때까지 대기" },
-  held_protects_focus: { en: "you are typing — not restructuring around your cursor", ko: "입력 중이라 — 커서 주변을 재구성하지 않음" },
-  held_protects_unsaved_state: { en: "unsaved work here — never discarded", ko: "미저장 작업이 있어 — 절대 버리지 않음" },
+  held_cooldown_active: { en: "the interface just changed — waiting a moment so it doesn't jump around", ko: "방금 화면이 바뀌어서 튀지 않도록 잠시 기다리는 중" },
+  held_major_dwell_active: { en: "a major change happened recently — letting it settle first", ko: "최근 큰 변경이 있어 먼저 안정될 때까지 대기" },
+  held_protects_focus: { en: "you are typing — not restructuring around your cursor", ko: "입력 중이라 커서 주변을 재구성하지 않음" },
+  held_protects_unsaved_state: { en: "unsaved work here — never discarded", ko: "미저장 작업이 있어 절대 버리지 않음" },
   held_confidence_below_min: { en: "not confident enough to change the layout", ko: "레이아웃을 바꿀 만큼 확신이 없음" },
   heldRetry: { en: "catches up on its own in ~{s}s", ko: "약 {s}초 후 스스로 따라잡습니다" },
-  presenceLearned: { en: "learned from you", ko: "학습한 것" },
+  presenceLearned: { en: "learned from you", ko: "학습한 내용" },
   prefDismissed: { en: "won't auto-offer", ko: "자동 표시 안 함" },
   held_structural_confidence_below_min: { en: "not confident enough for a structural change", ko: "구조 변경을 할 만큼 확신이 없음" },
-  held_learned_preference: { en: "you have dismissed this kind of card before — not offering it again", ko: "이런 카드를 전에 닫으셔서 — 다시 제안하지 않음" },
-  held_structurally_impossible: { en: "the change did not fit the screen as it is now — nothing was half-applied", ko: "지금 화면 구조와 맞지 않아 — 반쯤 적용된 것은 없음" },
+  held_learned_preference: { en: "you have dismissed this kind of card before — not offering it again", ko: "이런 카드를 전에 닫으셔서 다시 제안하지 않음" },
+  held_structurally_impossible: { en: "the change did not fit the screen as it is now — nothing was half-applied", ko: "지금 화면 구조와 맞지 않아 반쯤 적용된 부분은 없음" },
   // intent (Concept v2)
   intentTitle: { en: "intent", ko: "의도" },
   // the morph history strip: what each step did, in words rather than an identifier
@@ -159,10 +159,10 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   // stop it. Shown in the presence popover whether or not capture is running, because wording a
   // person only meets once the camera is already on is wording they never agreed to.
   screenConsentTitle: { en: "Screen capture (off until DM_CAPTURE and DM_CAPTURE_APPS are both set)", ko: "화면 캡처 (DM_CAPTURE 와 DM_CAPTURE_APPS 를 둘 다 채우기 전까지는 꺼져 있습니다)" },
-  screenConsentWhat: { en: "What it takes: a picture of one window of an app you listed. It reads what is in that window — text, numbers, messages. No other layer does.", ko: "무엇을 찍는가: 목록에 적은 앱의 창 하나를 그림으로 찍습니다. 그 창 안의 글자와 숫자와 메시지를 읽습니다. 다른 계층은 이렇게 하지 않습니다." },
-  screenConsentWhere: { en: "Where it lands: a png on this machine, under DM_CAPTURE_DIR, or the system temp directory when that names nothing.", ko: "어디에 저장되는가: 이 컴퓨터에 png 로 저장됩니다. 위치는 DM_CAPTURE_DIR 이고, 비어 있으면 시스템 임시 폴더입니다." },
-  screenConsentLeaves: { en: "Where it goes: the runtime is handed the file name, never the pixels. With DM_SCREEN_READ set the picture itself is handed to a model, which is a separate switch and off until you set it; with it unset the picture stays on this disk, unread.", ko: "어디로 나가는가: 런타임에는 파일 이름만 전달되고 픽셀은 가지 않습니다. DM_SCREEN_READ 를 채우면 그림 자체가 모델로 갑니다. 이 스위치는 캡처와 별개이고 채우기 전까지는 꺼져 있습니다. 비워 두면 그림은 이 디스크에 남고 아무도 읽지 않습니다." },
-  screenConsentOff: { en: "How to stop it: clear DM_SCREEN_READ to stop a model being handed the pictures, clear DM_CAPTURE_APPS to drop one app or all of them, or clear DM_CAPTURE to turn the camera off. Pictures already taken stay in that directory until you delete them.", ko: "어떻게 끄는가: DM_SCREEN_READ 를 지우면 그림이 모델로 가지 않고, DM_CAPTURE_APPS 에서 앱을 빼거나 전부 지우면 그 앱은 더 찍지 않고, DM_CAPTURE 를 지우면 카메라 자체가 꺼집니다. 이미 찍은 그림은 직접 지우기 전까지 그 폴더에 남습니다." },
+  screenConsentWhat: { en: "What it takes: a picture of one window of an app you listed. It reads what is in that window — text, numbers, messages. No other layer does.", ko: "찍는 대상: 목록에 적은 앱의 창 하나를 그림으로 찍습니다. 그 창 안의 글자와 숫자와 메시지를 읽습니다. 다른 계층은 이렇게 하지 않습니다." },
+  screenConsentWhere: { en: "Where it lands: a png on this machine, under DM_CAPTURE_DIR, or the system temp directory when that names nothing.", ko: "저장 위치: 이 컴퓨터에 png 로 저장됩니다. 위치는 DM_CAPTURE_DIR 이고, 비어 있으면 시스템 임시 폴더입니다." },
+  screenConsentLeaves: { en: "Where it goes: the runtime is handed the file name, never the pixels. With DM_SCREEN_READ set the picture itself is handed to a model, which is a separate switch and off until you set it; with it unset the picture stays on this disk, unread.", ko: "나가는 곳: 런타임에는 파일 이름만 전달되고 픽셀은 가지 않습니다. DM_SCREEN_READ 를 채우면 그림 자체가 모델로 가며, 이 스위치는 캡처와 별개이고 채우기 전까지는 꺼져 있습니다. 비워 두면 그림은 이 디스크에 남고 아무도 읽지 않습니다." },
+  screenConsentOff: { en: "How to stop it: clear DM_SCREEN_READ to stop a model being handed the pictures, clear DM_CAPTURE_APPS to drop one app or all of them, or clear DM_CAPTURE to turn the camera off. Pictures already taken stay in that directory until you delete them.", ko: "끄는 방법: DM_SCREEN_READ 를 지우면 그림이 모델로 가지 않고, DM_CAPTURE_APPS 에서 앱을 빼거나 전부 지우면 그 앱은 더 찍지 않고, DM_CAPTURE 를 지우면 카메라 자체가 꺼집니다. 이미 찍은 그림은 직접 지우기 전까지 그 폴더에 남습니다." },
   sensor_web: { en: "this page", ko: "이 페이지" },
   sensor_extension: { en: "browser extension", ko: "브라우저 확장" },
   sensor_agent: { en: "desktop agent", ko: "데스크톱 에이전트" },
@@ -216,7 +216,7 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   link_reason_credential_absent: { en: "nothing is configured for this account", ko: "이 계정에 설정된 것이 없습니다" },
   link_reason_session_control_not_built: {
     en: "using a session you are already signed into is not built yet — nothing touches your browser",
-    ko: "이미 로그인된 세션을 사용하는 기능은 아직 없습니다 — 브라우저를 건드리지 않습니다",
+    ko: "이미 로그인된 세션을 사용하는 기능은 아직 없습니다. 브라우저를 건드리지 않습니다",
   },
   // presence states
   observing: { en: "observing", ko: "관찰 중" },
@@ -307,7 +307,7 @@ const CONTENT: Record<string, string> = {
   "getUser returns a user": "getUser가 사용자를 반환한다",
   "getUser handles missing id": "getUser가 없는 id를 처리한다",
   "`getUser` returns undefined — the `db.user` lookup likely misses. Confidence 78%.":
-    "`getUser`가 undefined 반환 — `db.user` 조회 실패 추정. 신뢰도 78%.",
+    "`getUser`가 undefined 반환. `db.user` 조회 실패 추정. 신뢰도 78%.",
   "Test run started": "테스트 실행 시작",
   "Suite failed": "스위트 실패",
   recurring: "반복 발생",
@@ -345,7 +345,7 @@ const CONTENT: Record<string, string> = {
   // augment cards (behavior-driven, no error involved)
   "Welcome back": "다시 오셨네요",
   "You were away. Nothing broke while you were gone — here is where you left off.":
-    "자리를 비우셨었네요. 그동안 깨진 것은 없습니다 — 여기서 이어가시면 됩니다.",
+    "자리를 비우셨었네요. 그동안 깨진 곳은 없습니다. 여기서 이어가시면 됩니다.",
   "You seem stuck on this": "여기서 막힌 것 같아요",
   "The same action has repeated several times. Related context is now beside your work.":
     "같은 행동이 여러 번 반복됐습니다. 관련 컨텍스트를 작업 옆에 두었습니다.",
