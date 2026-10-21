@@ -92,13 +92,21 @@ written to.
   A window title is written by the program that owns the window, so an instruction in one reaches
   the prompt — what protects the runtime is that whatever comes back is still only a reading.
 - **A picture larger than 4 MB is refused** before anything is sent.
+- **Taking the picture does not wait for the reading.** The photographer writes the frame, sends
+  `sensor.captured_window` and leaves; a worker reads one frame at a time behind it. Readings used
+  to happen inside the capture lock, so the next picture of *any* app waited on a model. If
+  readings fall behind, the **oldest** frames are dropped — the window somebody is in now is worth
+  more than the one they left two minutes ago — and each drop prints which app it was and how many
+  have gone unread. With `DM_SCREEN_READ` unset there is no worker and no queue at all.
 
 ## Notes
 
 - On startup the agent probes the runtime once and prints a single warning if it is unreachable
   (sensing stays best-effort — nothing crashes, events are dropped until it is up).
 - Events are sent **in observed order** (one in-flight request; parallel fetches can reorder a
-  recovery ahead of the failure it recovers from).
+  recovery ahead of the failure it recovers from). They are handed over with `?wait=0`, so the
+  runtime acknowledges them and runs the loop afterwards, still in the order they arrived — this
+  agent has no use for the world state and the morph that used to come back.
 - If a re-escalation lands inside the runtime's morph cooldown (e.g. tests fail again 1 s after
   going green), the runtime schedules one `runtime.reconcile` tick and the layout catches up a few
   seconds later — no extra output needed.

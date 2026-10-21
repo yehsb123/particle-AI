@@ -39,7 +39,7 @@ import { captureFileName, captureWith, defaultCaptureRegistry, readCaptureConfig
 // the brains, through their own abstraction: this agent names no AI service and never will —
 // which one reads a picture is the router's answer, and with no key it is the deterministic one
 import { IntelligenceRouter, buildDefaultProviders, readScreen, supportsVision, SCREEN_READING_PURPOSE } from "@particle/intelligence";
-import { relPath, isIgnored, identifier, ingestUrl, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
+import { relPath, isIgnored, identifier, ingestUrl, createReadQueue, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -262,9 +262,11 @@ async function photograph(app: string): Promise<void> {
       }),
     );
     process.stderr.write(`[particle-agent] photographed ${frame.app} · ${frame.width}x${frame.height} → ${frame.path}\n`);
-    // inside the lock on purpose: the next picture of this app waits for this reading to finish,
-    // so a slow brain cannot leave two readings of one window racing each other to the runtime
-    if (brain) await readWindow(frame);
+    // Queued, not read here. The reading takes as long as a model takes, and doing it inside
+    // this lock meant the next picture of ANY app waited on it: the camera stopped taking
+    // pictures because a model was thinking. The queue still reads one at a time, which is what
+    // the lock was actually protecting - two readings of one window must not race to the runtime.
+    reads?.push(frame);
   } catch (err) {
     // a sense that cannot see something says so; it does not take the agent down with it, and an
     // unhandled rejection out of a background capture would do exactly that
@@ -286,6 +288,11 @@ async function photograph(app: string): Promise<void> {
  * startup, and only when somebody asked for reading.
  */
 let brain: IntelligenceRouter | null = null;
+/**
+ * The pictures waiting to be read, or null when nobody asked for reading - which is the
+ * default. No switch, no queue, no worker: this staying null IS the consent boundary.
+ */
+let reads: ReturnType<typeof createReadQueue<CaptureFrame>> | null = null;
 async function readWindow(frame: CaptureFrame): Promise<void> {
   if (!brain) return;
   let bytes: Buffer;
@@ -399,7 +406,17 @@ const brains = WANT_READ ? buildDefaultProviders(process.env) : [];
 const reader = screenReader(WANT_READ, sensingScreen, brains.filter(supportsVision).map((p) => p.id));
 // asking for reading and getting none is never silent; not asking for it is
 if (reader.note) process.stderr.write(reader.note + "\n");
-if (reader.run) brain = new IntelligenceRouter(brains);
+if (reader.run) {
+  brain = new IntelligenceRouter(brains);
+  reads = createReadQueue<CaptureFrame>((frame) => readWindow(frame), {
+    // A picture taken and never read leaves no trace anywhere else: the runtime never hears of
+    // it, and whoever turned reading on sees a gap in the readings with nothing to explain it.
+    onDrop: (frame, dropped) =>
+      process.stderr.write(`[particle-agent] ${frame.app} photographed but not read: readings are behind (${dropped} unread so far)\n`),
+    onError: (err) =>
+      process.stderr.write(`[particle-agent] a reading failed: ${err instanceof Error ? err.message : String(err)}\n`),
+  });
+}
 // tell the runtime what this sensor observes, so the body's "sensing" indicator is honest
 const layers = [
   ...(WATCH.length ? ["files"] : []),

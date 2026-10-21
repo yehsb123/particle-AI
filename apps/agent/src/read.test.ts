@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { KNOWN_EVENT_TYPES, MAX_SCREEN_SUMMARY, type ScreenReading } from "@particle/contracts";
-import { screenReadPayload, screenReader } from "./shape";
+import { MAX_PENDING_READS, createReadQueue, screenReadPayload, screenReader } from "./shape";
 
 const reading: ScreenReading = {
   activity: "messaging",
@@ -128,5 +128,122 @@ describe("what a reading reports to the runtime", () => {
   it("takes an escape sequence out of a window title before it reaches a log line", () => {
     const payload = screenReadPayload(reading, { ...source, window: `team\u001b[2J chat` });
     expect(payload.window).toBe("team[2J chat");
+  });
+});
+
+/**
+ * Taking a picture and having a model read it are two different speeds. The reading used to
+ * happen inside the capture lock, so the next picture of any app waited for a model to answer
+ * about the last one: at a minute between pictures that is invisible, at the one-second floor it
+ * is a camera that stops taking pictures because a model is thinking.
+ *
+ * So a picture is queued and the photographer leaves. One reading runs at a time — the point of
+ * the lock was never to protect the model, it was that two readings of one window racing each
+ * other reach the runtime in the wrong order — and when readings fall behind, the OLDEST frames
+ * go. A picture of the window somebody was in two minutes ago is not what the body needs.
+ */
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function gate(): { wait: Promise<void>; open: () => void } {
+  let open = () => {};
+  const wait = new Promise<void>((r) => (open = r));
+  return { wait, open };
+}
+
+describe("pictures waiting to be read", () => {
+  it("reads one at a time, in the order they were taken", async () => {
+    const read: string[] = [];
+    const queue = createReadQueue<string>(async (frame) => {
+      await sleep(frame === "a" ? 15 : 1);
+      read.push(frame);
+    });
+    queue.push("a");
+    queue.push("b");
+    await sleep(40);
+    expect(read).toEqual(["a", "b"]);
+  });
+
+  it("never has two readings in flight at once", async () => {
+    let running = 0;
+    let most = 0;
+    const held = gate();
+    const queue = createReadQueue<string>(async () => {
+      running += 1;
+      most = Math.max(most, running);
+      await held.wait;
+      running -= 1;
+    });
+    queue.push("a");
+    queue.push("b");
+    held.open();
+    await sleep(5);
+    expect(most).toBe(1);
+  });
+
+  it("lets the photographer go before the model has answered", async () => {
+    const held = gate();
+    const queue = createReadQueue<string>(() => held.wait);
+    queue.push("a"); // returns rather than waiting on the reading it just started
+    expect(queue.pending()).toBe(1);
+    held.open();
+    await sleep(5);
+    expect(queue.pending()).toBe(0);
+  });
+
+  it("drops the oldest frames when readings fall behind, and keeps the newest", async () => {
+    const read: string[] = [];
+    const held = gate();
+    const queue = createReadQueue<string>(
+      async (frame) => {
+        await held.wait;
+        read.push(frame);
+      },
+      { max: 2 },
+    );
+    for (const frame of ["reading", "old", "older", "new", "newest"]) queue.push(frame);
+    expect(queue.dropped()).toBe(2);
+    held.open();
+    await sleep(5);
+    expect(read).toEqual(["reading", "new", "newest"]);
+  });
+
+  it("says which frame it let go and how many that makes", async () => {
+    const letGo: { frame: string; total: number }[] = [];
+    const held = gate();
+    const queue = createReadQueue<string>(() => held.wait, { max: 1, onDrop: (frame, total) => letGo.push({ frame, total }) });
+    for (const frame of ["reading", "a", "b", "c"]) queue.push(frame);
+    expect(letGo).toEqual([
+      { frame: "a", total: 1 },
+      { frame: "b", total: 2 },
+    ]);
+    held.open();
+    await sleep(5);
+  });
+
+  it("keeps reading after one reading fails, and tells whoever asked to be told", async () => {
+    const errors: string[] = [];
+    const read: string[] = [];
+    const queue = createReadQueue<string>(
+      async (frame) => {
+        if (frame === "bad") throw new Error("the model refused");
+        read.push(frame);
+      },
+      { onError: (err) => errors.push(String(err)) },
+    );
+    queue.push("bad");
+    queue.push("good");
+    await sleep(5);
+    expect(read).toEqual(["good"]);
+    expect(errors).toEqual(["Error: the model refused"]);
+  });
+
+  it("holds a couple of frames by default — the newest window is the one worth reading", async () => {
+    const held = gate();
+    const queue = createReadQueue<string>(() => held.wait);
+    for (let i = 0; i < 2 + MAX_PENDING_READS; i += 1) queue.push(`frame${i}`);
+    expect(queue.pending()).toBe(MAX_PENDING_READS + 1); // the one in flight is not waiting
+    expect(queue.dropped()).toBe(1);
+    held.open();
+    await sleep(5);
   });
 });

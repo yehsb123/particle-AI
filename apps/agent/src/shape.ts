@@ -122,7 +122,7 @@ export function gitDirFrom(root: string, dotGitIsDir: boolean, dotGitText: strin
 }
 
 /**
- * Where an event is handed over - and the fact that this sensor is not waiting for the answer.
+ * Where an event is handed over — and the fact that this sensor is not waiting for the answer.
  *
  * The runtime runs a whole loop per event (world, significance, intent, a model call, permissions,
  * capabilities, the morph) before it answers, and this sensor held the connection open through all
@@ -523,6 +523,67 @@ export type ScreenReaderDecision = { run: boolean; note: string | null };
  * set, and leaving it out costs a sentence that is too careful rather than one that is untrue.
  */
 const IN_PROCESS_BRAINS = new Set(["mock"]);
+
+/**
+ * How many taken-but-unread pictures are held while a model is answering about another.
+ *
+ * Two, because the window in front is read every second and a reading takes as long as a model
+ * takes: a deeper queue would not catch up, it would read windows somebody left minutes ago and
+ * report them as what they are doing now. A backlog of screens is worth less the older it gets,
+ * which is the opposite of the transitions `createSendQueue` carries.
+ */
+export const MAX_PENDING_READS = 2;
+
+/**
+ * Pictures waiting for a model, one reading at a time, newest kept.
+ *
+ * Reading used to happen inside the capture lock, so the next picture of ANY app waited for a
+ * model to answer about the last one — the camera stopped taking pictures because a model was
+ * thinking. The lock was never there to protect the model: it was there so two readings of one
+ * window could not race each other to the runtime and arrive in the wrong order. That is what
+ * this keeps, and nothing else.
+ *
+ * At the ceiling the OLDEST frames go, and every one of them is counted: a sense that quietly
+ * stops reporting is the one failure this layer cannot afford, since nobody is watching a
+ * daemon's output waiting for a reading that is never coming.
+ */
+export function createReadQueue<T>(
+  read: (item: T) => Promise<void>,
+  options: { max?: number; onDrop?: (item: T, dropped: number) => void; onError?: (err: unknown) => void } = {},
+) {
+  const max = options.max ?? MAX_PENDING_READS;
+  const waiting: T[] = [];
+  let running = false;
+  let dropped = 0;
+
+  function pump(): void {
+    if (running || waiting.length === 0) return;
+    const next = waiting.shift() as T;
+    running = true;
+    void read(next)
+      .catch((err: unknown) => options.onError?.(err))
+      .finally(() => {
+        running = false;
+        pump();
+      });
+  }
+
+  return {
+    push(item: T): void {
+      if (waiting.length >= max) {
+        const oldest = waiting.shift() as T;
+        dropped += 1;
+        options.onDrop?.(oldest, dropped);
+      }
+      waiting.push(item);
+      pump();
+    },
+    /** Frames taken and not yet read, including the one a model is looking at. */
+    pending: () => waiting.length + (running ? 1 : 0),
+    /** How many were taken and never read, for an honest count rather than a silence. */
+    dropped: () => dropped,
+  };
+}
 
 /**
  * Taking a picture and reading one are two things to agree to, not one.
