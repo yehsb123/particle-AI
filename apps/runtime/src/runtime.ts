@@ -5,6 +5,7 @@ import { AuditLog } from "@particle/permission-engine";
 import { createLogger, TraceStore, type LogLevel } from "@particle/observability";
 import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import type { EventLogStore, SnapshotStore } from "@particle/persistence";
+import { EventDropped, SessionQueues, eventQueueMax } from "./queue";
 
 /** Messages the runtime publishes to connected clients. */
 import type { RuntimeMessage, RuntimeListener } from "@particle/contracts";
@@ -32,11 +33,31 @@ export class SessionRuntime {
   core: RuntimeCore;
   private listeners = new Set<RuntimeListener>();
 
+  /**
+   * One serial lane per session, so a sender that does not wait for an answer still gets its
+   * events folded into the belief in the order it observed them. The lane is also where a
+   * runtime that has fallen behind says so, out loud, instead of growing until it dies.
+   */
+  readonly queues: SessionQueues;
+
   constructor(
     private readonly now: () => string,
     private readonly eventLog?: EventLogStore,
     private readonly snapshotStore?: SnapshotStore,
+    queueMax: number = eventQueueMax(process.env),
   ) {
+    this.queues = new SessionQueues(queueMax, (sessionId, dropped) => {
+      // An event that was let go has to be visible somewhere a person looks, or the body simply
+      // stops reflecting part of what happened and nothing in the system ever says why.
+      this.audit.append({
+        id: this.auditId("dropped"),
+        at: this.now(),
+        sessionId,
+        kind: "events_dropped",
+        detail: { dropped, queueMax },
+      });
+      this.log.warn("events_dropped", { sessionId, dropped, queueMax });
+    });
     this.core = createRuntimeCoreFromEnv({
       iso: now,
       ms: () => {
@@ -72,8 +93,41 @@ export class SessionRuntime {
     return this.core.getBlueprint(sessionId);
   }
 
+  /**
+   * Hold something that arrived to the shared vocabulary, without running it.
+   *
+   * A caller that is not waiting for the loop still has to be told that what it sent was
+   * malformed, and the queue has to know the session name before it can put the event in that
+   * session's order — both happen here, before anything is queued.
+   */
+  parse(input: unknown): MatterEvent {
+    return MatterEventSchema.parse(input);
+  }
+
+  /** Put a validated event in its session's lane; resolves once the loop has run it. */
+  submit(event: MatterEvent): Promise<IngestResult> {
+    return this.queues.run(event.sessionId, () => this.runIngest(event));
+  }
+
+  /**
+   * The same, for a caller that has already been answered and gone.
+   *
+   * Nobody is left to hand a failure to, so it goes to the runtime's own log instead of being
+   * swallowed. A drop is not logged twice: the lane already wrote it to the trail.
+   */
+  accept(event: MatterEvent): void {
+    void this.submit(event).catch((err: unknown) => {
+      if (err instanceof EventDropped) return;
+      this.log.warn("ingest_failed", { sessionId: event.sessionId, eventId: event.id, error: (err as Error).message });
+    });
+  }
+
   async ingest(input: unknown): Promise<{ event: MatterEvent; result: IngestResult }> {
-    const event = MatterEventSchema.parse(input);
+    const event = this.parse(input);
+    return { event, result: await this.submit(event) };
+  }
+
+  private async runIngest(event: MatterEvent): Promise<IngestResult> {
     this.store.append(event);
     // Durable append is best-effort, exactly like the snapshots further down: the event is
     // already in the in-memory log, so letting a database outage throw here would abort the
@@ -150,7 +204,7 @@ export class SessionRuntime {
         this.log.warn("snapshot_save_failed", { sessionId: event.sessionId, error: (err as Error).message });
       }
     }
-    return { event, result };
+    return result;
   }
 
   async approve(approvalId: string) {

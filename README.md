@@ -154,6 +154,39 @@ machine; with a key, the picture goes to that provider. The agent prints which b
 before it starts and names the one that read after each picture. Unset `DM_SCREEN_READ` and
 pictures are taken and never read.
 
+## Sending events
+
+`POST /api/events` runs the whole loop for that event — world, significance, intent, a model
+call, permissions, capabilities, the morph — and answers with the result. That is what the body
+wants, and it is still the default.
+
+A **sensor** does not read that answer. The extension and the desktop agent report what they just
+observed and were holding the connection open through the entire loop, so one slow model call was
+one sensor that had stopped sensing. Both now send `?wait=0`:
+
+| Request | Answer |
+|---|---|
+| `POST /api/events` | `200` with the world state, decision, morph and the rest — unchanged |
+| `POST /api/events?wait=0` | `202 {"accepted":true,"eventId":"..."}`, and the event runs behind the ones before it |
+| `POST /api/events?wait=0` with a malformed event | `400` — not waiting for the answer is not the same as never hearing that the event was wrong |
+
+`?wait=0` is the only spelling. `wait=false` reads like "do not wait" to whoever typed it, so it
+is refused rather than guessed at.
+
+Either way a session's events are run **one at a time, in the order they arrived**: the loop folds
+each event into the belief the one before it left behind, and two of a session's events running at
+once would make the body depend on which model call answered first. Sessions never wait on each
+other.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `DM_EVENT_QUEUE_MAX` | `100` | how many events may be waiting for ONE session before the oldest are let go |
+
+A runtime that falls behind drops the **oldest** waiting events, and says so: an `events_dropped`
+record in that session's trail (`GET /api/sessions/:id/decisions`), a line in the runtime log, and
+a running count on `/health` (`queue: { waiting, dropped, queueMax }`). A caller that was waiting
+gets `503`, not a `200` that pretends the event ran.
+
 ## Runtime access control
 
 The runtime holds a shape-level record of what you did, so by default it only talks to you:

@@ -192,3 +192,18 @@ export const KNOWN_EVENT_TYPES = [
   "runtime.reconcile",
 ] as const;
 export type KnownEventType = (typeof KNOWN_EVENT_TYPES)[number];
+
+/**
+ * Whether whoever handed over an event is waiting for the loop's answer.
+ *
+ * A sensor is not: the browser extension and the desktop agent report what they just observed and
+ * have nothing to do with the world state, the decision or the morph that comes back — yet they
+ * held the connection open through all of it, so a slow model call was a sensor that had stopped
+ * sensing. A body IS waiting: the simulation lab draws exactly what the answer says.
+ *
+ * Saying nothing means waiting, which is what every caller written before this did. Only the two
+ * spellings below are understood: "wait=false" reads like "do not wait" to a person writing it,
+ * and guessing which of the two they meant is how an event quietly stops being answered.
+ */
+export const IngestWait = z.object({ wait: z.enum(["0", "1"]).optional() });
+export type IngestWait = z.infer<typeof IngestWait>;

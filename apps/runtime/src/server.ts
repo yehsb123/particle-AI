@@ -3,7 +3,8 @@ import websocket from "@fastify/websocket";
 import { createPersistence, type Persistence } from "@particle/persistence";
 import { describeProviders } from "@particle/intelligence";
 import { SessionRuntime } from "./runtime";
-import { SIM_EVENTS, simEvent, buildSimEvent, SessionId, MAX_IDENTIFIER, MAX_FAILURE_MESSAGE } from "@particle/contracts";
+import { EventDropped } from "./queue";
+import { SIM_EVENTS, simEvent, buildSimEvent, IngestWait, SessionId, MAX_IDENTIFIER, MAX_FAILURE_MESSAGE } from "@particle/contracts";
 
 export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence };
 
@@ -24,6 +25,9 @@ function isoNow(): string {
  */
 type ZodIssue = { path?: unknown[]; code?: string; expected?: string };
 export function ingestFailure(err: unknown): { code: number; body: { error: string } } {
+  // A runtime that is behind is not a runtime that broke. 500 tells a sensor nothing it can act
+  // on; 503 says the loop is full, which is the one thing that would make it ease off.
+  if (err instanceof EventDropped) return { code: 503, body: { error: "the session queue is full" } };
   const name = (err as { name?: string })?.name;
   if (name !== "ZodError") return { code: 500, body: { error: "internal error" } };
   const issues = (err as { issues?: ZodIssue[] }).issues ?? [];
@@ -39,6 +43,16 @@ export function ingestFailure(err: unknown): { code: number; body: { error: stri
 
 /** Enough for a caller to see the shape of what is wrong without reading a wall of them. */
 const MAX_REPORTED_ISSUES = 10;
+
+/**
+ * Did the caller say it is not waiting? A query string is outside data like any other, so it is
+ * parsed rather than read: a spelling nobody defined is refused to the caller's face instead of
+ * being treated as "wait", which is how somebody writing `wait=false` would have gone on holding
+ * the connection open and never found out why.
+ */
+export function wantsAsync(query: unknown): boolean {
+  return IngestWait.parse(query ?? {}).wait === "0";
+}
 
 /**
  * A session name arriving in a URL never passes through an event schema, so this is where it is
@@ -124,7 +138,15 @@ export async function buildServer(): Promise<BuildResult> {
     }
   });
 
-  app.get("/health", async () => ({ ok: true, events: runtime.store.count(), backend: persistence.backend }));
+  // The queue is in here because a runtime that is dropping events is still "ok" by every other
+  // measure it reports: the process is up, the database answers, and part of what happened to
+  // somebody never reached their body. A probe that cannot see that is a probe that reassures.
+  app.get("/health", async () => ({
+    ok: true,
+    events: runtime.store.count(),
+    backend: persistence.backend,
+    queue: { waiting: runtime.queues.waiting(), dropped: runtime.queues.dropped(), queueMax: runtime.queues.limit },
+  }));
 
   app.get("/api/brain", async () => ({ providers: await describeProviders(process.env) }));
 
@@ -138,7 +160,16 @@ export async function buildServer(): Promise<BuildResult> {
 
   app.post("/api/events", async (req, reply) => {
     try {
-      const { event, result } = await runtime.ingest(req.body);
+      const letGo = wantsAsync(req.query);
+      // Validated before anything is queued: a caller that is not waiting for the loop still has
+      // to hear that what it sent was malformed, since nothing else will ever tell it.
+      const event = runtime.parse(req.body);
+      if (letGo) {
+        runtime.accept(event);
+        reply.code(202);
+        return { accepted: true, eventId: event.id };
+      }
+      const result = await runtime.submit(event);
       return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
     } catch (err) {
       const { code, body } = ingestFailure(err);
