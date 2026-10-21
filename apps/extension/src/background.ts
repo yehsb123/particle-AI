@@ -17,6 +17,8 @@ import {
   createSendQueue,
   identifier,
   ingestUrl,
+  dropNotice,
+  droppedFromAck,
   hostOf,
   networkSeverity,
   matterEvent,
@@ -63,18 +65,34 @@ chrome.storage.onChanged.addListener((changes, area) => {
   });
 });
 
+/**
+ * How many of this session's events the runtime last said it had let go.
+ *
+ * MV3 throws this worker away after thirty idle seconds, so the number starts again at zero on
+ * the next wake and a loss can be reported twice. Reporting it twice is the cheap mistake; the
+ * expensive one is a sensor that never says its observations are being thrown away.
+ */
+let dropsHeard = 0;
+
 // Sends are serialized so events arrive in the order they were observed (a recovery must not
 // overtake the failure it recovers from). One in-flight request at a time, best-effort.
 const queue = createSendQueue(async (event) => {
   await ready; // never send before consent has been read
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (token) headers["x-particle-token"] = token;
-  await fetch(ingestUrl(runtimeUrl), {
+  const res = await fetch(ingestUrl(runtimeUrl), {
     method: "POST",
     headers,
     body: JSON.stringify(event),
     signal: AbortSignal.timeout(5_000), // browser fetch has no default timeout — never wedge the queue
   });
+  // The runtime answers 202 without running the event, so arriving no longer means it survived.
+  // The acknowledgement carries what this session has lost under load, and a sensor that does not
+  // read it cannot tell that part of what it observed is being thrown away.
+  const ack = await res.json().catch(() => null);
+  const heard = dropNotice(dropsHeard, droppedFromAck(ack));
+  dropsHeard = heard.seen;
+  if (heard.note) console.warn(heard.note);
 }, {
   // Say when an event did not make it. The queue is best-effort by design and does not retry, so
   // without this a lost event left no trace anywhere: not in the runtime, which never saw it, and

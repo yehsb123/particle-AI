@@ -39,7 +39,7 @@ import { captureFileName, captureWith, defaultCaptureRegistry, readCaptureConfig
 // the brains, through their own abstraction: this agent names no AI service and never will —
 // which one reads a picture is the router's answer, and with no key it is the deterministic one
 import { IntelligenceRouter, buildDefaultProviders, readScreen, supportsVision, SCREEN_READING_PURPOSE } from "@particle/intelligence";
-import { relPath, isIgnored, identifier, ingestUrl, createReadQueue, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
+import { relPath, isIgnored, identifier, ingestUrl, createReadQueue, dropNotice, droppedFromAck, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -60,6 +60,8 @@ const CAPTURE = readCaptureConfig(process.env);
 // Off, and with it off a frame stays on the disk it was written to and no model is handed it.
 const WANT_READ = envFlag(process.env.DM_SCREEN_READ, "DM_SCREEN_READ");
 
+// How many of this session's events the runtime has said it let go, the last time it said so.
+let dropsHeard = 0;
 // Sends are serialized: transitions are meaningful only in ORDER (failed → ok → failed), and
 // parallel fetches may arrive reordered. One in-flight request at a time, best-effort.
 const queue = createSendQueue(async (event) => {
@@ -73,7 +75,15 @@ const queue = createSendQueue(async (event) => {
   });
   if (!res.ok) {
     process.stderr.write(`[particle-agent] runtime rejected ${(event as { type?: string }).type}: ${res.status}\n`);
+    return;
   }
+  // The runtime answers 202 without running the event, so the status no longer says whether it
+  // survived. The acknowledgement carries what this session has lost; without reading it, an
+  // agent whose observations were being thrown away under load would never say a word.
+  const ack = await res.json().catch(() => null);
+  const heard = dropNotice(dropsHeard, droppedFromAck(ack));
+  dropsHeard = heard.seen;
+  if (heard.note) process.stderr.write(heard.note + "\n");
 });
 function send(event: ReturnType<typeof matterEvent>): Promise<void> {
   return queue.send(event);

@@ -134,6 +134,39 @@ export function ingestUrl(runtimeUrl: string): string {
   return `${runtimeUrl}/api/events?wait=0`;
 }
 
+/**
+ * How many of this session's events the runtime has let go, read out of its acknowledgement.
+ *
+ * Since this sensor stopped waiting for the loop, every answer is a 202 whether the event ran or
+ * was thrown away under load, so `res.ok` says nothing about either. The count is the one thing
+ * that still comes back, and it is read strictly rather than trusted: the body of an answer is
+ * outside data like any other, and a proxy's error page or an older runtime is not a count.
+ *
+ * This module takes no runtime dependencies on purpose - reviewing it is reviewing what can leave
+ * the machine - so the check is spelled out here instead of being handed to a schema library.
+ */
+export function droppedFromAck(body: unknown): number | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const n = (body as { dropped?: unknown }).dropped;
+  return typeof n === "number" && Number.isSafeInteger(n) && n >= 0 ? n : null;
+}
+
+/**
+ * One line, the moment the count goes up, and silence otherwise.
+ *
+ * A count that went DOWN is a runtime that restarted, not events coming back, so it is followed
+ * without a word rather than reported as a recovery.
+ */
+export function dropNotice(seen: number, reported: number | null): { seen: number; note: string | null } {
+  if (reported === null) return { seen, note: null };
+  if (reported <= seen) return { seen: reported, note: null };
+  const now = reported - seen;
+  return {
+    seen: reported,
+    note: `[particle-agent] the runtime let go of ${now} more of this session's events (${reported} in total): it is behind, and what they observed is gone`,
+  };
+}
+
 /** One-line startup warning when the runtime is unreachable (sensing stays best-effort). */
 export function healthWarning(runtimeUrl: string, reachable: boolean): string | null {
   return reachable ? null : `[particle-agent] runtime not reachable at ${runtimeUrl} — events are dropped until it is up (pnpm runtime)`;

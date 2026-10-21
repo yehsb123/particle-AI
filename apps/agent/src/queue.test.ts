@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSendQueue, ingestUrl } from "./shape";
+import { createSendQueue, dropNotice, droppedFromAck, ingestUrl } from "./shape";
 
 /**
  * What the agent sends are transitions — tests started failing, tests pass again — and a
@@ -170,5 +170,54 @@ describe("whether this sensor waits for the loop", () => {
 
   it("hands over to wherever the agent was pointed", () => {
     expect(ingestUrl("http://192.168.1.20:8787")).toBe("http://192.168.1.20:8787/api/events?wait=0");
+  });
+});
+
+/**
+ * The runtime acknowledges with 202 and never waits, so `res.ok` is true whether the loop ran the
+ * event or threw it away under load. The only thing that still travels back is the count of this
+ * session's losses, and a sensor that does not read it cannot tell that it is half-deaf.
+ */
+describe("hearing that the runtime let an event go", () => {
+  it("reads the count out of the acknowledgement", () => {
+    expect(droppedFromAck({ accepted: true, eventId: "e1", dropped: 3 })).toBe(3);
+    expect(droppedFromAck({ accepted: true, eventId: "e1", dropped: 0 })).toBe(0);
+  });
+
+  it("reads nothing at all out of an answer that does not carry one", () => {
+    // the synchronous answer, an older runtime, an error page, a proxy's html
+    for (const body of [{ accepted: true, eventId: "e1" }, {}, null, undefined, "accepted", 7, []]) {
+      expect(droppedFromAck(body), JSON.stringify(body) ?? "undefined").toBeNull();
+    }
+  });
+
+  it("refuses a count that is not a count, rather than printing it", () => {
+    for (const bad of ["3", -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, { n: 3 }, null]) {
+      expect(droppedFromAck({ dropped: bad }), JSON.stringify(bad) ?? "undefined").toBeNull();
+    }
+  });
+
+  it("says nothing while the count is standing still", () => {
+    expect(dropNotice(0, 0)).toEqual({ seen: 0, note: null });
+    expect(dropNotice(4, 4)).toEqual({ seen: 4, note: null });
+    expect(dropNotice(4, null)).toEqual({ seen: 4, note: null });
+  });
+
+  it("says one line when it has gone up, with how many went this time and in total", () => {
+    const { seen, note } = dropNotice(4, 7);
+    expect(seen).toBe(7);
+    expect(note).toContain("3");
+    expect(note).toContain("7");
+  });
+
+  it("starts saying so from the first one lost", () => {
+    const { seen, note } = dropNotice(0, 1);
+    expect(seen).toBe(1);
+    expect(note).not.toBeNull();
+  });
+
+  /** A runtime that restarted begins again at zero; that is not an event coming back. */
+  it("follows the count down without claiming anything was recovered", () => {
+    expect(dropNotice(9, 2)).toEqual({ seen: 2, note: null });
   });
 });

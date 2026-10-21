@@ -107,6 +107,11 @@ written to.
   recovery ahead of the failure it recovers from). They are handed over with `?wait=0`, so the
   runtime acknowledges them and runs the loop afterwards, still in the order they arrived — this
   agent has no use for the world state and the morph that used to come back.
+- **An acknowledged event can still be dropped.** The runtime answers before it runs anything, and
+  a runtime that has fallen behind lets the oldest waiting events of a session go. Its
+  acknowledgement carries how many of this session's events it has lost, and the agent prints one
+  line whenever that number goes up — `the runtime let go of N more of this session's events`. It
+  is not retried: what that observation saw is gone.
 - If a re-escalation lands inside the runtime's morph cooldown (e.g. tests fail again 1 s after
   going green), the runtime schedules one `runtime.reconcile` tick and the layout catches up a few
   seconds later — no extra output needed.
