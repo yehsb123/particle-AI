@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSendQueue } from "./shape";
+import { createSendQueue, ingestUrl } from "./shape";
 
 /**
  * What the agent sends are transitions — tests started failing, tests pass again — and a
@@ -155,5 +155,20 @@ describe("a far end that has stopped answering entirely", () => {
     expect(queue.dropped()).toBe(20);
     release();
     await sleep(5);
+  });
+});
+
+/**
+ * This agent reports what it just sensed; what the loop decides is the body's business. Waiting
+ * for the whole loop to answer meant a slow model call was an agent that had stopped sensing —
+ * and with the capture layer on, the window in front goes unread for exactly that long.
+ */
+describe("whether this sensor waits for the loop", () => {
+  it("does not, and says so where the event is handed over", () => {
+    expect(ingestUrl("http://localhost:8787")).toBe("http://localhost:8787/api/events?wait=0");
+  });
+
+  it("hands over to wherever the agent was pointed", () => {
+    expect(ingestUrl("http://192.168.1.20:8787")).toBe("http://192.168.1.20:8787/api/events?wait=0");
   });
 });

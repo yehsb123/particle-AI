@@ -39,7 +39,7 @@ import { captureFileName, captureWith, defaultCaptureRegistry, readCaptureConfig
 // the brains, through their own abstraction: this agent names no AI service and never will —
 // which one reads a picture is the router's answer, and with no key it is the deterministic one
 import { IntelligenceRouter, buildDefaultProviders, readScreen, supportsVision, SCREEN_READING_PURPOSE } from "@particle/intelligence";
-import { relPath, isIgnored, identifier, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
+import { relPath, isIgnored, identifier, ingestUrl, matterEvent, OutputTracker, branchFromHead, gitDirFrom, healthWarning, createSendQueue, envNumber, envFlag, windowScript, windowSensor, WindowTracker, parseWindowLine, windowShape, captureApps, CaptureSchedule, screenLayers, screenSensor, screenReader, screenReadPayload, type Signal, type WindowShape } from "./shape";
 
 const RUNTIME = process.env.DM_RUNTIME_URL ?? "http://localhost:8787";
 const SESSION = process.env.DM_AGENT_SESSION ?? "desktop";
@@ -65,7 +65,7 @@ const WANT_READ = envFlag(process.env.DM_SCREEN_READ, "DM_SCREEN_READ");
 const queue = createSendQueue(async (event) => {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (TOKEN) headers["x-particle-token"] = TOKEN;
-  const res = await fetch(`${RUNTIME}/api/events`, {
+  const res = await fetch(ingestUrl(RUNTIME), {
     method: "POST",
     headers,
     body: JSON.stringify(event),

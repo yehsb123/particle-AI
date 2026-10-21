@@ -16,6 +16,7 @@ import {
   relayPayload,
   createSendQueue,
   identifier,
+  ingestUrl,
   hostOf,
   networkSeverity,
   matterEvent,
@@ -68,7 +69,7 @@ const queue = createSendQueue(async (event) => {
   await ready; // never send before consent has been read
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (token) headers["x-particle-token"] = token;
-  await fetch(`${runtimeUrl}/api/events`, {
+  await fetch(ingestUrl(runtimeUrl), {
     method: "POST",
     headers,
     body: JSON.stringify(event),

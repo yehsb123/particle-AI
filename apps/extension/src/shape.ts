@@ -63,6 +63,19 @@ export function runtimeUrlFrom(typed: unknown): { url: string; fellBack: boolean
   }
 }
 
+/**
+ * Where an event is handed over — and the fact that this sensor is not waiting for the answer.
+ *
+ * The runtime runs a whole loop per event (world, significance, intent, a model call, permissions,
+ * capabilities, the morph) before it answers, and this sensor held the connection open through all
+ * of it for a result it never reads. `wait=0` gets an acknowledgement instead; the event is still
+ * run, in the order this sensor sent it. The runtime answers the old way when nobody says this,
+ * which is what the body wants and what every caller written before this did.
+ */
+export function ingestUrl(runtimeUrl: string): string {
+  return `${runtimeUrl}/api/events?wait=0`;
+}
+
 export function hostOf(url: string): string {
   try {
     const u = new URL(url);

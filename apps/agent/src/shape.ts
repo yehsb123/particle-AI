@@ -121,6 +121,19 @@ export function gitDirFrom(root: string, dotGitIsDir: boolean, dotGitText: strin
   return resolvePath(root, named);
 }
 
+/**
+ * Where an event is handed over - and the fact that this sensor is not waiting for the answer.
+ *
+ * The runtime runs a whole loop per event (world, significance, intent, a model call, permissions,
+ * capabilities, the morph) before it answers, and this sensor held the connection open through all
+ * of it for a result it never reads. `wait=0` gets an acknowledgement instead; the event is still
+ * run, in the order this sensor sent it. The runtime answers the old way when nobody says this,
+ * which is what the body wants and what every caller written before this did.
+ */
+export function ingestUrl(runtimeUrl: string): string {
+  return `${runtimeUrl}/api/events?wait=0`;
+}
+
 /** One-line startup warning when the runtime is unreachable (sensing stays best-effort). */
 export function healthWarning(runtimeUrl: string, reachable: boolean): string | null {
   return reachable ? null : `[particle-agent] runtime not reachable at ${runtimeUrl} — events are dropped until it is up (pnpm runtime)`;

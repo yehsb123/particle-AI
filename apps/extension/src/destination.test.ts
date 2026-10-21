@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { runtimeUrlFrom, DEFAULT_RUNTIME_URL } from "./shape";
+import { ingestUrl, runtimeUrlFrom, DEFAULT_RUNTIME_URL } from "./shape";
 
 /**
  * Where this sensor sends what it observes was decided by a prefix test rather than by parsing.
@@ -57,5 +57,21 @@ describe("where the sensor will send what it sees", () => {
     for (const typed of ["file:///etc/passwd", "chrome-extension://abc/x", "data:text/plain,hi", "ws://localhost:8787"]) {
       expect(runtimeUrlFrom(typed).url, typed).toBe(DEFAULT_RUNTIME_URL);
     }
+  });
+});
+
+/**
+ * This sensor reports what it just saw and has nothing to do with the answer: the world state,
+ * the decision and the morph that come back belong to the body, not to a service worker MV3 kills
+ * after thirty idle seconds. It was holding the connection open through the whole loop anyway, so
+ * one slow model call was one sensor that had stopped sensing.
+ */
+describe("whether this sensor waits for the loop", () => {
+  it("does not, and says so where the event is handed over", () => {
+    expect(ingestUrl("http://localhost:8787")).toBe("http://localhost:8787/api/events?wait=0");
+  });
+
+  it("hands over to wherever the sensor was pointed", () => {
+    expect(ingestUrl(runtimeUrlFrom("http://192.168.1.20:8787/").url)).toBe("http://192.168.1.20:8787/api/events?wait=0");
   });
 });
