@@ -167,11 +167,16 @@ one sensor that had stopped sensing. Both now send `?wait=0`:
 | Request | Answer |
 |---|---|
 | `POST /api/events` | `200` with the world state, decision, morph and the rest — unchanged |
-| `POST /api/events?wait=0` | `202 {"accepted":true,"eventId":"..."}`, and the event runs behind the ones before it |
+| `POST /api/events?wait=0` | `202 {"accepted":true,"eventId":"...","dropped":0}`, and the event runs behind the ones before it |
 | `POST /api/events?wait=0` with a malformed event | `400` — not waiting for the answer is not the same as never hearing that the event was wrong |
 
 `?wait=0` is the only spelling. `wait=false` reads like "do not wait" to whoever typed it, so it
 is refused rather than guessed at.
+
+`dropped` is how many of **that session's** events this runtime has let go since it started, and
+it is the only thing still travelling back to a sender that no longer waits — a 202 arrives
+whether the loop ran the event or threw it away. Both sensors watch the number and say one line
+when it goes up.
 
 Either way a session's events are run **one at a time, in the order they arrived**: the loop folds
 each event into the belief the one before it left behind, and two of a session's events running at
@@ -183,9 +188,14 @@ other.
 | `DM_EVENT_QUEUE_MAX` | `100` | how many events may be waiting for ONE session before the oldest are let go |
 
 A runtime that falls behind drops the **oldest** waiting events, and says so: an `events_dropped`
-record in that session's trail (`GET /api/sessions/:id/decisions`), a line in the runtime log, and
-a running count on `/health` (`queue: { waiting, dropped, queueMax }`). A caller that was waiting
-gets `503`, not a `200` that pretends the event ran.
+record in that session's trail (`GET /api/sessions/:id/decisions`) naming the event id that was
+lost and how many that session has lost in all, a line in the runtime log, a running count on
+`/health` (`queue: { waiting, dropped, queueMax }`), and `dropped` on every acknowledgement. A
+caller that was waiting gets `503`, not a `200` that pretends the event ran.
+
+What a session lost outlives its queue: the queue is thrown away the moment the session goes
+quiet, the count is not. Counts are kept for the thousand sessions that most recently lost
+something — a session name comes from outside, so even a number per name has to be bounded.
 
 ## Runtime access control
 

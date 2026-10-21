@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import type { MatterEvent } from "@particle/contracts";
+import type { EventLogStore } from "@particle/persistence";
 import { buildServer, ingestFailure, wantsAsync } from "./server";
 import { EventDropped } from "./queue";
 import { SessionRuntime } from "./runtime";
@@ -63,10 +65,35 @@ describe("POST /api/events", () => {
     expect(body.morph.applied).toBe(true);
   });
 
-  it("acknowledges and lets go when the caller is not waiting", async () => {
+  /**
+   * The acknowledgement carries how many of this session's events the runtime has let go, because
+   * that is the only thing travelling back to a sender that no longer waits for anything. Without
+   * it a sensor whose observations were being thrown away saw a 202 every time, and the only
+   * record of the loss was in a log nobody running a daemon is reading.
+   */
+  it("acknowledges and lets go when the caller is not waiting, and says what it has lost", async () => {
     const res = await app.inject({ method: "POST", url: "/api/events?wait=0", payload: event("async-1") });
     expect(res.statusCode).toBe(202);
-    expect(res.json()).toEqual({ accepted: true, eventId: "async-1" });
+    expect(res.json()).toEqual({ accepted: true, eventId: "async-1", dropped: 0 });
+  });
+
+  it("counts this session's losses in the acknowledgement, not the whole runtime's", async () => {
+    process.env.DM_EVENT_QUEUE_MAX = "1";
+    const built = await buildServer();
+    try {
+      await built.app.ready();
+      const lost = [1, 2, 3, 4].map((n) =>
+        built.runtime.submit(built.runtime.parse(event(`lost-${n}`, "qa4"))).catch(() => undefined),
+      );
+      await Promise.all(lost);
+      const mine = await built.app.inject({ method: "POST", url: "/api/events?wait=0", payload: event("mine", "qa4") });
+      expect(mine.json()).toEqual({ accepted: true, eventId: "mine", dropped: 2 });
+      const other = await built.app.inject({ method: "POST", url: "/api/events?wait=0", payload: event("other", "qa5") });
+      expect(other.json()).toEqual({ accepted: true, eventId: "other", dropped: 0 });
+    } finally {
+      delete process.env.DM_EVENT_QUEUE_MAX;
+      await built.app.close();
+    }
   });
 
   /** An acknowledgement is not a promise that it was ignored: the loop runs it, just not now. */
@@ -77,23 +104,58 @@ describe("POST /api/events", () => {
       .toBeGreaterThan(0);
   });
 
-  it("runs a session's events in the order they arrived, however fast it answered", async () => {
-    for (const id of ["ord-1", "ord-2", "ord-3"]) {
-      const res = await app.inject({ method: "POST", url: "/api/events?wait=0", payload: event(id, "qa3") });
-      expect(res.statusCode).toBe(202);
-    }
-    await expect
-      .poll(async () => {
-        const { events } = (await app.inject({ method: "GET", url: "/api/sessions/qa3/events" })).json();
-        return (events as { id: string }[]).map((e) => e.id);
-      })
-      .toEqual(["ord-1", "ord-2", "ord-3"]);
-  });
-
   /** Not waiting for the answer is not the same as never hearing that the event was malformed. */
   it("still refuses a malformed event to its face", async () => {
     const res = await app.inject({ method: "POST", url: "/api/events?wait=0", payload: { id: "x" } });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+/**
+ * Three acknowledged events are three events the runtime is now holding, and nothing about HTTP
+ * keeps them apart once it has answered 202 to all three. What keeps them in order is the lane.
+ *
+ * An earlier version of this test posted them one at a time and read the log back, which proved
+ * nothing: the requests were already serial, and the first thing the loop does with an event is
+ * append it synchronously, so the order came out right with the lane taken out entirely. This one
+ * holds the first event inside the loop, hands over the second and third while it is still in
+ * there, and watches where they come out.
+ */
+describe("events that arrive while the loop is still busy", () => {
+  class SlowFirstLog implements EventLogStore {
+    readonly finished: string[] = [];
+    private events: MatterEvent[] = [];
+    constructor(private readonly slowFor: string, private readonly delayMs: number) {}
+    async append(event: MatterEvent): Promise<void> {
+      if (event.id === this.slowFor) await new Promise<void>((r) => setTimeout(r, this.delayMs));
+      this.events.push(event);
+      this.finished.push(event.id);
+    }
+    async listBySession(sessionId: string): Promise<MatterEvent[]> {
+      return this.events.filter((e) => e.sessionId === sessionId);
+    }
+    async all(): Promise<MatterEvent[]> {
+      return [...this.events];
+    }
+  }
+
+  it("runs them in the order they arrived, not in the order they happen to finish", async () => {
+    const log = new SlowFirstLog("ord-1", 30);
+    const runtime = new SessionRuntime(() => new Date().toISOString(), log);
+    // all three handed over in one turn, the way three 202s leave the server
+    const all = ["ord-1", "ord-2", "ord-3"].map((id) => runtime.submit(runtime.parse(event(id, "qa3"))));
+    await Promise.all(all);
+    expect(log.finished).toEqual(["ord-1", "ord-2", "ord-3"]);
+  });
+
+  it("keeps one session's slow event from holding up another session", async () => {
+    const log = new SlowFirstLog("slow-1", 30);
+    const runtime = new SessionRuntime(() => new Date().toISOString(), log);
+    const slow = runtime.submit(runtime.parse(event("slow-1", "qa6")));
+    await runtime.submit(runtime.parse(event("quick-1", "qa7")));
+    expect(log.finished).toEqual(["quick-1"]);
+    await slow;
+    expect(log.finished).toEqual(["quick-1", "slow-1"]);
   });
 });
 
@@ -112,6 +174,8 @@ describe("a session that is sending faster than the loop can run", () => {
     expect(dropped).toHaveLength(2);
     expect(dropped.map((a) => a.sessionId)).toEqual(["qd1", "qd1"]);
     expect(dropped.map((a) => a.detail.dropped)).toEqual([1, 2]);
+    // which observation went, not only how many: a count alone cannot be matched to anything
+    expect(dropped.map((a) => a.detail.eventId)).toEqual(["drop-2", "drop-3"]);
     expect(dropped[0]!.detail.queueMax).toBe(1);
   });
 
@@ -120,7 +184,7 @@ describe("a session that is sending faster than the loop can run", () => {
     const running = runtime.submit(runtime.parse(ev(1)));
     const letGo = runtime.submit(runtime.parse(ev(2)));
     const kept = runtime.submit(runtime.parse(ev(3)));
-    await expect(letGo).rejects.toMatchObject({ name: "EventDropped", sessionId: "qd1" });
+    await expect(letGo).rejects.toMatchObject({ name: "EventDropped", sessionId: "qd1", eventId: "drop-2" });
     await Promise.all([running, kept]);
   });
 
@@ -129,7 +193,7 @@ describe("a session that is sending faster than the loop can run", () => {
    * reason to ease off, which is the one thing that would help.
    */
   it("answers a caller whose event was let go with 503, not with a 500 that blames the server", () => {
-    expect(ingestFailure(new EventDropped("qd1"))).toEqual({
+    expect(ingestFailure(new EventDropped("qd1", "drop-2"))).toEqual({
       code: 503,
       body: { error: "the session queue is full" },
     });

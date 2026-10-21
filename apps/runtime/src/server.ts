@@ -167,7 +167,10 @@ export async function buildServer(): Promise<BuildResult> {
       if (letGo) {
         runtime.accept(event);
         reply.code(202);
-        return { accepted: true, eventId: event.id };
+        // The acknowledgement is the only thing that still travels back to a sender that no
+        // longer waits, so what this session has LOST rides on it. Read after the event is
+        // queued, because queueing it is what may have pushed an older one out.
+        return { accepted: true, eventId: event.id, dropped: runtime.queues.droppedFor(event.sessionId) };
       }
       const result = await runtime.submit(event);
       return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };

@@ -46,17 +46,19 @@ export class SessionRuntime {
     private readonly snapshotStore?: SnapshotStore,
     queueMax: number = eventQueueMax(process.env),
   ) {
-    this.queues = new SessionQueues(queueMax, (sessionId, dropped) => {
+    this.queues = new SessionQueues(queueMax, ({ sessionId, eventId, droppedForSession }) => {
       // An event that was let go has to be visible somewhere a person looks, or the body simply
-      // stops reflecting part of what happened and nothing in the system ever says why.
+      // stops reflecting part of what happened and nothing in the system ever says why. The id
+      // goes in because a running count cannot be matched to anything: with it, the observation
+      // that never arrived can be found in whatever the sensor itself kept.
       this.audit.append({
         id: this.auditId("dropped"),
         at: this.now(),
         sessionId,
         kind: "events_dropped",
-        detail: { dropped, queueMax },
+        detail: { dropped: droppedForSession, eventId, queueMax },
       });
-      this.log.warn("events_dropped", { sessionId, dropped, queueMax });
+      this.log.warn("events_dropped", { sessionId, eventId, dropped: droppedForSession, queueMax });
     });
     this.core = createRuntimeCoreFromEnv({
       iso: now,
@@ -106,7 +108,7 @@ export class SessionRuntime {
 
   /** Put a validated event in its session's lane; resolves once the loop has run it. */
   submit(event: MatterEvent): Promise<IngestResult> {
-    return this.queues.run(event.sessionId, () => this.runIngest(event));
+    return this.queues.run(event.sessionId, event.id, () => this.runIngest(event));
   }
 
   /**
