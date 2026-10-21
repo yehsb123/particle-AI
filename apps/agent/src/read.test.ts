@@ -237,6 +237,30 @@ describe("pictures waiting to be read", () => {
     expect(errors).toEqual(["Error: the model refused"]);
   });
 
+  /**
+   * A reader that throws before it ever returns a promise used to leave the worker marked busy
+   * with nobody reading: every frame after it queued behind work that had already failed, and
+   * the layer stopped without a word. The readers here are async, but this is an export.
+   */
+  it("does not wedge when a reader throws before it returns a promise", async () => {
+    const errors: string[] = [];
+    const read: string[] = [];
+    const queue = createReadQueue<string>(
+      (frame) => {
+        if (frame === "bad") throw new Error("thrown, not rejected");
+        read.push(frame);
+        return Promise.resolve();
+      },
+      { onError: (err) => errors.push(String(err)) },
+    );
+    queue.push("bad");
+    queue.push("good");
+    await sleep(5);
+    expect(read).toEqual(["good"]);
+    expect(errors).toEqual(["Error: thrown, not rejected"]);
+    expect(queue.pending()).toBe(0);
+  });
+
   it("holds a couple of frames by default — the newest window is the one worth reading", async () => {
     const held = gate();
     const queue = createReadQueue<string>(() => held.wait);

@@ -593,7 +593,11 @@ export function createReadQueue<T>(
     if (running || waiting.length === 0) return;
     const next = waiting.shift() as T;
     running = true;
-    void read(next)
+    // `read` may throw rather than reject - a synchronous failure before it ever returns a
+    // promise. Left to escape, it would take `pump` down with it and leave the worker marked busy
+    // with nobody reading, so every frame after it would queue behind work that had already
+    // failed and this layer would stop for good without saying anything.
+    void (async () => await read(next))()
       .catch((err: unknown) => options.onError?.(err))
       .finally(() => {
         running = false;
