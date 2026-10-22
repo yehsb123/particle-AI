@@ -243,6 +243,31 @@ DM_EVENT_BUS=kafka pnpm runtime
 docker compose --profile kafka down        # stop it again
 ```
 
+There is a second broker in the compose file that asks who you are, off unless you name it. It
+speaks SASL/PLAIN on loopback with one user, so that "the runtime authenticates" can be watched
+happening instead of believed:
+
+```bash
+docker compose --profile kafka-sasl up -d kafka-sasl   # 127.0.0.1:9094, user `runtime`, password `dm`
+DM_EVENT_BUS=kafka DM_KAFKA_BROKERS=127.0.0.1:9094   DM_KAFKA_SASL_MECHANISM=plain DM_KAFKA_SASL_USERNAME=runtime DM_KAFKA_SASL_PASSWORD=dm pnpm runtime
+docker compose --profile kafka-sasl down               # stop it again
+```
+
+It is `SASL_PLAINTEXT`, not `SASL_SSL`: the password crosses a loopback socket in the clear,
+which is the one place that is not a mistake. A real shared broker's listener is `SASL_SSL` and
+the runtime is given `DM_KAFKA_SSL=1` as well.
+
+A password that does not match stops the runtime, and the message says the broker refused the
+login rather than sending somebody to start a broker that is already up. The password is in
+neither the message nor the log, there or anywhere else:
+
+```
+Error: DM_EVENT_BUS=kafka reached the broker at 127.0.0.1:9094, and it refused this runtime's
+login as runtime over plain: SASL PLAIN authentication failed: Authentication failed: Invalid
+username or password. Check DM_KAFKA_SASL_USERNAME and DM_KAFKA_SASL_PASSWORD against what the
+broker was given, and DM_KAFKA_SSL against what the listener speaks.
+```
+
 If `kafkajs` is missing, or no broker answers, the runtime **says which and stops**. It never
 falls back to the in-process channel: somebody who asked for Kafka and was quietly given
 something else would be watching an empty topic, certain their events were on it.

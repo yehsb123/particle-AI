@@ -120,10 +120,7 @@ export class KafkaEventBus<R> implements EventBus<R> {
     try {
       await producer.connect();
     } catch (err) {
-      throw new Error(
-        `DM_EVENT_BUS=kafka could not reach a broker at ${this.config.brokers.join(", ")}: ${(err as Error).message}. ` +
-          `Start one (docker compose --profile kafka up -d kafka) or unset DM_EVENT_BUS.`,
-      );
+      throw this.cannotConnect(err as Error);
     }
     this.producer = producer;
     try {
@@ -134,6 +131,35 @@ export class KafkaEventBus<R> implements EventBus<R> {
       await this.disconnectAll().catch(() => undefined);
       throw err;
     }
+  }
+
+  /**
+   * Why the broker is not answering this runtime, said as the thing a person would act on.
+   *
+   * A refused login and an absent broker arrive here as the same kind of failure and are not the
+   * same problem at all. Measured against a broker that really does ask: a wrong password was
+   * answered with "could not reach a broker ... start one", about a broker that was up, had
+   * answered, and had refused this runtime by name. The advice is the part of a message somebody
+   * acts on, and it sent them to look at the wrong machine.
+   *
+   * The username and the mechanism are named because they are the two settings to look at. The
+   * password is not, here or anywhere else: this message is read in a terminal, pasted into an
+   * issue and kept in a log file.
+   */
+  private cannotConnect(err: Error): Error {
+    const where = this.config.brokers.join(", ");
+    const sasl = this.config.sasl;
+    if (sasl && /auth/i.test(err.message)) {
+      return new Error(
+        `DM_EVENT_BUS=kafka reached the broker at ${where}, and it refused this runtime's login as ${sasl.username} over ` +
+          `${sasl.mechanism}: ${err.message}. Check DM_KAFKA_SASL_USERNAME and DM_KAFKA_SASL_PASSWORD against what the broker ` +
+          `was given, and DM_KAFKA_SSL against what the listener speaks.`,
+      );
+    }
+    return new Error(
+      `DM_EVENT_BUS=kafka could not reach a broker at ${where}: ${err.message}. ` +
+        `Start one (docker compose --profile kafka up -d kafka) or unset DM_EVENT_BUS.`,
+    );
   }
 
   /**
@@ -189,10 +215,7 @@ export class KafkaEventBus<R> implements EventBus<R> {
     try {
       await consumer.connect();
     } catch (err) {
-      throw new Error(
-        `DM_EVENT_BUS=kafka could not reach a broker at ${this.config.brokers.join(", ")}: ${(err as Error).message}. ` +
-          `Start one (docker compose --profile kafka up -d kafka) or unset DM_EVENT_BUS.`,
-      );
+      throw this.cannotConnect(err as Error);
     }
     this.consumer = consumer;
     // From here on, not from the beginning: a restart is not a reason to re-live a day of events

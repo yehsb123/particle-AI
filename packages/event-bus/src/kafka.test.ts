@@ -194,6 +194,36 @@ describe("saying who this runtime is", () => {
     await expect(bus.start()).rejects.toThrow(/SASL authentication failed/);
     await expect(bus.start()).rejects.not.toThrow(/hunter2/);
   });
+
+  /**
+   * Measured against a broker that really does ask: a wrong password was answered with "could
+   * not reach a broker at 127.0.0.1:9094 ... start one", for a broker that was up, that had
+   * answered, and that had refused this runtime by name. The advice was the one thing in the
+   * message a person acts on, and it sent them to look at the wrong machine.
+   */
+  it("says the broker refused the login, rather than telling somebody to start a broker that is already up", async () => {
+    const fake = fakeKafkajs();
+    fake.state.failConnect = "SASL PLAIN authentication failed: Authentication failed: Invalid username or password";
+    const sasl = { mechanism: "plain" as const, username: "runtime", password: "hunter2" };
+    const bus = new KafkaEventBus<void>({ ...config, ssl: true, sasl }, { load: async () => fake.module });
+
+    await expect(bus.start()).rejects.toThrow(/refused this runtime/);
+    await expect(bus.start()).rejects.toThrow(/DM_KAFKA_SASL_PASSWORD/);
+    // the user it tried to be and how, so the two settings to look at are named
+    await expect(bus.start()).rejects.toThrow(/runtime.*plain|plain.*runtime/);
+    await expect(bus.start()).rejects.not.toThrow(/hunter2/);
+    await expect(bus.start()).rejects.not.toThrow(/docker compose/);
+  });
+
+  it("still tells somebody to start a broker when there is nothing answering at all", async () => {
+    const fake = fakeKafkajs();
+    fake.state.failConnect = "Connection error: connect ECONNREFUSED 127.0.0.1:9092";
+    const sasl = { mechanism: "plain" as const, username: "runtime", password: "hunter2" };
+    const bus = new KafkaEventBus<void>({ ...config, sasl }, { load: async () => fake.module });
+
+    await expect(bus.start()).rejects.toThrow(/docker compose/);
+    await expect(bus.start()).rejects.not.toThrow(/hunter2/);
+  });
 });
 
 describe("the topic itself", () => {

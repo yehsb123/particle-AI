@@ -245,6 +245,27 @@ DM_EVENT_BUS=kafka pnpm runtime
 docker compose --profile kafka down        # 다시 내립니다
 ```
 
+compose 에는 누구인지 묻는 브로커가 1개 더 있습니다. 이름을 불러야 뜨고, 루프백에서 SASL/PLAIN 으로 사용자 1명을 받습니다. "런타임이 인증한다"를 믿는 대신 눈으로 보기 위한 브로커입니다.
+
+```bash
+docker compose --profile kafka-sasl up -d kafka-sasl   # 127.0.0.1:9094, 사용자 runtime, 비밀번호 dm
+DM_EVENT_BUS=kafka DM_KAFKA_BROKERS=127.0.0.1:9094   DM_KAFKA_SASL_MECHANISM=plain DM_KAFKA_SASL_USERNAME=runtime DM_KAFKA_SASL_PASSWORD=dm pnpm runtime
+docker compose --profile kafka-sasl down               # 다시 내립니다
+```
+
+`SASL_SSL` 이 아니라 `SASL_PLAINTEXT` 입니다. 비밀번호가 루프백 소켓을 평문으로 지나가는데, 그 자리는 평문이어도 되는 유일한 자리입니다. 공유 브로커의 리스너는 `SASL_SSL` 이고 런타임에는 `DM_KAFKA_SSL=1` 을 같이 줍니다.
+
+비밀번호가 맞지 않으면 런타임은 멈춥니다. 이때 메시지는 브로커가 로그인을 거절했다고 말하고, 이미 떠 있는 브로커를 띄우라고 하지 않습니다.
+
+비밀번호는 이 메시지에도 로그에도 나오지 않습니다.
+
+```
+Error: DM_EVENT_BUS=kafka reached the broker at 127.0.0.1:9094, and it refused this runtime's
+login as runtime over plain: SASL PLAIN authentication failed: Authentication failed: Invalid
+username or password. Check DM_KAFKA_SASL_USERNAME and DM_KAFKA_SASL_PASSWORD against what the
+broker was given, and DM_KAFKA_SSL against what the listener speaks.
+```
+
 `kafkajs` 가 없거나 브로커가 응답하지 않으면 런타임은 무엇이 없는지 말하고 멈춥니다. 안쪽 통로로 되돌아가는 일은 없습니다. 카프카를 달라고 한 사람에게 조용히 다른 것을 주면, 그 사람은 아무것도 쓰이지 않는 토픽을 보면서 자기 이벤트가 거기 있다고 믿게 됩니다.
 
 ```
