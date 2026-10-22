@@ -31,6 +31,10 @@ function fakeKafkajs() {
     clientConfig: undefined as undefined | { ssl?: boolean; sasl?: { mechanism: string; username: string; password: string } },
     created: [] as string[],
     waitedForLeaders: false,
+    /** Who the broker says is already in the consumer group. */
+    groupMembers: [] as { memberId: string; clientHost: string }[],
+    describedGroups: [] as string[],
+    failDescribeGroups: null as string | null,
   };
   class Kafka {
     constructor(cfg: { brokers: string[]; ssl?: boolean; sasl?: { mechanism: string; username: string; password: string } }) {
@@ -62,6 +66,11 @@ function fakeKafkajs() {
           state.created.push(...opts.topics.map((t) => t.topic));
           state.waitedForLeaders = opts.waitForLeaders;
           return true;
+        },
+        describeGroups: async (groupIds: string[]) => {
+          if (state.failDescribeGroups) throw new Error(state.failDescribeGroups);
+          state.describedGroups.push(...groupIds);
+          return { groups: groupIds.map((groupId) => ({ groupId, state: state.groupMembers.length ? "Stable" : "Empty", members: state.groupMembers })) };
         },
         disconnect: async () => undefined,
       };
@@ -288,6 +297,65 @@ describe("consuming from a topic", () => {
     await expect(fake.state.deliver!({ key: "s1", value: JSON.stringify(event("e1")) })).resolves.toBeUndefined();
 
     expect(failures).toEqual([{ sessionId: "s1", eventId: "e1", error: "the session queue was full" }]);
+    await bus.close();
+  });
+});
+
+
+/**
+ * A runtime is not a worker. Its belief about a session lives in its own memory, and the broker
+ * hands one session's partition to exactly one member of the group — so a second runtime sharing
+ * the group does not share the work, it takes half the sessions away and starts them from
+ * nothing. Measured against a real broker: six sessions posted to one runtime were folded three
+ * by it and three by the other, and after a rebalance moved a session across, its interaction
+ * count fell from three to one.
+ */
+describe("a second runtime in the same consumer group", () => {
+  it("does not join it: it stops, naming the group and who is already in it", async () => {
+    const fake = fakeKafkajs();
+    fake.state.groupMembers = [{ memberId: "dm-runtime-aaaa", clientHost: "/127.0.0.1" }];
+    const bus = new KafkaEventBus<void>(config, { load: async () => fake.module });
+    await bus.start();
+
+    await expect(bus.subscribe(async () => undefined)).rejects.toThrow(/dm-runtime/);
+    await expect(bus.subscribe(async () => undefined)).rejects.toThrow(/DM_KAFKA_GROUP_ID/);
+    // Nothing of this runtime is in the group: it never connected a consumer.
+    expect(fake.state.consumerConnected).toBe(false);
+    await bus.close();
+  });
+
+  it("joins an empty group, which is what every ordinary start is", async () => {
+    const fake = fakeKafkajs();
+    const bus = new KafkaEventBus<void>(config, { load: async () => fake.module });
+    await bus.start();
+
+    await bus.subscribe(async () => undefined);
+
+    expect(fake.state.describedGroups).toEqual(["dm-runtime"]);
+    expect(fake.state.consumerConnected).toBe(true);
+    await bus.close();
+  });
+
+  /**
+   * The question the check asks is the broker's to answer. A broker that will not answer it has
+   * not said there is a second runtime, and refusing to start on that would make an unrelated
+   * permission the thing that stops a runtime nobody else is sharing a group with.
+   */
+  it("starts anyway when the broker will not say who is in the group, and says so", async () => {
+    const fake = fakeKafkajs();
+    fake.state.failDescribeGroups = "GROUP_AUTHORIZATION_FAILED";
+    const unchecked: { reason: string }[] = [];
+    const bus = new KafkaEventBus<void>(config, {
+      load: async () => fake.module,
+      onGroupUnchecked: (u) => unchecked.push(u),
+    });
+    await bus.start();
+
+    await bus.subscribe(async () => undefined);
+
+    expect(fake.state.consumerConnected).toBe(true);
+    expect(unchecked).toHaveLength(1);
+    expect(unchecked[0]!.reason).toMatch(/GROUP_AUTHORIZATION_FAILED/);
     await bus.close();
   });
 });

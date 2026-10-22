@@ -116,7 +116,15 @@ export async function buildServer(options: BuildOptions = {}): Promise<BuildResu
   // nothing at all — the publisher calls the loop — and with DM_EVENT_BUS=kafka the same two ends
   // are a producer and a consumer. Created before anything is served: asking for a broker that is
   // not there has to be a runtime that did not start, not one that is quietly running without it.
-  const bus = options.bus ?? (await createEventBus<Folded>(process.env));
+  const bus =
+    options.bus ??
+    // Everything the channel cannot carry is handed back through these, and until they were
+    // wired to something they were three ways of losing a message without a trace.
+    (await createEventBus<Folded>(process.env, {
+      onRefused: (refusal) => runtime.noteChannel("topic_message_refused", { ...refusal }),
+      onFailed: (failure) => runtime.noteChannel("consumed_event_failed", { ...failure }),
+      onGroupUnchecked: (unchecked) => runtime.noteChannel("consumer_group_unchecked", { ...unchecked }),
+    }));
   await bus.subscribe((event) => runtime.fold(event));
   app.addHook("onClose", async () => {
     await bus.close();

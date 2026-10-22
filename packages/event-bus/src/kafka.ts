@@ -38,9 +38,11 @@ type Consumer = {
   run(opts: { eachMessage: (payload: { topic: string; partition: number; message: KafkaMessage }) => Promise<void> }): Promise<void>;
   disconnect(): Promise<void>;
 };
+type GroupMember = { memberId?: unknown; clientHost?: unknown };
 type Admin = {
   connect(): Promise<void>;
   createTopics(opts: { topics: { topic: string; numPartitions: number; replicationFactor: number }[]; waitForLeaders: boolean }): Promise<boolean>;
+  describeGroups(groupIds: string[]): Promise<{ groups?: { groupId?: unknown; members?: unknown }[] }>;
   disconnect(): Promise<void>;
 };
 type KafkaClient = { producer(): Producer; consumer(cfg: { groupId: string }): Consumer; admin(): Admin };
@@ -59,6 +61,8 @@ export type KafkaDeps = {
   onRefused?: (refusal: { reason: string; detail: string; offset: string }) => void;
   /** The loop refused an event nobody is waiting on. */
   onFailed?: (failure: { sessionId: string; eventId: string; error: string }) => void;
+  /** The broker would not say who is already in the consumer group, so nobody was counted. */
+  onGroupUnchecked?: (unchecked: { groupId: string; reason: string }) => void;
 };
 
 async function loadKafka(load: () => Promise<unknown>, brokers: string[]): Promise<KafkaConstructor> {
@@ -180,6 +184,7 @@ export class KafkaEventBus<R> implements EventBus<R> {
     const client = this.client;
     if (!client) throw new Error("the kafka event bus was not started");
     if (this.consumer) throw new Error("the event bus already has a subscriber");
+    await this.refuseASecondRuntime();
     const consumer = client.consumer({ groupId: this.config.groupId });
     try {
       await consumer.connect();
@@ -194,6 +199,55 @@ export class KafkaEventBus<R> implements EventBus<R> {
     // and reshape somebody's body around what was happening this morning.
     await consumer.subscribe({ topic: this.config.topic, fromBeginning: false });
     await consumer.run({ eachMessage: async ({ message }) => this.deliver(handler, message) });
+  }
+
+  /**
+   * Do not become the second runtime in one consumer group.
+   *
+   * A consumer group is how a crowd of workers shares a topic, and this runtime is not a worker.
+   * What it builds out of a session's events is a belief held in its own memory, and the broker
+   * gives one session's partition to exactly one member — so a second runtime sharing the group
+   * does not help with the work, it takes half the sessions away and folds them into a belief
+   * that starts at nothing. Measured against a real broker: six sessions posted to one runtime
+   * were folded three by it and three by the other, and when a rebalance moved one session
+   * across, the count of what that person had done fell from three to one.
+   *
+   * Which cannot be seen from either runtime: both are up, both answer, and each is simply blind
+   * to half of what happened. So the second one does not start, and says what is in its way.
+   *
+   * This is a guard, not a lock. Two runtimes started in the same breath can both find the group
+   * empty, and a runtime restarting before the broker has given up on its old member finds
+   * itself — which is the same answer, because that member still holds the partitions.
+   */
+  private async refuseASecondRuntime(): Promise<void> {
+    const client = this.client;
+    if (!client) throw new Error("the kafka event bus was not started");
+    const admin = client.admin();
+    let members: GroupMember[];
+    try {
+      await admin.connect();
+      const described = await admin.describeGroups([this.config.groupId]);
+      // Somebody else's answer, read rather than assumed: a shape that is not what kafkajs
+      // documents must leave the group unchecked, not crash a runtime nobody is sharing with.
+      const group = (described?.groups ?? []).find((g) => g?.groupId === this.config.groupId);
+      members = Array.isArray(group?.members) ? (group.members as GroupMember[]) : [];
+    } catch (err) {
+      // A broker that will not answer has not said there is a second runtime. Refusing to start
+      // on a permission the group check happens to need would stop a runtime for the wrong
+      // reason, so it starts, and the fact that nothing was checked is said out loud.
+      this.deps.onGroupUnchecked?.({ groupId: this.config.groupId, reason: (err as Error).message });
+      return;
+    } finally {
+      await admin.disconnect().catch(() => undefined);
+    }
+    if (!members.length) return;
+    const who = members.map((m) => String(m?.memberId ?? "(unnamed)")).join(", ");
+    throw new Error(
+      `DM_EVENT_BUS=kafka will not join the consumer group ${this.config.groupId}: ${members.length} member(s) are already in it (${who}). ` +
+        `A runtime holds each session's belief in its own memory and the broker gives one session's partition to one member, so a second ` +
+        `runtime in this group would take half the sessions away and fold them into a belief that starts at nothing. Stop the other runtime, ` +
+        `or give this one a topic and a group of its own with DM_KAFKA_TOPIC and DM_KAFKA_GROUP_ID.`,
+    );
   }
 
   private async deliver(handler: EventHandler<R>, message: KafkaMessage): Promise<void> {

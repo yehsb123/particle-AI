@@ -42,7 +42,18 @@ Three rules hold the shape:
    ACL — rather than a signature invented here. A runtime holding callers to a token and pointed
    at a broker that is neither on this machine nor authenticated to does not start, and the
    compose broker is published on loopback only.
-4. **A synchronous request is answered honestly.** With a broker in the middle the loop's result
+4. **One runtime per consumer group, and the group is checked before joining it.** A consumer
+   group is how a crowd of workers shares a topic, and a runtime is not a worker: what it builds
+   out of a session's events is a belief in its own memory. Measured against a real broker, two
+   runtimes in one group: six sessions posted to the first were folded three by it and three by
+   the second, and when a rebalance moved one session across, the count of what that person had
+   done fell from three to one. Both runtimes were up and answering the whole time, each blind to
+   half of what happened. So the second one asks the broker who is in the group and does not
+   start.
+5. **An event is folded once, however often it arrives.** A broker delivers at least once, which
+   nothing inside one process ever did. The runtime remembers, per session and within bounds,
+   the ids it has folded and lets a second copy go with a record in that session's trail.
+6. **A synchronous request is answered honestly.** With a broker in the middle the loop's result
    belongs to whichever runtime consumed the message, so the publisher answers `202` with where
    the event went instead of `200` with a world state it does not have.
 
@@ -57,6 +68,14 @@ Three rules hold the shape:
 - The consumer swallows a loop failure into a report rather than letting it out of `eachMessage`,
   because an escaping failure makes the broker hand the same message back for ever and stops
   every session on that partition.
+- The group check is a guard, not a lock. Two runtimes started in the same breath can both find
+  the group empty, and a runtime restarting before the broker has given up on its old member
+  finds itself, which is the same answer: that member still holds the partitions. A broker that
+  refuses to describe the group leaves it unchecked and says so in the log, rather than stopping
+  a runtime over a permission the check happens to need.
+- The memory of what has been folded belongs to the process. It does not reach across a restart,
+  which is what committed offsets bound instead, and an event older than the memory is folded a
+  second time. Replay determinism is untouched: a duplicate never reaches the event log.
 - The runtime makes sure its topic exists at startup. Measured on a fresh broker: subscribing to
   a topic that is not there yet is answered "this server does not host this topic-partition", and
   automatic creation races the first fetch.

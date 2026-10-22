@@ -266,6 +266,32 @@ docker exec dm-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server
 # live-demo	{"id":"demo-1","sessionId":"live-demo",...}
 ```
 
+**One runtime per group.** A consumer group is how a crowd of workers shares a topic, and a
+runtime is not a worker: what it builds out of a session's events is a belief held in its own
+memory, and the broker gives one session's partition to exactly one member of the group.
+
+Measured against the compose broker, with two runtimes in one group: six sessions posted to the
+first were folded three by it and three by the second, and a rebalance that moved one session
+across dropped the count of what that person had done from three to one. Both runtimes were up
+and answering the whole time, each blind to half of what happened.
+
+So the second one asks the broker who is already in the group and does not start:
+
+```
+Error: DM_EVENT_BUS=kafka will not join the consumer group digital-matter-runtime: 1 member(s)
+are already in it (digital-matter-runtime-bcff0b3e-…). A runtime holds each session's belief in
+its own memory and the broker gives one session's partition to one member, so a second runtime in
+this group would take half the sessions away and fold them into a belief that starts at nothing.
+Stop the other runtime, or give this one a topic and a group of its own with DM_KAFKA_TOPIC and
+DM_KAFKA_GROUP_ID.
+```
+
+It is a guard, not a lock: two runtimes started in the same breath can both find the group empty,
+and a runtime restarting before the broker has given up on its old member finds itself, which is
+the same answer because that member still holds the partitions. A broker that will not describe
+the group leaves it unchecked and says so in the log rather than stopping a runtime over a
+permission the check happens to need.
+
 **The same event twice.** A broker delivers at least once: a consumer that restarts, or a group
 that rebalances, is handed messages it has already run. Inside one process that could not happen,
 and folding one observation twice is not a small error. The behaviour numbers climb at twice the

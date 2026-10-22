@@ -166,6 +166,18 @@ export class SessionRuntime {
   }
 
   /**
+   * Something that happened in the channel itself, rather than in the loop.
+   *
+   * A message on the topic that is not an event, a loop failure nobody is waiting on, a group
+   * this runtime could not ask about: each of these used to be handed to a callback that nothing
+   * was wired to, which is the quietest kind of loss there is. They are the channel's own
+   * business and belong to no session, so they go to the runtime's log and not to a trail.
+   */
+  noteChannel(what: string, detail: Record<string, unknown>): void {
+    this.log.warn(what, detail);
+  }
+
+  /**
    * What became of an event whose sender has already been answered and gone.
    *
    * Nobody is left to hand the failure to, so it goes to the runtime's own log instead of being
