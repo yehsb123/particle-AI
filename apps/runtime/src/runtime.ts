@@ -6,6 +6,7 @@ import { createLogger, TraceStore, type LogLevel } from "@particle/observability
 import { createRuntimeCoreFromEnv, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import type { EventLogStore, SnapshotStore } from "@particle/persistence";
 import { EventDropped, SessionQueues, eventQueueMax } from "./queue";
+import { SeenEvents } from "./seen";
 
 /** Messages the runtime publishes to connected clients. */
 import type { RuntimeMessage, RuntimeListener } from "@particle/contracts";
@@ -39,6 +40,12 @@ export class SessionRuntime {
    * runtime that has fallen behind says so, out loud, instead of growing until it dies.
    */
   readonly queues: SessionQueues;
+
+  /**
+   * What this runtime has already folded, so a channel that delivers at least once cannot have
+   * one observation counted twice. Bounded per session and across sessions — see `seen.ts`.
+   */
+  readonly seen = new SeenEvents();
 
   constructor(
     private readonly now: () => string,
@@ -109,6 +116,53 @@ export class SessionRuntime {
   /** Put a validated event in its session's lane; resolves once the loop has run it. */
   submit(event: MatterEvent): Promise<IngestResult> {
     return this.queues.run(event.sessionId, event.id, () => this.runIngest(event));
+  }
+
+  /**
+   * Take one event off the channel: the loop's answer, or nothing when this event has already
+   * been folded.
+   *
+   * A broker delivers at least once. A consumer that restarts, or a group that rebalances, is
+   * handed messages it has already run, and folding one of them again counts a single observation
+   * twice — the behaviour numbers climb at twice the rate the person moved, a repetition reaches
+   * its threshold a step early, and the trail shows one event under two rows. Which is why the
+   * second copy is let go here rather than inside the loop: by the time the lane runs it, it has
+   * already been written to the event log.
+   *
+   * It is remembered as folded before the lane runs it, so two copies arriving back to back are
+   * not both let through while the first is still waiting. An event the lane then LET GO was
+   * never folded at all, so it is forgotten again: a broker handing that one back is not sending
+   * a duplicate, it is sending the only copy left.
+   */
+  async fold(event: MatterEvent): Promise<IngestResult | undefined> {
+    if (!this.seen.firstTime(event.sessionId, event.id)) {
+      this.noteDuplicate(event);
+      return undefined;
+    }
+    try {
+      return await this.submit(event);
+    } catch (err) {
+      if (err instanceof EventDropped) this.seen.forget(event.sessionId, event.id);
+      throw err;
+    }
+  }
+
+  /**
+   * A copy of something already folded, written down rather than passed over in silence.
+   *
+   * A runtime quietly dropping events it believes it has seen is indistinguishable from one
+   * losing them, so the trail of the session it belonged to says which event it was: that is what
+   * a person comparing what their sensor sent against what their body did has to read.
+   */
+  private noteDuplicate(event: MatterEvent): void {
+    this.audit.append({
+      id: this.auditId("duplicate"),
+      at: this.now(),
+      sessionId: event.sessionId,
+      kind: "event_duplicate",
+      detail: { eventId: event.id, type: event.type },
+    });
+    this.log.warn("event_duplicate", { sessionId: event.sessionId, eventId: event.id, type: event.type });
   }
 
   /**

@@ -8,9 +8,15 @@ import { SessionRuntime } from "./runtime";
 import { EventDropped } from "./queue";
 import { SIM_EVENTS, simEvent, buildSimEvent, IngestWait, SessionId, MAX_IDENTIFIER, MAX_FAILURE_MESSAGE } from "@particle/contracts";
 
-export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence; bus: EventBus<IngestResult> };
+/**
+ * What comes back out of the channel: the loop's answer, or nothing at all when the event had
+ * already been folded and the second copy was let go.
+ */
+export type Folded = IngestResult | undefined;
+
+export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence; bus: EventBus<Folded> };
 /** A channel for the tests to drive directly; everything else takes the one the environment says. */
-export type BuildOptions = { bus?: EventBus<IngestResult> };
+export type BuildOptions = { bus?: EventBus<Folded> };
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -87,6 +93,17 @@ function handedOver(eventId: string, via: string, topic: string): { accepted: tr
   return { accepted: true, eventId, deliveredTo: via, topic };
 }
 
+/**
+ * What to answer a caller whose event this runtime had already folded.
+ *
+ * There is no result to hand back: the loop ran this event the first time it arrived and the
+ * second copy was let go rather than counted again. Answering with the state of the session
+ * instead would read like a second fold that happened to change nothing.
+ */
+function alreadyFolded(eventId: string): { accepted: true; eventId: string; duplicate: true } {
+  return { accepted: true, eventId, duplicate: true };
+}
+
 export async function buildServer(options: BuildOptions = {}): Promise<BuildResult> {
   // The router refuses a path parameter longer than this before any handler sees it. Left at the
   // framework default it was a hundred, below what a session name may be — so a session that could
@@ -99,8 +116,8 @@ export async function buildServer(options: BuildOptions = {}): Promise<BuildResu
   // nothing at all — the publisher calls the loop — and with DM_EVENT_BUS=kafka the same two ends
   // are a producer and a consumer. Created before anything is served: asking for a broker that is
   // not there has to be a runtime that did not start, not one that is quietly running without it.
-  const bus = options.bus ?? (await createEventBus<IngestResult>(process.env));
-  await bus.subscribe((event) => runtime.submit(event));
+  const bus = options.bus ?? (await createEventBus<Folded>(process.env));
+  await bus.subscribe((event) => runtime.fold(event));
   app.addHook("onClose", async () => {
     await bus.close();
     await persistence.close();
@@ -205,6 +222,7 @@ export async function buildServer(options: BuildOptions = {}): Promise<BuildResu
         return handedOver(event.id, delivery.via, delivery.topic);
       }
       const result = delivery.result;
+      if (!result) return alreadyFolded(event.id);
       return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
     } catch (err) {
       const { code, body } = ingestFailure(err);
@@ -248,6 +266,7 @@ export async function buildServer(options: BuildOptions = {}): Promise<BuildResu
         return handedOver(event.id, delivery.via, delivery.topic);
       }
       const result = delivery.result;
+      if (!result) return alreadyFolded(event.id);
       return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
     } catch (err) {
       // The same answer the events route gives. Without this a simulated event that the loop let

@@ -266,6 +266,23 @@ docker exec dm-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server
 # live-demo	{"id":"demo-1","sessionId":"live-demo",...}
 ```
 
+**The same event twice.** A broker delivers at least once: a consumer that restarts, or a group
+that rebalances, is handed messages it has already run. Inside one process that could not happen,
+and folding one observation twice is not a small error. The behaviour numbers climb at twice the
+rate the person moved, a repetition reaches its threshold a step early, and the trail shows one
+event under two rows.
+
+So the runtime remembers the event ids it has folded, per session, and lets a second copy go. It
+is written down where everything else it lets go is written down: an `event_duplicate` record in
+that session's trail (`GET /api/sessions/:id/decisions`) and a line in the runtime log. An event
+the queue let go at the ceiling is forgotten again, because that one was never folded and the
+copy a broker hands back is the only one left.
+
+What is remembered is bounded: the last 1,000 event ids for each of the 500 sessions that most
+recently sent one, oldest forgotten first. The memory belongs to this process, so it does not
+reach across a restart (what the group has committed bounds that) and an event older than the
+memory is folded a second time.
+
 **What changes for a caller.** With a broker in the middle the loop's result belongs to whichever
 runtime consumed the message, and this one has nothing to hand back. So a request that would have
 been answered `200` with a world state is answered `202` saying where the event went, rather than
@@ -277,6 +294,7 @@ an empty world state that reads like "nothing is wrong with this session":
 | `POST /api/events?wait=0` | `202 {"accepted":true,"eventId":"…","dropped":0}` | `202 {"accepted":true,"eventId":"…","deliveredTo":"kafka"}` |
 | `POST /api/sim/:id/:key` | `200` + world state, morph | `202`, the same as above |
 | a malformed event | `400` | `400`, before anything is published |
+| an event this runtime already folded | `200 {"accepted":true,"eventId":"…","duplicate":true}` | the consuming runtime lets the copy go and writes it to that session's trail |
 | an event the loop let go | `503` | the consuming runtime writes it to that session's trail and its own log; the sender was answered long before |
 
 `dropped` is left out of the kafka answers on purpose: it counts what THIS runtime's lanes let
