@@ -20,7 +20,7 @@ repeated.
 Click `Dismiss` to send it away; that is feedback, and step 4 shows what it teaches. Switch to
 another tab for 30+ seconds and come back: a "Welcome back" re-entry summary is waiting.
 
-`High CPU`를 세 번 클릭하세요. 아무것도 깨지지 않았지만 같은 행동이 반복됐으므로 "여기서 막힌 것
+`High CPU`를 3번 클릭하세요. 아무것도 깨지지 않았지만 같은 행동이 반복됐으므로 "여기서 막힌 것
 같아요" 카드가 작업 옆에 나타납니다. 실제로 무엇이 반복됐는지 표로 보여 줍니다.
 
 30초 이상 다른 탭에 다녀오면 복귀 요약이 기다리고 있습니다. 우측 상단 지구본 버튼으로 전체 UI를
