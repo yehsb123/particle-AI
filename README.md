@@ -410,6 +410,14 @@ On Windows use `127.0.0.1`, not `localhost` — `localhost` can resolve to IPv6 
 container is not listening. If port 5432 is already taken on your machine, set `DM_PG_PORT` to a
 free port and put the same port in `DATABASE_URL`.
 
+The container listens on loopback only, like the brokers: this database holds a shape-level
+record of what you did, and published on every interface it would offer that record, and a
+password of `dm`, to every machine on the same network. `DM_PG_PASSWORD` sets the password, with
+`dm` as the default so the `DATABASE_URL` above keeps working. Postgres reads it only when it
+initialises the volume, so changing it on a database that already exists needs
+`docker compose down -v` (which throws the data away) or an `ALTER ROLE` — otherwise the database
+goes on asking for the old one and the runtime's connection is refused with no sign of why.
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the runtime loop in

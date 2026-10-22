@@ -4,13 +4,22 @@ services:
     container_name: dm-postgres
     environment:
       POSTGRES_USER: dm
-      POSTGRES_PASSWORD: dm
+      # The password a development database is given is still a password on a listening port, and
+      # `dm` was the only one it could ever have. Overridable, with the old value as the default
+      # so an existing DATABASE_URL keeps working. Postgres only reads this when it initialises
+      # the volume: changing it later needs `docker compose down -v` or an ALTER ROLE, or the
+      # database goes on asking for the old one.
+      POSTGRES_PASSWORD: ${DM_PG_PASSWORD:-dm}
       POSTGRES_DB: digital_matter
+    # Bound to loopback, like the brokers below. This database holds a shape-level record of what
+    # somebody did, and published as `5432:5432` it offered that record, and a password of `dm`,
+    # to every machine on the same network.
+    #
     # The host port is overridable because a machine often already runs a Postgres on 5432 and
     # the bind failure names no owner. Move this and DATABASE_URL together; inside the container
     # and in CI the port is always 5432.
     ports:
-      - "${DM_PG_PORT:-5432}:5432"
+      - "127.0.0.1:${DM_PG_PORT:-5432}:5432"
     volumes:
       - dm_pgdata:/var/lib/postgresql/data
     healthcheck:
