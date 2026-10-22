@@ -41,7 +41,7 @@ Project guidance for Claude Code sessions. Read this before making changes.
 ```
 apps/web        Next.js — UI registry + renderer + inspector + simulation lab
 apps/runtime    Fastify — runtime loop, event ingest, WebSocket, REST
-packages/*      contracts, event-core, world-model, significance-engine,
+packages/*      contracts, event-core, event-bus, world-model, significance-engine,
                 decision-engine, intelligence, capability-core, mcp-adapter,
                 permission-engine, ui-protocol, ui-registry, morph-engine,
                 memory, persistence, observability

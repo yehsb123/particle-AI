@@ -197,6 +197,88 @@ What a session lost outlives its queue: the queue is thrown away the moment the 
 quiet, the count is not. Counts are kept for the thousand sessions that most recently lost
 something — a session name comes from outside, so even a number per name has to be bounded.
 
+## The channel events travel down (Kafka, optional)
+
+Between the sensor that observed something and the loop that folds it into a belief there is one
+part: `packages/event-bus`. By default it is nothing at all — publishing an event IS calling the
+loop, in the same process, with nothing installed and no broker anywhere. Everything above
+describes that default and none of it changes.
+
+With `DM_EVENT_BUS=kafka` those same two ends become a producer and a consumer. The runtime
+publishes what arrives over HTTP to a topic and consumes it back out of the same topic; the
+session name is the **partition key**, so one session's events stay on one partition and come
+back in the order they went in.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `DM_EVENT_BUS` | `inproc` | `inproc` or `kafka` — any other spelling stops the runtime at startup |
+| `DM_KAFKA_BROKERS` | `127.0.0.1:9092` | comma-separated `host:port` list |
+| `DM_KAFKA_TOPIC` | `digital-matter.events` | the topic events are published to and consumed from |
+| `DM_KAFKA_GROUP_ID` | `digital-matter-runtime` | the consumer group this runtime joins |
+
+`kafkajs` is **not** a dependency of this repository. It is imported dynamically and only once the
+channel is on, so the default install never downloads it and the default build never imports it.
+The runtime makes sure the topic exists at startup (with the broker's own partition count and
+replication), because a consumer that subscribes to a topic which is not there yet is answered
+"this server does not host this topic-partition" and stops.
+
+```bash
+pnpm add -w kafkajs                        # the one extra dependency, and only if you want kafka
+docker compose --profile kafka up -d kafka # apache/kafka:3.9.0, one node, KRaft, no volume
+DM_EVENT_BUS=kafka pnpm runtime
+docker compose --profile kafka down        # stop it again
+```
+
+If `kafkajs` is missing, or no broker answers, the runtime **says which and stops**. It never
+falls back to the in-process channel: somebody who asked for Kafka and was quietly given
+something else would be watching an empty topic, certain their events were on it.
+
+```
+Error: DM_EVENT_BUS=kafka could not reach a broker at 127.0.0.1:9099: Connection error:
+connect ECONNREFUSED 127.0.0.1:9099. Start one (docker compose --profile kafka up -d kafka)
+or unset DM_EVENT_BUS.
+```
+
+Watching one event go all the way through:
+
+```bash
+curl -s -XPOST 'http://127.0.0.1:8787/api/events' -H 'content-type: application/json' \
+  -d '{"id":"demo-1","sessionId":"live-demo","timestamp":"2026-10-22T02:30:00.000Z","source":"development","type":"development.server_error","severity":"critical","payload":{"status":500}}'
+# {"accepted":true,"eventId":"demo-1","deliveredTo":"kafka","topic":"digital-matter.events"}
+
+curl -s http://127.0.0.1:8787/api/sessions/live-demo/state   # the consumer ran it: a problem is open
+docker exec dm-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server 127.0.0.1:9092 \
+  --topic digital-matter.events --from-beginning --timeout-ms 5000 --property print.key=true
+# live-demo	{"id":"demo-1","sessionId":"live-demo",...}
+```
+
+**What changes for a caller.** With a broker in the middle the loop's result belongs to whichever
+runtime consumed the message, and this one has nothing to hand back. So a request that would have
+been answered `200` with a world state is answered `202` saying where the event went, rather than
+an empty world state that reads like "nothing is wrong with this session":
+
+| Request | Default (`inproc`) | `DM_EVENT_BUS=kafka` |
+|---|---|---|
+| `POST /api/events` | `200` + world state, morph, decision | `202 {"accepted":true,"eventId":"…","deliveredTo":"kafka","topic":"…"}` |
+| `POST /api/events?wait=0` | `202 {"accepted":true,"eventId":"…","dropped":0}` | `202 {"accepted":true,"eventId":"…","deliveredTo":"kafka"}` |
+| `POST /api/sim/:id/:key` | `200` + world state, morph | `202`, the same as above |
+| a malformed event | `400` | `400`, before anything is published |
+| an event the loop let go | `503` | the consuming runtime writes it to that session's trail and its own log; the sender was answered long before |
+
+`dropped` is left out of the kafka answers on purpose: it counts what THIS runtime's lanes let
+go, and a sender whose events went to a broker has nothing in those lanes.
+
+**The simulation lab** in `apps/web` keeps working, and keeps drawing — but from the WebSocket
+rather than from the response. Its buttons get a `202` with no world state in it, and the morph,
+the world state, approvals and the trail arrive when the runtime that consumed the event
+broadcasts them. Two things there come only from the response and are therefore not shown in
+kafka mode: the explanation of a morph the guards held back, and the pattern suggestions merged
+from a click.
+
+Tests need no broker. The contract — ordering, refusal, closing — is pinned against a stand-in in
+`packages/event-bus/src/kafka.test.ts`, and `kafka.live.test.ts` runs against a real broker only
+when `DM_KAFKA_LIVE=1` is set.
+
 ## Runtime access control
 
 The runtime holds a shape-level record of what you did, so by default it only talks to you:

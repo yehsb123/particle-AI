@@ -197,6 +197,67 @@ API 키가 없으면 결정론적 모의 제공자가 읽고, 그 제공자는 �
 
 세션이 잃은 수는 큐보다 오래 삽니다. 큐는 세션이 조용해지는 순간 버려지지만 누계는 남습니다. 가장 최근에 무언가를 잃은 세션 1,000개까지 기억합니다. 세션 이름은 바깥에서 오는 값이라 이름마다 두는 숫자에도 상한이 필요합니다.
 
+## 이벤트가 지나가는 통로 (카프카, 선택)
+
+무언가를 관찰한 센서와 그것을 믿음으로 접어 넣는 루프 사이에 부품이 하나 있습니다. `packages/event-bus` 입니다. 기본값에서 이 통로는 아무것도 아닙니다. 이벤트를 통로에 넣는 일이 곧 같은 프로세스 안에서 루프를 부르는 일이고, 설치할 것도 브로커도 없습니다. 위에 적은 동작은 전부 그대로입니다.
+
+`DM_EVENT_BUS=kafka` 를 주면 같은 두 끝이 프로듀서와 컨슈머가 됩니다. 런타임은 HTTP 로 받은 이벤트를 토픽에 넣고 같은 토픽에서 다시 꺼내 루프에 넣습니다. 파티션 키는 세션 이름이라서 한 세션의 이벤트는 한 파티션에 모이고 넣은 순서대로 나옵니다.
+
+| 설정 | 기본값 | 의미 |
+|---|---|---|
+| `DM_EVENT_BUS` | `inproc` | `inproc` 또는 `kafka`. 다른 철자는 시작하면서 멈춥니다 |
+| `DM_KAFKA_BROKERS` | `127.0.0.1:9092` | 쉼표로 구분한 `host:port` 목록 |
+| `DM_KAFKA_TOPIC` | `digital-matter.events` | 이벤트를 넣고 꺼내는 토픽 |
+| `DM_KAFKA_GROUP_ID` | `digital-matter-runtime` | 이 런타임이 들어가는 컨슈머 그룹 |
+
+`kafkajs` 는 이 저장소의 의존성이 아닙니다. 통로를 켠 뒤에야 동적으로 불러오므로 기본 설치는 받지 않고 기본 빌드는 import 하지 않습니다. 런타임은 시작할 때 토픽이 있는지 확인하고 없으면 만듭니다. 파티션 수와 복제 수는 브로커 기본값을 씁니다. 없는 토픽을 구독한 컨슈머는 "this server does not host this topic-partition" 를 받고 거기서 멈추기 때문입니다.
+
+```bash
+pnpm add -w kafkajs                        # 카프카를 쓸 때만 필요한 의존성 1개
+docker compose --profile kafka up -d kafka # apache/kafka:3.9.0, 1노드, KRaft, 볼륨 없음
+DM_EVENT_BUS=kafka pnpm runtime
+docker compose --profile kafka down        # 다시 내립니다
+```
+
+`kafkajs` 가 없거나 브로커가 응답하지 않으면 런타임은 무엇이 없는지 말하고 멈춥니다. 안쪽 통로로 되돌아가는 일은 없습니다. 카프카를 달라고 한 사람에게 조용히 다른 것을 주면, 그 사람은 아무것도 쓰이지 않는 토픽을 보면서 자기 이벤트가 거기 있다고 믿게 됩니다.
+
+```
+Error: DM_EVENT_BUS=kafka could not reach a broker at 127.0.0.1:9099: Connection error:
+connect ECONNREFUSED 127.0.0.1:9099. Start one (docker compose --profile kafka up -d kafka)
+or unset DM_EVENT_BUS.
+```
+
+이벤트 하나가 끝까지 가는 것을 보려면 이렇게 합니다.
+
+```bash
+curl -s -XPOST 'http://127.0.0.1:8787/api/events' -H 'content-type: application/json' \
+  -d '{"id":"demo-1","sessionId":"live-demo","timestamp":"2026-10-22T02:30:00.000Z","source":"development","type":"development.server_error","severity":"critical","payload":{"status":500}}'
+# {"accepted":true,"eventId":"demo-1","deliveredTo":"kafka","topic":"digital-matter.events"}
+
+curl -s http://127.0.0.1:8787/api/sessions/live-demo/state   # 컨슈머가 돌린 결과로 문제가 열려 있습니다
+docker exec dm-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server 127.0.0.1:9092 \
+  --topic digital-matter.events --from-beginning --timeout-ms 5000 --property print.key=true
+# live-demo	{"id":"demo-1","sessionId":"live-demo",...}
+```
+
+**호출하는 쪽에서 달라지는 것.** 중간에 브로커가 있으면 루프의 결과는 그 메시지를 꺼내 간 런타임의 것이고, 이 런타임에는 돌려줄 답이 없습니다. 그래서 `200` 과 월드 상태로 답하던 요청이 `202` 와 "어디로 보냈는지"로 바뀝니다. 빈 월드 상태를 돌려주면 이 세션에 아무 문제가 없다는 뜻으로 읽히기 때문입니다.
+
+| 요청 | 기본값 (`inproc`) | `DM_EVENT_BUS=kafka` |
+|---|---|---|
+| `POST /api/events` | `200` + 월드 상태, 모프, 결정 | `202 {"accepted":true,"eventId":"…","deliveredTo":"kafka","topic":"…"}` |
+| `POST /api/events?wait=0` | `202 {"accepted":true,"eventId":"…","dropped":0}` | `202 {"accepted":true,"eventId":"…","deliveredTo":"kafka"}` |
+| `POST /api/sim/:id/:key` | `200` + 월드 상태, 모프 | 위와 같은 `202` |
+| 형식이 틀린 이벤트 | `400` | `400`. 토픽에 넣기 전에 거절합니다 |
+| 루프가 버린 이벤트 | `503` | 꺼내 간 런타임이 그 세션 기록과 자기 로그에 남깁니다. 보낸 쪽은 이미 답을 받은 뒤입니다 |
+
+카프카 모드의 응답에서 `dropped` 는 일부러 뺐습니다. 그 숫자는 이 런타임의 레인이 버린 수인데, 브로커로 보낸 쪽의 이벤트는 그 레인에 들어온 적이 없습니다.
+
+**시뮬레이션 랩**(`apps/web`)은 카프카 모드에서도 그대로 동작하고 그대로 그립니다. 다만 응답이 아니라 웹소켓으로 그립니다. 버튼은 월드 상태가 없는 `202` 를 받고, 모프와 월드 상태와 승인과 기록은 이벤트를 꺼내 간 런타임이 방송할 때 도착합니다.
+
+랩에서 응답으로만 오던 2가지는 카프카 모드에서 보이지 않습니다. 가드가 모프를 붙잡은 이유 표시와, 클릭에서 합쳐 오던 패턴 제안입니다. 바디가 그리는 것 자체는 달라지지 않습니다.
+
+테스트에는 브로커가 필요 없습니다. 순서와 실패와 닫기는 `packages/event-bus/src/kafka.test.ts` 에서 가짜 통로로 고정했습니다. 실제 브로커를 쓰는 `kafka.live.test.ts` 는 `DM_KAFKA_LIVE=1` 일 때만 돕니다.
+
 ## 런타임 접근 제어
 
 런타임은 당신이 한 일의 형태 기록을 갖고 있으므로 기본적으로 **당신에게만** 응답합니다:
