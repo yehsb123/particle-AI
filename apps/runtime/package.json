@@ -13,6 +13,7 @@
   "dependencies": {
     "@particle/contracts": "workspace:*",
     "@particle/event-core": "workspace:*",
+    "@particle/event-bus": "workspace:*",
     "@particle/world-model": "workspace:*",
     "@particle/ui-registry": "workspace:*",
     "@particle/morph-engine": "workspace:*",

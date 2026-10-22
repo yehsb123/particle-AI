@@ -78,6 +78,9 @@ importers:
       '@particle/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@particle/event-bus':
+        specifier: workspace:*
+        version: link:../../packages/event-bus
       '@particle/event-core':
         specifier: workspace:*
         version: link:../../packages/event-core

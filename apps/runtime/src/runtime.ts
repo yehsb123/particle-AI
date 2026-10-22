@@ -112,16 +112,14 @@ export class SessionRuntime {
   }
 
   /**
-   * The same, for a caller that has already been answered and gone.
+   * What became of an event whose sender has already been answered and gone.
    *
-   * Nobody is left to hand a failure to, so it goes to the runtime's own log instead of being
+   * Nobody is left to hand the failure to, so it goes to the runtime's own log instead of being
    * swallowed. A drop is not logged twice: the lane already wrote it to the trail.
    */
-  accept(event: MatterEvent): void {
-    void this.submit(event).catch((err: unknown) => {
-      if (err instanceof EventDropped) return;
-      this.log.warn("ingest_failed", { sessionId: event.sessionId, eventId: event.id, error: (err as Error).message });
-    });
+  noteUndelivered(event: MatterEvent, err: unknown): void {
+    if (err instanceof EventDropped) return;
+    this.log.warn("ingest_failed", { sessionId: event.sessionId, eventId: event.id, error: (err as Error).message });
   }
 
   async ingest(input: unknown): Promise<{ event: MatterEvent; result: IngestResult }> {

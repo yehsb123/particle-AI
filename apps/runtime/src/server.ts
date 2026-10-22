@@ -2,11 +2,15 @@ import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
 import { createPersistence, type Persistence } from "@particle/persistence";
 import { describeProviders } from "@particle/intelligence";
+import { createEventBus, type EventBus } from "@particle/event-bus";
+import type { IngestResult } from "@particle/runtime-core";
 import { SessionRuntime } from "./runtime";
 import { EventDropped } from "./queue";
 import { SIM_EVENTS, simEvent, buildSimEvent, IngestWait, SessionId, MAX_IDENTIFIER, MAX_FAILURE_MESSAGE } from "@particle/contracts";
 
-export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence };
+export type BuildResult = { app: FastifyInstance; runtime: SessionRuntime; persistence: Persistence; bus: EventBus<IngestResult> };
+/** A channel for the tests to drive directly; everything else takes the one the environment says. */
+export type BuildOptions = { bus?: EventBus<IngestResult> };
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -71,7 +75,19 @@ export function badSessionParam(params: unknown): boolean {
   return id !== undefined && !SessionId.safeParse(id).success;
 }
 
-export async function buildServer(): Promise<BuildResult> {
+/**
+ * What to answer a caller whose event was handed to a broker.
+ *
+ * There is no world state to send: the loop that will run it may be in another process, and an
+ * empty one would be read as "nothing is wrong with this session". So the answer says what became
+ * of the event and where it went, and the body learns what happened when the runtime that
+ * consumed it broadcasts the change.
+ */
+function handedOver(eventId: string, via: string, topic: string): { accepted: true; eventId: string; deliveredTo: string; topic: string } {
+  return { accepted: true, eventId, deliveredTo: via, topic };
+}
+
+export async function buildServer(options: BuildOptions = {}): Promise<BuildResult> {
   // The router refuses a path parameter longer than this before any handler sees it. Left at the
   // framework default it was a hundred, below what a session name may be — so a session that could
   // be created could not be read back, and the answer for one too long came from Fastify rather
@@ -79,7 +95,14 @@ export async function buildServer(): Promise<BuildResult> {
   const app = Fastify({ logger: false, routerOptions: { maxParamLength: MAX_IDENTIFIER } });
   const persistence = await createPersistence(process.env.DATABASE_URL);
   const runtime = new SessionRuntime(isoNow, persistence.events, persistence.snapshots);
+  // Events reach the loop through a channel rather than through a call. By default the channel is
+  // nothing at all — the publisher calls the loop — and with DM_EVENT_BUS=kafka the same two ends
+  // are a producer and a consumer. Created before anything is served: asking for a broker that is
+  // not there has to be a runtime that did not start, not one that is quietly running without it.
+  const bus = options.bus ?? (await createEventBus<IngestResult>(process.env));
+  await bus.subscribe((event) => runtime.submit(event));
   app.addHook("onClose", async () => {
+    await bus.close();
     await persistence.close();
   });
 
@@ -165,14 +188,23 @@ export async function buildServer(): Promise<BuildResult> {
       // to hear that what it sent was malformed, since nothing else will ever tell it.
       const event = runtime.parse(req.body);
       if (letGo) {
-        runtime.accept(event);
+        // Nobody is left to hand a failure to, so it goes to the runtime's own log.
+        void bus.publish(event).catch((err: unknown) => runtime.noteUndelivered(event, err));
         reply.code(202);
+        // With a broker in the middle the event is not in this runtime's lane, so this runtime's
+        // losses say nothing about it; what the sender is told instead is where it went.
+        if (bus.via !== "inproc") return { accepted: true, eventId: event.id, deliveredTo: bus.via };
         // The acknowledgement is the only thing that still travels back to a sender that no
         // longer waits, so what this session has LOST rides on it. Read after the event is
         // queued, because queueing it is what may have pushed an older one out.
         return { accepted: true, eventId: event.id, dropped: runtime.queues.droppedFor(event.sessionId) };
       }
-      const result = await runtime.submit(event);
+      const delivery = await bus.publish(event);
+      if (!delivery.handled) {
+        reply.code(202);
+        return handedOver(event.id, delivery.via, delivery.topic);
+      }
+      const result = delivery.result;
       return { event, worldState: result.worldState, morph: result.morph, decision: result.decision, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
     } catch (err) {
       const { code, body } = ingestFailure(err);
@@ -208,10 +240,22 @@ export async function buildServer(): Promise<BuildResult> {
       reply.code(404);
       return { error: `unknown sim event: ${String(req.params.key).slice(0, 40)}` };
     }
-    const { event, result } = await runtime.ingest(
-      buildSimEvent(spec, req.params.id, crypto.randomUUID(), isoNow()),
-    );
-    return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
+    try {
+      const event = runtime.parse(buildSimEvent(spec, req.params.id, crypto.randomUUID(), isoNow()));
+      const delivery = await bus.publish(event);
+      if (!delivery.handled) {
+        reply.code(202);
+        return handedOver(event.id, delivery.via, delivery.topic);
+      }
+      const result = delivery.result;
+      return { event, worldState: result.worldState, morph: result.morph, deliberated: result.deliberated, pendingApprovals: result.pendingApprovals, patternSuggestions: result.patternSuggestions, learned: result.learned, retryAfterMs: result.retryAfterMs };
+    } catch (err) {
+      // The same answer the events route gives. Without this a simulated event that the loop let
+      // go came back as a 500 that blames the server, for the one failure that means the opposite.
+      const { code, body } = ingestFailure(err);
+      reply.code(code);
+      return body;
+    }
   });
 
   app.post<{ Params: { id: string }; Body: { componentId?: unknown; learn?: unknown } | null }>("/api/morph/:id/undo", async (req) => {
@@ -256,5 +300,5 @@ export async function buildServer(): Promise<BuildResult> {
     socket.on("close", off);
   });
 
-  return { app, runtime, persistence };
+  return { app, runtime, persistence, bus };
 }
