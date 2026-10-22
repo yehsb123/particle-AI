@@ -28,12 +28,14 @@ function fakeKafkajs() {
     failConnect: null as string | null,
     failSend: null as string | null,
     failCreateTopics: null as string | null,
+    clientConfig: undefined as undefined | { ssl?: boolean; sasl?: { mechanism: string; username: string; password: string } },
     created: [] as string[],
     waitedForLeaders: false,
   };
   class Kafka {
-    constructor(cfg: { brokers: string[] }) {
+    constructor(cfg: { brokers: string[]; ssl?: boolean; sasl?: { mechanism: string; username: string; password: string } }) {
       state.brokers = cfg.brokers;
+      state.clientConfig = cfg;
     }
     producer() {
       return {
@@ -97,7 +99,7 @@ function fakeKafkajs() {
   return { module: { Kafka }, state };
 }
 
-const config = { kind: "kafka" as const, brokers: ["127.0.0.1:9092"], topic: "dm.events", groupId: "dm-runtime" };
+const config = { kind: "kafka" as const, brokers: ["127.0.0.1:9092"], topic: "dm.events", groupId: "dm-runtime", ssl: false };
 
 const event = (id: string, sessionId = "s1"): MatterEvent => ({
   id,
@@ -159,6 +161,32 @@ describe("publishing to a topic", () => {
  * "this server does not host this topic-partition", and the consumer stops there — automatic
  * creation happens on the metadata request and the first fetch races it.
  */
+/**
+ * Whatever the broker asks for is handed to the client and nowhere else. A shared broker is the
+ * only thing standing between a topic and whoever else can reach it, so a runtime that is told
+ * how to authenticate has to actually do it.
+ */
+describe("saying who this runtime is", () => {
+  it("hands TLS and the login to the client", async () => {
+    const fake = fakeKafkajs();
+    const sasl = { mechanism: "scram-sha-512" as const, username: "runtime", password: "hunter2" };
+    const bus = new KafkaEventBus<void>({ ...config, ssl: true, sasl }, { load: async () => fake.module });
+    await bus.start();
+
+    expect(fake.state.clientConfig).toMatchObject({ ssl: true, sasl });
+    await bus.close();
+  });
+
+  it("keeps the password out of what it says when a broker refuses it", async () => {
+    const fake = fakeKafkajs();
+    fake.state.failConnect = "SASL authentication failed";
+    const sasl = { mechanism: "plain" as const, username: "runtime", password: "hunter2" };
+    const bus = new KafkaEventBus<void>({ ...config, ssl: true, sasl }, { load: async () => fake.module });
+    await expect(bus.start()).rejects.toThrow(/SASL authentication failed/);
+    await expect(bus.start()).rejects.not.toThrow(/hunter2/);
+  });
+});
+
 describe("the topic itself", () => {
   it("is there, with leaders, before anybody subscribes", async () => {
     const fake = fakeKafkajs();
@@ -176,6 +204,9 @@ describe("the topic itself", () => {
     const bus = new KafkaEventBus<void>(config, { load: async () => fake.module });
     await expect(bus.start()).rejects.toThrow(/dm\.events/);
     await expect(bus.start()).rejects.toThrow(/TOPIC_AUTHORIZATION_FAILED/);
+    // A start that failed leaves nothing dialled in: the producer connected before the topic was
+    // asked for, and a caller that catches this is not holding a socket it has no handle on.
+    expect(fake.state.producerConnected).toBe(false);
   });
 });
 

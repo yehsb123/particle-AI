@@ -44,7 +44,13 @@ type Admin = {
   disconnect(): Promise<void>;
 };
 type KafkaClient = { producer(): Producer; consumer(cfg: { groupId: string }): Consumer; admin(): Admin };
-type KafkaConstructor = new (cfg: { clientId: string; brokers: string[]; retry: { retries: number } }) => KafkaClient;
+type KafkaConstructor = new (cfg: {
+  clientId: string;
+  brokers: string[];
+  retry: { retries: number };
+  ssl?: boolean;
+  sasl?: { mechanism: string; username: string; password: string };
+}) => KafkaClient;
 
 export type KafkaDeps = {
   /** How `kafkajs` is found. Overridden in tests; nothing else should pass it. */
@@ -101,6 +107,10 @@ export class KafkaEventBus<R> implements EventBus<R> {
       brokers: this.config.brokers,
       // Fail in seconds rather than minutes: this runs at startup, where somebody is watching.
       retry: { retries: 2 },
+      // Whatever the broker asks for. The password came out of the environment and goes nowhere
+      // but here: no message in this file names it, and the config is never stringified.
+      ssl: this.config.ssl,
+      ...(this.config.sasl ? { sasl: { ...this.config.sasl } } : {}),
     });
     const producer = this.client.producer();
     try {
@@ -112,7 +122,14 @@ export class KafkaEventBus<R> implements EventBus<R> {
       );
     }
     this.producer = producer;
-    await this.ensureTopic();
+    try {
+      await this.ensureTopic();
+    } catch (err) {
+      // A start that failed hands back nothing to close with, so it closes what it opened itself.
+      // It is left not-started rather than closed: nothing was ever published through it.
+      await this.disconnectAll().catch(() => undefined);
+      throw err;
+    }
   }
 
   /**
@@ -211,6 +228,10 @@ export class KafkaEventBus<R> implements EventBus<R> {
 
   async close(): Promise<void> {
     this.closed = true;
+    await this.disconnectAll();
+  }
+
+  private async disconnectAll(): Promise<void> {
     const consumer = this.consumer;
     const producer = this.producer;
     this.consumer = undefined;

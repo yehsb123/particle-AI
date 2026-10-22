@@ -29,7 +29,7 @@ const event = (id: string, sessionId: string): MatterEvent => ({
 
 describe.skipIf(!live)("a real broker in the middle", () => {
   it("carries a session's events through the topic, in order", async () => {
-    const config = { kind: "kafka" as const, brokers, topic: `dm-live-${run}`, groupId: `dm-live-${run}` };
+    const config = { kind: "kafka" as const, brokers, topic: `dm-live-${run}`, groupId: `dm-live-${run}`, ssl: false };
     const bus = new KafkaEventBus<void>(config);
     await bus.start();
     const arrived: string[] = [];
@@ -69,7 +69,7 @@ describe.skipIf(!live)("a real broker in the middle", () => {
   }, 60_000);
 
   it("refuses something on the topic that is not an event, without stopping the partition", async () => {
-    const config = { kind: "kafka" as const, brokers, topic: `dm-live-bad-${run}`, groupId: `dm-live-bad-${run}` };
+    const config = { kind: "kafka" as const, brokers, topic: `dm-live-bad-${run}`, groupId: `dm-live-bad-${run}`, ssl: false };
     const refused: string[] = [];
     const bus = new KafkaEventBus<void>(config, { onRefused: (r) => refused.push(r.reason) });
     await bus.start();

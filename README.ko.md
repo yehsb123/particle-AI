@@ -209,6 +209,16 @@ API 키가 없으면 결정론적 모의 제공자가 읽고, 그 제공자는 �
 | `DM_KAFKA_BROKERS` | `127.0.0.1:9092` | 쉼표로 구분한 `host:port` 목록 |
 | `DM_KAFKA_TOPIC` | `digital-matter.events` | 이벤트를 넣고 꺼내는 토픽 |
 | `DM_KAFKA_GROUP_ID` | `digital-matter-runtime` | 이 런타임이 들어가는 컨슈머 그룹 |
+| `DM_KAFKA_SSL` | *(꺼짐)* | 브로커와 TLS 로 연결 |
+| `DM_KAFKA_SASL_MECHANISM` | *(비움)* | `plain`, `scram-sha-256`, `scram-sha-512` 중 하나. 3개 설정은 함께 씁니다 |
+| `DM_KAFKA_SASL_USERNAME` | *(비움)* | 런타임이 접속할 사용자 |
+| `DM_KAFKA_SASL_PASSWORD` | *(비움)* | 그 비밀번호. 환경변수로만 받고 로그와 오류 메시지에는 절대 찍지 않습니다 |
+
+**토픽에 쓸 수 있는 사람이 이 런타임에 이벤트를 넣을 수 있는 사람입니다.** 토픽은 같은 루프로 들어가는 두 번째 문입니다. 이벤트 계약에 맞는 메시지는 그대로 실행되고, 그 문에서는 `DM_INGEST_TOKEN` 을 묻지 않습니다. 그 토큰은 HTTP 를 지키는 값입니다.
+
+경계는 브로커입니다. 공유 브로커를 쓸 거면 SASL 과 TLS 로 인증하고 토픽 쓰기 ACL 을 런타임 프로듀서로 좁혀야 합니다. compose 가 띄우는 브로커는 누구인지 묻지 않기 때문에 `127.0.0.1` 에만 열어 두었습니다.
+
+`DM_INGEST_TOKEN` 으로 HTTP 호출자를 막아 둔 런타임이 이 기계 바깥의 브로커를 보면서 인증도 하지 않으면 아예 뜨지 않습니다. 앞문은 잠그고 뒷문은 열어 둔 상태는 잠그지 않은 것보다 나쁩니다. 토큰을 설정한 사람은 잠겨 있다고 믿기 때문입니다.
 
 `kafkajs` 는 이 저장소의 의존성이 아닙니다. 통로를 켠 뒤에야 동적으로 불러오므로 기본 설치는 받지 않고 기본 빌드는 import 하지 않습니다. 런타임은 시작할 때 토픽이 있는지 확인하고 없으면 만듭니다. 파티션 수와 복제 수는 브로커 기본값을 씁니다. 없는 토픽을 구독한 컨슈머는 "this server does not host this topic-partition" 를 받고 거기서 멈추기 때문입니다.
 
@@ -267,6 +277,8 @@ docker exec dm-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server
 | `DM_HOST` | `127.0.0.1` | 바인드 주소. LAN에 노출하려는 경우에만 `0.0.0.0` |
 | `DM_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | 읽기/쓰기가 허용된 브라우저 출처. `chrome-extension://`은 항상 허용이고, 그 외 페이지는 CORS 허용 없이 403 |
 | `DM_INGEST_TOKEN` | *(비움)* | 선택 공유 비밀. 설정하면 모든 읽기와 쓰기에 `x-particle-token` 이 필요하고(WS는 `?token=`), 확장은 옵션 페이지에서, 에이전트는 같은 환경변수로 전달합니다 |
+
+토큰은 HTTP 를 지킵니다. `DM_EVENT_BUS=kafka` 를 켜면 토픽이 같은 루프로 들어가는 두 번째 길이 되고, 그 길은 브로커가 지킵니다. 토큰으로 호출자를 막아 둔 런타임이 인증하지 않는 바깥 브로커를 보고 있으면 뜨지 않습니다.
 
 읽기는 세션을 생성하지 않으므로 임의의 id로 실제 세션을 밀어낼 수 없습니다. "형태만"은 열 개 계층에서 강제되며, 런타임은 바디와 확장, 토큰 보유자를 신뢰합니다.
 

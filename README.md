@@ -215,6 +215,20 @@ back in the order they went in.
 | `DM_KAFKA_BROKERS` | `127.0.0.1:9092` | comma-separated `host:port` list |
 | `DM_KAFKA_TOPIC` | `digital-matter.events` | the topic events are published to and consumed from |
 | `DM_KAFKA_GROUP_ID` | `digital-matter-runtime` | the consumer group this runtime joins |
+| `DM_KAFKA_SSL` | *(off)* | TLS to the broker |
+| `DM_KAFKA_SASL_MECHANISM` | *(empty)* | `plain`, `scram-sha-256` or `scram-sha-512` — the three go together |
+| `DM_KAFKA_SASL_USERNAME` | *(empty)* | the user this runtime connects as |
+| `DM_KAFKA_SASL_PASSWORD` | *(empty)* | its password, from the environment only — it is never logged and never put in an error |
+
+**Who can write to the topic can put events into this runtime.** The topic is a second door into
+the same loop: a message that fits the event contract is run, and `DM_INGEST_TOKEN` is not asked
+for there — it guards HTTP. The broker is the boundary, so on a shared one authenticate (SASL
+over TLS) and narrow the **topic-write ACL to the runtime's own producer**. The compose broker
+asks nobody who they are, which is why it is published on `127.0.0.1` only.
+
+A runtime that holds its HTTP callers to `DM_INGEST_TOKEN` and is pointed at a broker that is
+neither on this machine nor authenticated to **does not start**, because a lock on the front door
+while the back one stands open is worse than no lock: whoever set the token believes there is one.
 
 `kafkajs` is **not** a dependency of this repository. It is imported dynamically and only once the
 channel is on, so the default install never downloads it and the default build never imports it.
@@ -288,6 +302,10 @@ The runtime holds a shape-level record of what you did, so by default it only ta
 | `DM_HOST` | `127.0.0.1` | bind address — set `0.0.0.0` only to expose it on your LAN |
 | `DM_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | browser origins allowed to read/write; `chrome-extension://` origins are always allowed; any other page gets no CORS grant and a 403 |
 | `DM_INGEST_TOKEN` | *(empty)* | optional shared secret — when set, every read and write needs `x-particle-token` (WS: `?token=`); the extension takes it in its options page, the agent from the same env var |
+
+The token guards HTTP. With `DM_EVENT_BUS=kafka` the topic is a second way into the same loop and
+the broker is what guards that one; a runtime holding callers to a token and pointed at a broker
+it does not authenticate to refuses to start. See [the channel section](#the-channel-events-travel-down-kafka-optional).
 
 Reads never create sessions, so unknown ids cannot evict real ones. Shape-only is enforced at the
 sensors, for the ten layers that claim it; the runtime trusts the body, the extension and token

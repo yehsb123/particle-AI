@@ -36,7 +36,13 @@ Three rules hold the shape:
 2. **The topic is not a wider door than HTTP.** Everything consumed is parsed with the same
    `MatterEvent` contract and held to the same size limit. Changing the channel must not change
    what a sensor is able to say.
-3. **A synchronous request is answered honestly.** With a broker in the middle the loop's result
+3. **The broker is the boundary, and it is not pretended to be there.** `DM_INGEST_TOKEN` holds
+   every HTTP caller to a token; nothing holds a topic to it, so whoever can write to the topic
+   can hand the loop an event. The answer is Kafka's own boundary — TLS, SASL and a topic-write
+   ACL — rather than a signature invented here. A runtime holding callers to a token and pointed
+   at a broker that is neither on this machine nor authenticated to does not start, and the
+   compose broker is published on loopback only.
+4. **A synchronous request is answered honestly.** With a broker in the middle the loop's result
    belongs to whichever runtime consumed the message, so the publisher answers `202` with where
    the event went instead of `200` with a world state it does not have.
 

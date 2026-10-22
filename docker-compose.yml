@@ -27,12 +27,17 @@ services:
   # not somewhere to keep events. What it advertises is what a client on THIS machine dials, so
   # the published port and the advertised port move together — a client told 9092 while the
   # broker answers on another is the failure that looks like a hung producer.
+  #
+  # Bound to loopback, not to every interface. Anyone who can write to the topic can put an event
+  # into the runtime's loop, and this broker asks nobody who they are; published as `9092:9092` it
+  # would offer that to every machine on the same network. A shared broker is a different thing
+  # and wants SASL and a topic-write ACL — see the readme.
   kafka:
     image: apache/kafka:3.9.0
     container_name: dm-kafka
     profiles: ["kafka"]
     ports:
-      - "${DM_KAFKA_PORT:-9092}:9092"
+      - "127.0.0.1:${DM_KAFKA_PORT:-9092}:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
