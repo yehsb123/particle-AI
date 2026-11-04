@@ -22,6 +22,15 @@ import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
 type Presence = PresenceState;
 type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
 
+/**
+ * Why a call to the runtime did not go through, in words the log can carry.
+ *
+ * A refused answer and an unreachable runtime are different things to the person reading the log:
+ * one means the token or the session is wrong, the other means nothing is listening. The client
+ * names the call and the status in its own message, so both arrive here already said.
+ */
+const whyNot = (err: unknown): string => (err instanceof Error ? err.message : "the runtime could not be reached");
+
 type Inspector = {
   lastEvent?: string;
   significance?: number;
@@ -105,6 +114,8 @@ export function Workspace() {
   const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
   const client = useRef<RuntimeClient | null>(null);
+  /** Whether a runtime switch is already in flight; see toggleMode. */
+  const switching = useRef(false);
   const counter = useRef(0);
 
   const addApprovals = useCallback((incoming: ApprovalRequest[]) => {
@@ -260,8 +271,8 @@ export function Workspace() {
         }
         if (resp?.learned) setLearned(resp.learned);
       })
-        .catch(() => {
-          pushLog("server unreachable — event not sent", "blocked");
+        .catch((err) => {
+          pushLog(`event not sent — ${whyNot(err)}`, "blocked");
           setPresence("observing");
         });
       return;
@@ -275,7 +286,15 @@ export function Workspace() {
   const decideApproval = useCallback(
     async (approval: ApprovalRequest, accept: boolean) => {
       if (mode === "connected" && client.current) {
-        await (accept ? client.current.approve(approval.id) : client.current.reject(approval.id));
+        try {
+          await (accept ? client.current.approve(approval.id) : client.current.reject(approval.id));
+        } catch (err) {
+          // This is the consent surface. The answer used to be thrown away and the card dropped
+          // either way, so a 401 or a 404 looked exactly like a decision the runtime had taken —
+          // and the person was left believing an outward-facing capability had run.
+          pushLog(`${accept ? "approve" : "reject"} not taken — ${whyNot(err)}`, "blocked");
+          return; // the question is still open: the card stays
+        }
       } else if (accept) {
         const outcome = await core.current.approve(approval.id);
         pushLog(`approved ${approval.capabilityId} → ${outcome?.result.ok ? "executed" : "failed"}`, outcome?.result.ok ? "morph" : "blocked");
@@ -288,10 +307,25 @@ export function Workspace() {
     [mode, pushLog],
   );
 
+  /**
+   * What a press of Approve or Reject does. The buttons called the async function and dropped the
+   * promise, so a rejection with nothing attached was an unhandled one: in a disconnected tab the
+   * press did nothing at all and said nothing at all.
+   */
+  const onDecide = useCallback(
+    (approval: ApprovalRequest, accept: boolean) => {
+      void decideApproval(approval, accept).catch((err) => pushLog(`${accept ? "approve" : "reject"} not taken — ${whyNot(err)}`, "blocked"));
+    },
+    [decideApproval, pushLog],
+  );
+
   const undo = useCallback((componentId?: string) => {
     if (mode === "connected" && client.current) {
-      void client.current.undo({ componentId }); // attribution travels with the gesture
-      pushLog("undo → server", "undo");
+      // attribution travels with the gesture; the log waits for the server to agree it happened
+      void client.current
+        .undo({ componentId })
+        .then(() => pushLog("undo → server", "undo"))
+        .catch((err) => pushLog(`undo not taken — ${whyNot(err)}`, "blocked"));
       return;
     }
     const before = core.current.historyDepth(SESSION);
@@ -315,7 +349,7 @@ export function Workspace() {
       void client.current
         .redo()
         .then((ok) => pushLog(ok ? "redo → server" : "nothing to redo (server)", ok ? "morph" : "note"))
-        .catch(() => pushLog("server unreachable — redo not sent", "blocked"));
+        .catch((err) => pushLog(`redo not sent — ${whyNot(err)}`, "blocked"));
       return;
     }
     const redoMeta = core.current.peekRedo(SESSION);
@@ -379,29 +413,43 @@ export function Workspace() {
   );
 
   const toggleMode = useCallback(async () => {
-    // approvals/audit are per-runtime; clear cross-mode state when switching runtimes.
-    setApprovals([]);
-    if (mode === "local") {
-      const c = new RuntimeClient(SESSION);
-      client.current = c;
-      c.connect(handleServerMessage, setConnected);
-      try {
-        const fromServer = await c.getUI();
-        // Keeping what is on screen beats replacing it with nothing: the socket may still bring a
-        // patch this build can read, and an unreadable answer is a different thing from silence.
-        if (fromServer) setBlueprint(fromServer);
-        else pushLog("runtime answered with a body this build cannot read", "blocked");
-      } catch {
-        pushLog("could not reach runtime server (pnpm runtime)", "blocked");
+    // One switch at a time. `mode` is state, and the switch awaits the runtime's first answer
+    // before it is written, so a second entry in that window still read "local", built a second
+    // client over the first and left the first socket with nobody holding a handle to close it —
+    // two sockets pushing patches into one body. It takes no user: the embedded body calls this
+    // from an effect, and React's strict mode runs a mount effect twice.
+    if (switching.current) return;
+    switching.current = true;
+    try {
+      // approvals/audit are per-runtime; clear cross-mode state when switching runtimes.
+      setApprovals([]);
+      if (mode === "local") {
+        const c = new RuntimeClient(SESSION);
+        client.current?.disconnect(); // never leave one open with nothing pointing at it
+        client.current = c;
+        c.connect(handleServerMessage, setConnected);
+        setMode("connected"); // committed before the await: nothing below changes it
+        try {
+          const fromServer = await c.getUI();
+          // Keeping what is on screen beats replacing it with nothing: the socket may still bring
+          // a patch this build can read, and an unreadable answer is a different thing from
+          // silence.
+          if (client.current !== c) return; // superseded while we waited
+          if (fromServer) setBlueprint(fromServer);
+          else pushLog("runtime answered with a body this build cannot read", "blocked");
+        } catch (err) {
+          pushLog(`could not reach runtime server (pnpm runtime) — ${whyNot(err)}`, "blocked");
+        }
+      } else {
+        client.current?.disconnect();
+        client.current = null;
+        setConnected(false);
+        setMode("local");
+        setBlueprint(core.current.getBlueprint(SESSION));
+        pushLog("switched to local runtime", "note");
       }
-      setMode("connected");
-    } else {
-      client.current?.disconnect();
-      client.current = null;
-      setConnected(false);
-      setMode("local");
-      setBlueprint(core.current.getBlueprint(SESSION));
-      pushLog("switched to local runtime", "note");
+    } finally {
+      switching.current = false;
     }
   }, [mode, handleServerMessage, pushLog]);
 
@@ -889,7 +937,9 @@ export function Workspace() {
                   const n = Number(e.target.value) as AutonomyLevel;
                   setAutonomy(n);
                   core.current.setAutonomyLevel(n);
-                  if (mode === "connected" && client.current) void client.current.setAutonomy(n);
+                  if (mode === "connected" && client.current) {
+                    void client.current.setAutonomy(n).catch((err) => pushLog(`autonomy not taken by the runtime — ${whyNot(err)}`, "blocked"));
+                  }
                   pushLog(`autonomy level → L${n}${mode === "connected" ? " (server)" : ""}`, "note");
                 }}
               >
@@ -953,8 +1003,8 @@ export function Workspace() {
                     ))}
                   </p>
                   <div className="simrow">
-                    <button className="btn primary" onClick={() => void decideApproval(a, true)}>{t("approve", lang)}</button>
-                    <button className="btn muted" onClick={() => void decideApproval(a, false)}>{t("reject", lang)}</button>
+                    <button className="btn primary" onClick={() => onDecide(a, true)}>{t("approve", lang)}</button>
+                    <button className="btn muted" onClick={() => onDecide(a, false)}>{t("reject", lang)}</button>
                   </div>
                 </div>
               ))}

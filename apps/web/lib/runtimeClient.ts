@@ -60,6 +60,31 @@ function segment(value: string): string {
   return encodeURIComponent(value);
 }
 
+/**
+ * A runtime that answered, and said no.
+ *
+ * Every call below used to read the body and nothing else, so a 401 on a wrong-token link, a 404
+ * on a session the runtime no longer holds and a 500 all looked exactly like success: the body
+ * wrote "sent to the server" in its own log, dropped the approval card, and left the presence
+ * bead on "evaluating" for good. The person was left believing an outward-facing capability had
+ * run. It carries the status and the call so the log can say which one, rather than "something".
+ */
+export class RuntimeRefused extends Error {
+  constructor(
+    readonly status: number,
+    readonly path: string,
+  ) {
+    super(`the runtime refused ${path} with ${status}`);
+    this.name = "RuntimeRefused";
+  }
+}
+
+/** The answer, or the refusal. Nothing below reads a body the runtime did not agree to give. */
+async function answered(res: Response, path: string): Promise<Response> {
+  if (!res.ok) throw new RuntimeRefused(res.status, path);
+  return res;
+}
+
 /** Browser client for the Particle AI runtime server (REST + WebSocket). */
 function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -319,52 +344,67 @@ export class RuntimeClient {
 
   /** Send a raw MatterEvent to the server (behavior keys, sensors) — same path the extension uses. */
   async emit(event: unknown): Promise<SimResponse | null> {
-    const res = await fetch(`${this.httpBase}/api/events`, {
-      method: "POST",
-      headers: auth({ "content-type": "application/json" }),
-      body: JSON.stringify(event),
-    });
+    const path = "/api/events";
+    const res = await answered(
+      await fetch(`${this.httpBase}${path}`, {
+        method: "POST",
+        headers: auth({ "content-type": "application/json" }),
+        body: JSON.stringify(event),
+      }),
+      path,
+    );
     return parseSimResponse(await res.json().catch(() => null));
   }
 
   async emitSim(key: string): Promise<SimResponse | null> {
-    const res = await fetch(`${this.httpBase}/api/sim/${segment(this.sessionId)}/${segment(key)}`, { method: "POST", headers: auth() });
+    const path = `/api/sim/${segment(this.sessionId)}/${segment(key)}`;
+    const res = await answered(await fetch(`${this.httpBase}${path}`, { method: "POST", headers: auth() }), path);
     return parseSimResponse(await res.json().catch(() => null));
   }
 
   async undo(opts: { componentId?: string; learn?: boolean } = {}): Promise<void> {
-    await fetch(`${this.httpBase}/api/morph/${segment(this.sessionId)}/undo`, {
-      method: "POST",
-      headers: auth({ "content-type": "application/json" }),
-      body: JSON.stringify(opts),
-    });
+    const path = `/api/morph/${segment(this.sessionId)}/undo`;
+    await answered(
+      await fetch(`${this.httpBase}${path}`, {
+        method: "POST",
+        headers: auth({ "content-type": "application/json" }),
+        body: JSON.stringify(opts),
+      }),
+      path,
+    );
   }
 
   async redo(): Promise<boolean> {
-    const res = await fetch(`${this.httpBase}/api/morph/${segment(this.sessionId)}/redo`, { method: "POST", headers: auth() });
+    const path = `/api/morph/${segment(this.sessionId)}/redo`;
+    const res = await answered(await fetch(`${this.httpBase}${path}`, { method: "POST", headers: auth() }), path);
     const body = (await res.json().catch(() => null)) as { redone?: boolean } | null;
     return body?.redone === true;
   }
 
   async approve(approvalId: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/approvals/${segment(approvalId)}/approve`, { method: "POST", headers: auth() });
+    const path = `/api/approvals/${segment(approvalId)}/approve`;
+    await answered(await fetch(`${this.httpBase}${path}`, { method: "POST", headers: auth() }), path);
   }
 
   async reject(approvalId: string): Promise<void> {
-    await fetch(`${this.httpBase}/api/approvals/${segment(approvalId)}/reject`, { method: "POST", headers: auth() });
+    const path = `/api/approvals/${segment(approvalId)}/reject`;
+    await answered(await fetch(`${this.httpBase}${path}`, { method: "POST", headers: auth() }), path);
   }
 
   async setAutonomy(level: number): Promise<void> {
-    await fetch(`${this.httpBase}/api/autonomy/${level}`, { method: "POST", headers: auth() });
+    const path = `/api/autonomy/${level}`;
+    await answered(await fetch(`${this.httpBase}${path}`, { method: "POST", headers: auth() }), path);
   }
 
   async sessions(): Promise<SessionSummary[]> {
-    const res = await fetch(`${this.httpBase}/api/sessions`, { headers: auth() });
+    const path = "/api/sessions";
+    const res = await answered(await fetch(`${this.httpBase}${path}`, { headers: auth() }), path);
     return parseSessions(await res.json().catch(() => null));
   }
 
   async getUI(): Promise<UIBlueprint | null> {
-    const res = await fetch(`${this.httpBase}/api/sessions/${segment(this.sessionId)}/ui`, { headers: auth() });
+    const path = `/api/sessions/${segment(this.sessionId)}/ui`;
+    const res = await answered(await fetch(`${this.httpBase}${path}`, { headers: auth() }), path);
     return parseBlueprint(await res.json().catch(() => null));
   }
 }

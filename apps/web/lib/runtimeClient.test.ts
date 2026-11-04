@@ -186,3 +186,52 @@ describe("RuntimeClient — socket lifecycle", () => {
     expect(sock.closed).toBe(true);
   });
 });
+
+/**
+ * A refused answer is an answer. The body sent an approval, a rejection, an undo or an autonomy
+ * change to a runtime that said 401, wrote "sent to the server" in its own log, and left the
+ * presence bead on "evaluating" for good. Nobody was told the outward-facing capability had not
+ * run — and approve/reject is the consent surface, the one place this runtime promises a person
+ * decides before anything leaves the machine.
+ */
+describe("RuntimeClient — an answer the runtime refused", () => {
+  const c = () => new RuntimeClient("s1", "http://rt.test:8787");
+  const refused = (status: number) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        return { ok: false, status, json: async () => ({ error: "unauthorized" }) } as unknown as Response;
+      }),
+    );
+
+  it("is not reported as a decision taken", async () => {
+    refused(401);
+    await expect(c().approve("appr-1")).rejects.toThrow(/401/);
+    await expect(c().reject("appr-2")).rejects.toThrow(/401/);
+  });
+
+  it("is not reported as an undo, a redo or a new autonomy level", async () => {
+    refused(404);
+    await expect(c().undo({ componentId: "context" })).rejects.toThrow(/404/);
+    await expect(c().redo()).rejects.toThrow(/404/);
+    await expect(c().setAutonomy(4)).rejects.toThrow(/404/);
+  });
+
+  it("is not reported as an event the runtime took", async () => {
+    refused(401);
+    await expect(c().emit({ id: "e1", sessionId: "s1", type: "user.action", payload: {} })).rejects.toThrow(/401/);
+    await expect(c().emitSim("http-500")).rejects.toThrow(/401/);
+  });
+
+  it("is not reported as a body, or as a runtime with no other sessions", async () => {
+    refused(500);
+    await expect(c().getUI()).rejects.toThrow(/500/);
+    await expect(c().sessions()).rejects.toThrow(/500/);
+  });
+
+  it("still says which call was refused, so the log can name it", async () => {
+    refused(403);
+    await expect(c().approve("appr-1")).rejects.toThrow(/approvals\/appr-1\/approve/);
+  });
+});
