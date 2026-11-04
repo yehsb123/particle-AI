@@ -25,8 +25,18 @@ export async function replay(
   // clocks can put an earlier time after a later one. Live, guards ran against the server's own
   // clock and never saw time go backwards; letting it here would block morphs on a cooldown that
   // has not actually elapsed and make a replay disagree with the run it is meant to reproduce.
-  let current = events[0]?.timestamp ?? new Date(0).toISOString();
+  // The first event seeds the clock, and its timestamp comes from whichever machine sent it. One
+  // that cannot be read left currentMs as NaN, and every comparison below against NaN is false —
+  // so the clock never moved again and every record in the replay was stamped with a string
+  // nothing can parse. The explicit finiteness test in the loop reads as intent; this is where it
+  // actually decides anything.
+  const EPOCH = new Date(0).toISOString();
+  let current = events[0]?.timestamp ?? EPOCH;
   let currentMs = Date.parse(current);
+  if (!Number.isFinite(currentMs)) {
+    current = EPOCH;
+    currentMs = 0;
+  }
   const eventClock: RuntimeClock = { iso: () => current, ms: () => currentMs };
   const core = createRuntimeCore(clock ?? eventClock);
   // learned preferences are not events — seed them so a verify run judges the log the same way

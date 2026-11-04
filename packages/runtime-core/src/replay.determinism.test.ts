@@ -27,10 +27,16 @@ const incident = (id: string, at: number, sessionId = "s") => ev(id, at, "develo
 const recovery = (id: string, at: number, sessionId = "s") => ev(id, at, "development.server_recovered", "info", sessionId);
 
 const log = [incident("e1", 0), recovery("e2", 30), incident("e3", 60)];
+/**
+ * What a replay produced. The audit was compared by the kind of each record and nothing else, so
+ * the trail could come back with different ids, different reasons and different instants and this
+ * still said the two runs agreed. A trail is the record of why the body changed; "the same kinds
+ * of things happened" is not the same claim.
+ */
 const state = (r: Awaited<ReturnType<typeof replay>>, session = "s") => ({
   world: r.core.getWorld(session),
   blueprint: r.core.getBlueprint(session),
-  audit: r.steps.flatMap((s) => s.audit.map((a) => a.kind)),
+  audit: r.steps.flatMap((s) => s.audit),
 });
 
 describe("the same log gives the same everything", () => {
@@ -41,6 +47,7 @@ describe("the same log gives the same everything", () => {
     expect(JSON.stringify(second.blueprint)).toBe(JSON.stringify(first.blueprint));
     expect(second.audit).toEqual(first.audit);
     expect(first.audit.length).toBeGreaterThan(0);
+    expect(first.audit.every((a) => a.id && a.kind && a.at && a.sessionId === "s")).toBe(true);
   });
 
   it("reproduces what a live run arrived at", async () => {
@@ -95,10 +102,57 @@ describe("the clock the log is replayed on", () => {
   });
 
   it("ignores a timestamp it cannot read rather than stopping the clock", async () => {
-    const broken = [incident("e1", 0), { ...recovery("e2", 30), timestamp: "2026-09-04T00:00:30Z" }, incident("e3", 60)];
+    // this fixture used to carry a perfectly readable timestamp, so it proved nothing
+    for (const unreadable of ["not a time", "", "2026-13-45T99:99:99Z", "NaN"]) {
+      const broken = [incident("e1", 0), { ...recovery("e2", 30), timestamp: unreadable }, incident("e3", 60)];
+      const r = await replay(broken);
+      expect(r.steps, unreadable).toHaveLength(3);
+      expect(r.core.getWorld("s").activeProblems, unreadable).toHaveLength(1);
+      // the clock stayed on the last instant it could read, and moved again at the next one it could
+      const at = r.steps.flatMap((x) => x.audit.map((a) => a.at));
+      expect(at.every((t) => Number.isFinite(Date.parse(t))), unreadable).toBe(true);
+      expect(at, unreadable).toContain(T(60));
+    }
+  });
+
+  it("still runs on a clock when the FIRST timestamp is the one it cannot read", async () => {
+    // the first event seeds the clock. An unreadable one left it NaN, and every later comparison
+    // against NaN is false — so the clock froze on a string nothing can parse and every record in
+    // the replay was stamped with it.
+    const broken = [{ ...incident("e1", 0), timestamp: "not a time" }, recovery("e2", 30), incident("e3", 60)];
     const r = await replay(broken);
     expect(r.steps).toHaveLength(3);
-    expect(r.core.getWorld("s").activeProblems).toHaveLength(1);
+    const at = r.steps.flatMap((x) => x.audit.map((a) => a.at));
+    expect(at.length).toBeGreaterThan(0);
+    expect(at.every((t) => Number.isFinite(Date.parse(t)))).toBe(true);
+    expect(at).toContain(T(60));
+  });
+});
+
+describe("the audit trail a replay produces", () => {
+  it("is the same trail the live run wrote, even though the live runtime was serving other sessions", async () => {
+    // A log is one session's. The runtime it came off was not: other sessions' events arrived in
+    // between, and the audit counter was the core's rather than the session's — so the ids a
+    // replay produced were a different set of numbers from the ones that were actually recorded.
+    // "Replay the log and compare the audit trail" is the whole debugging story; it did not hold.
+    const frozen: RuntimeClock = { iso: () => T(0), ms: () => 0 };
+    const live = createRuntimeCore(frozen);
+    const mine = [incident("e1", 0), recovery("e2", 30), incident("e3", 60)];
+    const arrival = [mine[0]!, incident("x1", 10, "other"), mine[1]!, recovery("x2", 40, "other"), mine[2]!];
+    const liveAudit = [];
+    for (const e of arrival) {
+      const step = await live.ingest(e);
+      if (e.sessionId === "s") liveAudit.push(...step.audit);
+    }
+
+    const replayed = await replay(mine, frozen);
+    expect(replayed.steps.flatMap((s) => s.audit)).toEqual(liveAudit);
+  });
+
+  it("names every record for the session it belongs to, so two sessions cannot share one", async () => {
+    const r = await replay([incident("a1", 0, "alpha"), incident("b1", 1, "beta")]);
+    const ids = r.steps.flatMap((s) => s.audit.map((a) => a.id));
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 

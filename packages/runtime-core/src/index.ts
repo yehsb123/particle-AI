@@ -108,6 +108,8 @@ type SessionState = {
   lastMajorMorphAt?: number;
   presence: PresenceState;
   memory: MemorySystem;
+  /** how many audit records this session has been given; see `record` */
+  auditSeq: number;
   /** serializes ingest per session so concurrent events don't interleave shared state */
   queue: Promise<unknown>;
 };
@@ -193,6 +195,7 @@ export class RuntimeCore {
         redoStack: [],
         presence: "observing",
         memory: new MemorySystem(),
+        auditSeq: 0,
         queue: Promise.resolve(),
       };
       this.sessions.set(sessionId, s);
@@ -695,9 +698,18 @@ export class RuntimeCore {
     return s.blueprint;
   }
 
-  private seq = 0;
+  /**
+   * One entry in a session's audit trail.
+   *
+   * The number is the session's own, not this core's. It used to be a counter across every
+   * session the core was serving, and an event log is one session's — so replaying a log taken
+   * off a busy runtime produced a different set of numbers from the ones that were recorded,
+   * and "replay the log and compare the audit trail" did not hold. The session is in the id as
+   * well as the record, so two sessions still cannot be handed the same one.
+   */
   private record(sessionId: string, kind: string, detail: Record<string, unknown>): AuditRecord {
-    return { id: `aud-${++this.seq}`, at: this.deps.clock.iso(), sessionId, kind, detail };
+    const s = this.session(sessionId);
+    return { id: `aud-${sessionId}-${++s.auditSeq}`, at: this.deps.clock.iso(), sessionId, kind, detail };
   }
 }
 
