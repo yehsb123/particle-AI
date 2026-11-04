@@ -74,6 +74,25 @@ describe("answering", () => {
     expect(store.get("a2")?.status).toBe("approved");
   });
 
+  it("will not reopen a decision by asking the same id again", () => {
+    // asking again is how a plan that is still waiting gets re-offered, and it used to overwrite
+    // whatever was there with a fresh pending record — so a refusal asked again became a question
+    // nobody had answered yet, and the next approve went through
+    const store = new ApprovalStore();
+    store.create(req("a1"));
+    store.reject("a1");
+    const again = store.create(req("a1", { reason: "asked again" }));
+    expect(again.status).toBe("rejected");
+    expect(again.reason).toBe("updates a vulnerable dependency"); // the standing record, not the new wording
+    expect(store.get("a1")?.status).toBe("rejected");
+    expect(store.approve("a1")).toBeUndefined();
+
+    store.create(req("a2"));
+    store.approve("a2");
+    expect(store.create(req("a2")).status).toBe("approved");
+    expect(store.reject("a2")).toBeUndefined();
+  });
+
   it("gives back the answer that stands when asked the same way twice", () => {
     const store = new ApprovalStore();
     store.create(req("a1"));

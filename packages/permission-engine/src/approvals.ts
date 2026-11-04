@@ -33,6 +33,13 @@ export class ApprovalStore {
     reasonCode?: ApprovalReason;
     missingPermissions?: readonly string[];
   }): ApprovalRequest {
+    // A decision is final here, not only in `setStatus`. Asking again is how a plan still waiting
+    // on an answer gets re-offered, and that used to write a fresh pending record over whatever
+    // was there: a refusal asked again became an open question, and the next approve let the
+    // capability run. Dropping the record (`delete`) is how a refusal is deliberately re-offered.
+    const standing = this.items.get(input.id);
+    if (standing && standing.status !== "pending") return { ...standing };
+
     const req: ApprovalRequest = {
       ...input,
       reasonCode: input.reasonCode ?? "risk_above_autonomy",
