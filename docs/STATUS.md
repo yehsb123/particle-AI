@@ -17,9 +17,12 @@ learns from dismissals (persisted across reloads/restarts), reports honestly wha
 naming the two layers that read content rather than shape, which app a picture is of, and which
 model read it — reconciles
 the body when a timing hold would leave it out of step, and answers only to its own origins/token.
-Everything is event-sourced and replays deterministically. Verified by 1935 unit/integration tests,
-17 Playwright E2E tests across 15 specs (incl. a real extension in Chromium against the live runtime, dark-mode axe),
-and two adversarial review passes (25 findings fixed). Remaining ideas live in the loop prompt.
+Everything is event-sourced and replays deterministically. Verified by the full suite, which on
+2026-11-05 was 2,011 unit/integration tests and 18 Playwright E2E tests across 16 specs (incl. a
+real extension in Chromium against the live runtime, a real Kafka broker in CI, dark-mode axe),
+plus repeated adversarial review passes. The counts are dated because they are counted by hand and
+go stale; `pnpm test` and `pnpm test:e2e` are what actually say. Remaining ideas live in the loop
+prompt.
 - **P1 done**: the body reshapes from **behavior alone**. `BehaviorState` + `@particle/intent-engine`
   (continuous intent: exploring/focused/stuck/switching/idle/returning/debugging), behavior
   significance, intent-driven `augment` morphs (returning → live re-entry summary; stuck →
