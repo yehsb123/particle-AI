@@ -209,4 +209,20 @@ describe("a tree prop nested deeper than anybody reads", () => {
     expect(html).toContain("top");
     expect(html).not.toContain("not a list");
   });
+
+  // Stopping is right. Stopping with nothing where it stopped is the screen answering "that is
+  // the whole tree" to somebody who asked what is in it, which is worse than the slow render the
+  // bound was put there to prevent.
+  it("marks where it stopped going deeper, rather than ending as if that were the whole tree", () => {
+    const html = render({ id: "n", type: "Tree", props: { nodes: [deepNodes(2_000)] } } as unknown as UIComponent);
+    expect(html).not.toContain("bottom");
+    expect(html).toContain("…");
+  });
+
+  it("says how many it left off a level too wide to show", () => {
+    const wide = Array.from({ length: MAX_ITEMS + 50 }, (_, i) => ({ label: `w${i}` }));
+    const html = render({ id: "n", type: "Tree", props: { nodes: [{ label: "top", children: wide }] } } as unknown as UIComponent);
+    expect(html).not.toContain(`w${MAX_ITEMS + 10}`);
+    expect(html).toContain("+50");
+  });
 });

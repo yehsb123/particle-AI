@@ -424,26 +424,38 @@ function TabsNode({ node }: { node: UIComponent }) {
   );
 }
 
-/** A node's children as a list the screen will walk: bounded in width, like every other list prop. */
-function branches(node: TreeItem | undefined): TreeItem[] {
+/**
+ * A node's children as a list the screen will walk, and how many the walk left behind.
+ *
+ * Bounded in width like every other list prop. The count comes back with them because a branch
+ * that simply stops, with nothing where it stopped, reads as a branch that ended there — and
+ * somebody looking at a file tree to find out what is in it would be reading a wrong answer
+ * rather than a shortened one.
+ */
+function branches(node: TreeItem | undefined): { items: TreeItem[]; cut: number } {
   const v = node?.children;
-  if (!Array.isArray(v)) return []; // `children: "src"` has a length, and is not a list
-  return v.length > MAX_ITEMS ? v.slice(0, MAX_ITEMS) : v;
+  if (!Array.isArray(v)) return { items: [], cut: 0 }; // `children: "src"` has a length, and is not a list
+  return v.length > MAX_ITEMS ? { items: v.slice(0, MAX_ITEMS), cut: v.length - MAX_ITEMS } : { items: v, cut: 0 };
 }
 
-function TreeNodes({ nodes, depth = 0 }: { nodes: TreeItem[]; depth?: number }) {
-  if (depth >= MAX_NESTING) return null;
+function TreeNodes({ nodes, depth = 0, cut = 0 }: { nodes: TreeItem[]; depth?: number; cut?: number }) {
+  // Past the bound the walk stops and says where: a subtree that vanished without a mark is a
+  // subtree the screen is claiming was never there.
+  if (depth >= MAX_NESTING) {
+    return <ul className="files" style={{ marginLeft: 14 }}><li className="muted">· …</li></ul>;
+  }
   return (
     <ul className="files" style={{ marginLeft: depth ? 14 : 0 }}>
       {nodes.map((n, i) => {
-        const children = branches(n);
+        const { items, cut: childCut } = branches(n);
         return (
           <li key={i}>
-            {children.length ? "▸ " : "· "}{text(n?.label)}
-            {children.length ? <TreeNodes nodes={children} depth={depth + 1} /> : null}
+            {items.length ? "▸ " : "· "}{text(n?.label)}
+            {items.length ? <TreeNodes nodes={items} depth={depth + 1} cut={childCut} /> : null}
           </li>
         );
       })}
+      {cut > 0 ? <li className="muted">{`· … +${cut}`}</li> : null}
     </ul>
   );
 }
