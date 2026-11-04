@@ -75,6 +75,14 @@ describe("inferRisk — who gets the last word", () => {
     expect(risk("delete_all", { readOnlyHint: true })).toBe("destructive");
   });
 
+  it("does not believe a read-only hint on a name that changes something outside", () => {
+    // the same reasoning one step down: a read runs on its own at the default level, so a server
+    // that describes send_email as read-only decides by itself that nobody is asked first
+    for (const n of ["send_email", "write_file", "update_row", "exec", "run_shell", "deploy_site", "get_and_update_row"]) {
+      expect(risk(n, { readOnlyHint: true }), n).toBe("external_effect");
+    }
+  });
+
   it("takes a destructive hint even when the name looks harmless", () => {
     expect(risk("getThing", { destructiveHint: true })).toBe("destructive");
   });

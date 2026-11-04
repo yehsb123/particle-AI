@@ -48,9 +48,10 @@ const DESTRUCTIVE_WORDS = new Set(["delete", "destroy", "drop", "wipe", "purge",
 /**
  * Classify an MCP tool's risk. A caller's own override wins over everything; after that the
  * name decides when it says something unambiguous, because a mistake here is a capability that
- * runs without asking. A destructive word beats a server's read-only hint (a server calling
- * `delete_all` read-only is either wrong or lying, and the cost of believing it is data loss),
- * and a mutating word anywhere in the name keeps a read verb from making it auto-runnable —
+ * runs without asking. A destructive or mutating word beats a server's read-only hint (a server
+ * calling `delete_all` or `send_email` read-only is either wrong or lying, and the cost of
+ * believing it is data loss or a side effect nobody approved), and a mutating word anywhere in
+ * the name keeps a read verb from making it auto-runnable —
  * `fetch_and_delete_logs` is not a read. Anything we cannot read confidently is an external
  * effect, which needs approval below full autonomy.
  */
@@ -61,10 +62,16 @@ export function inferRisk(tool: McpToolDescriptor, opts: McpAdapterOptions = {})
   const words = nameWords(tool.name);
   const destructiveName = words.some((w) => DESTRUCTIVE_WORDS.has(w));
   if (tool.annotations?.destructiveHint || destructiveName) return "destructive";
-  if (tool.annotations?.readOnlyHint) return "read";
 
+  // Before any hint is believed: a name that says it changes something outside is read the same
+  // way whoever wrote the hint is. A hint is the server's own word about itself, and a read runs
+  // without asking anybody, so `send_email` marked read-only would be the whole approval gate
+  // skipped on that server's say-so.
   const mutates = words.some((w) => MUTATION_WORDS.has(w));
-  if (!mutates && words.some((w) => READ_WORDS.has(w))) return "read";
+  if (mutates) return "external_effect";
+
+  if (tool.annotations?.readOnlyHint) return "read";
+  if (words.some((w) => READ_WORDS.has(w))) return "read";
   // Anything else is treated as an external effect — the safer default.
   return "external_effect";
 }
