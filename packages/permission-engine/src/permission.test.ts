@@ -58,4 +58,27 @@ describe("AuditLog", () => {
     expect(log.count()).toBe(2);
     expect(log.list("s1")).toHaveLength(1);
   });
+
+  /**
+   * The trail is append-only, and the approval store beside it already hands out copies for the
+   * same reason: a record a reader can reach into is a record of whatever that reader last
+   * decided it should say. A trail that can be rewritten after the fact answers no question.
+   */
+  it("hands out copies, so a reader cannot rewrite what was recorded", () => {
+    const log = new AuditLog();
+    const appended = log.append({ id: "1", at: "2026-01-01T00:00:00Z", sessionId: "s1", kind: "decision", detail: { approved: false } });
+    appended.kind = "rewritten-through-the-return-value";
+
+    const listed = log.list();
+    listed[0]!.kind = "rewritten-through-list";
+    listed[0]!.detail.approved = true;
+    listed.push({ id: "forged", at: "2026-01-01T00:00:02Z", sessionId: "s1", kind: "forged", detail: {} });
+
+    const filtered = log.list("s1");
+    filtered[0]!.sessionId = "somebody-else";
+
+    expect(log.count()).toBe(1);
+    expect(log.list()).toHaveLength(1);
+    expect(log.list()[0]).toMatchObject({ id: "1", kind: "decision", sessionId: "s1", detail: { approved: false } });
+  });
 });
