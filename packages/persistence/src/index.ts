@@ -22,21 +22,20 @@ export interface SnapshotStore {
  *
  * This kept one array for every session at once and dropped the oldest event in it, so a session
  * busy enough to fill the bound on its own emptied the trail of every quiet session beside it —
- * the same way the snapshot store below used to, and for the same reason. The bound on events is
- * now per session, and a second bound counts sessions, so a long run with a fresh session id each
- * time cannot grow without limit either. The session written to most recently is the last one
- * forgotten.
+ * the same way the snapshot store below used to, and for the same reason.
+ *
+ * Three bounds now, because no one of them is enough alone. What one session keeps. How many
+ * sessions are kept, or a run with a fresh session id each time grows for ever; the session
+ * written to most recently is the last one forgotten. And how many events are held in total, or
+ * a sender changing its session id pushes memory up by a session's worth every round.
+ *
+ * The total is given up by the session holding the MOST, never by the one that went quiet: a
+ * quiet session's handful of events costs nothing to keep and everything to lose, and taking
+ * from the oldest session instead is the bug this store was just fixed for.
  *
  * Sessions are held in a map rather than filtered out of one list, so no session id can be
  * spelled to reach another's events. The order events arrived in is kept across sessions, since
  * `all()` is read as the trail of the whole process.
- *
- * Three bounds, because a per-session bound on its own is no bound at all — a sender that
- * changes its session id each time would push memory up by a session's worth every round. What
- * one session keeps, how many sessions are kept, and how many events are held in total. The
- * total is given up by the session holding the MOST, never by the one that went quiet: a quiet
- * session's handful of events is what costs nothing to keep and everything to lose, and taking
- * from the oldest session instead is the bug this store was just fixed for.
  */
 export class InMemoryEventLogStore implements EventLogStore {
   private bySession = new Map<string, { seq: number; event: MatterEvent }[]>();
