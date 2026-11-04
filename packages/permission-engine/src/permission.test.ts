@@ -81,4 +81,25 @@ describe("AuditLog", () => {
     expect(log.list()).toHaveLength(1);
     expect(log.list()[0]).toMatchObject({ id: "1", kind: "decision", sessionId: "s1", detail: { approved: false } });
   });
+
+  /**
+   * `detail` is a record of anything, and what the runtime puts in it is the patch it applied,
+   * the verdicts it reached, the capabilities it ran — nested, not flat. A copy one layer deep
+   * leaves all of that reachable, so the trail still says whatever the last reader decided.
+   */
+  it("copies what is inside detail too, not just the record around it", () => {
+    const log = new AuditLog();
+    const detail = { patch: { ops: ["add"] }, verdicts: [{ capabilityId: "x", outcome: "needs_approval" }] };
+    log.append({ id: "1", at: "2026-01-01T00:00:00Z", sessionId: "s1", kind: "morph", detail });
+
+    detail.patch.ops.push("rewritten-through-the-caller's-own-object");
+    const listed = log.list()[0]!.detail as typeof detail;
+    listed.patch.ops.push("rewritten-through-list");
+    listed.verdicts[0]!.outcome = "authorized";
+
+    expect(log.list()[0]?.detail).toEqual({
+      patch: { ops: ["add"] },
+      verdicts: [{ capabilityId: "x", outcome: "needs_approval" }],
+    });
+  });
 });

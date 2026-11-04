@@ -11,9 +11,14 @@ export class AuditLog {
    * Copies in and copies out, the way the approval store beside this one works. A record the
    * caller still holds, or one a reader was handed, is otherwise the same object this log is
    * keeping: append-only stops meaning anything if what was appended can be edited afterwards.
+   *
+   * `detail` holds whatever the runtime recorded — a patch and its ops, a plan and its verdicts —
+   * so it goes deep. `structuredClone` throws on a function or a symbol; nothing that belongs in
+   * an audit record is either, and a record that cannot be copied is refused loudly here rather
+   * than kept as something a reader can still reach into.
    */
   private static copy(record: AuditRecord): AuditRecord {
-    return { ...record, detail: { ...record.detail } };
+    return { ...record, detail: structuredClone(record.detail) };
   }
 
   append(record: AuditRecord): AuditRecord {
