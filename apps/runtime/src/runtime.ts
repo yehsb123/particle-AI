@@ -312,11 +312,20 @@ export class SessionRuntime {
   }
 
   undo(sessionId: string, opts: { componentId?: string; learn?: boolean } = {}): UIBlueprint | null {
+    // asked before, because the core answers `null` to two different questions: there was nothing
+    // to take back, and there was something and it could not be put back
+    const hadAStep = this.core.canUndo(sessionId);
     const bp = this.core.undo(sessionId, opts);
     if (bp) {
       this.audit.append({ id: this.auditId("undo"), at: this.now(), sessionId, kind: "morph_undone", detail: { componentId: opts.componentId ?? null, learn: opts.learn ?? true } });
       this.emit({ kind: "ui_patch", sessionId, blueprint: bp });
       this.persistReversal(sessionId, bp);
+    } else if (hadAStep) {
+      // The core refuses rather than throwing, which is right — a 500 on a button somebody pressed
+      // is worse. But the step stays on the stack and the button stays lit, so pressing it again
+      // does nothing again, for ever, and nothing anywhere says why. This is the one place that
+      // knows, and every other autonomous decision in this runtime is written down here.
+      this.audit.append({ id: this.auditId("undo"), at: this.now(), sessionId, kind: "morph_undo_refused", detail: { componentId: opts.componentId ?? null, reason: "inverse_no_longer_fits" } });
     }
     return bp;
   }
