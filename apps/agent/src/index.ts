@@ -147,10 +147,11 @@ function watchGitBranch(root: string): boolean {
   const read = (): string | undefined => {
     try { return branchFromHead(readFileSync(head, "utf8")); } catch { return undefined; }
   };
-  let last = read();
   // A .git file can name any directory, which is how a worktree points at the real one — so the
   // watch follows it only where a branch can actually be read. Somebody else's file naming a
-  // directory nobody opted into does not get a watcher on this machine.
+  // directory nobody opted into does not get a watcher on this machine. The baseline branch is
+  // therefore read BEFORE the watcher exists, and `check` never sees an unset one.
+  let last = read();
   if (last === undefined) {
     process.stderr.write(`[particle-agent] no readable HEAD in ${dir}, not watching it\n`);
     return false;
@@ -159,7 +160,6 @@ function watchGitBranch(root: string): boolean {
   const check = () => {
     const branch = read();
     if (!branch || branch === last) return;
-    if (last === undefined) { last = branch; return; } // first readable HEAD is the baseline, not a switch
     last = branch;
     void send(matterEvent(SESSION, "user", "user.action", "debug", { key: `branch:${branch}` }));
   };
