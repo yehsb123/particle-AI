@@ -54,15 +54,24 @@ function applySettings(v: Record<string, unknown>): void {
 const ready: Promise<void> = chrome.storage.sync
   .get(["consent", "token", "runtimeUrl"])
   .then((v) => applySettings(v))
-  .catch(() => applySettings({})) // storage unavailable → defaults (fail closed for network), never a stuck promise
+  // Storage that would not answer leaves this worker not knowing what anybody consented to, and
+  // not knowing is not permission. An empty object here read as "nobody has chosen yet" and fell
+  // through to the defaults, so one failed read turned the interaction and tab layers back on
+  // for somebody who had switched them off. Never a stuck promise either: senders await this.
+  .catch(() => applySettings({ consent: NONE }))
   .then(() => announce());
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "sync" || !(changes.consent || changes.token || changes.runtimeUrl)) return;
-  void chrome.storage.sync.get(["consent", "token", "runtimeUrl"]).then((v) => {
-    applySettings(v);
-    announce();
-  });
+  // Behind the first read, always. A change that overtook it was undone by it moments later:
+  // the worker wakes, the read is in flight, somebody turns a layer off in the options page, and
+  // the answer that was already on its way puts it back on with nothing to say it had happened.
+  void ready
+    .then(() => chrome.storage.sync.get(["consent", "token", "runtimeUrl"]))
+    .then((v) => {
+      applySettings(v);
+      announce();
+    });
 });
 
 /**
