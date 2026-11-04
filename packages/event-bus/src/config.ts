@@ -48,7 +48,8 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1"]);
 function hostOf(broker: string): string {
   const port = broker.lastIndexOf(":");
   const host = port === -1 ? broker : broker.slice(0, port);
-  return host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+  // host names are not case-sensitive, and LOCALHOST is this machine like any other spelling
+  return (host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host).toLowerCase();
 }
 
 /**
@@ -155,15 +156,28 @@ function login(env: NodeJS.ProcessEnv): KafkaLogin | undefined {
  * locked is worse than having no lock, because the person who set the token believes there is one.
  *
  * So: a runtime holding callers to a token, pointed at a broker it does not authenticate to,
- * does not start. A loopback broker is excepted — reaching it already means being on this
- * machine, which is what the runtime's own default bind address assumes.
+ * does not start. Nor does one that authenticates in the clear: a login read off the wire is a
+ * login anybody has, and SASL/PLAIN puts the password itself on it. A loopback broker is
+ * excepted from both — reaching it already means being on this machine, which is what the
+ * runtime's own default bind address assumes.
  */
 function refuseAnOpenBackDoor(env: NodeJS.ProcessEnv, config: EventBusConfig): void {
   if (config.kind !== "kafka") return;
   if (text(env.DM_INGEST_TOKEN) === undefined) return;
-  if (config.sasl) return;
   const remote = config.brokers.filter((b) => !LOOPBACK.has(hostOf(b)));
   if (!remote.length) return;
+  if (config.sasl && config.ssl) return;
+  if (config.sasl) {
+    // A login is only a lock while nobody can read it on the way past. Off this machine, SASL
+    // without TLS is sent over a network somebody else can listen to, and PLAIN sends the
+    // password itself. The password is never in this message: a message is read in a terminal,
+    // pasted into an issue and kept in a log file.
+    throw new Error(
+      `DM_EVENT_BUS=kafka authenticates to ${remote.join(", ")}, which is not on this machine, with no encryption: ` +
+        `DM_KAFKA_SASL_MECHANISM=${config.sasl.mechanism} crosses the network in the clear while DM_KAFKA_SSL is off. ` +
+        `Set DM_KAFKA_SSL=1 against a listener that speaks TLS, or point DM_KAFKA_BROKERS at a loopback broker.`,
+    );
+  }
   throw new Error(
     `DM_INGEST_TOKEN holds every HTTP caller to a token, but the kafka topic is a second way into the same loop ` +
       `and ${remote.join(", ")} is not on this machine: set DM_KAFKA_SASL_MECHANISM, DM_KAFKA_SASL_USERNAME and ` +

@@ -144,6 +144,30 @@ describe("a token on the front door and a topic open at the back", () => {
     expect(() => kafka({ ...token, DM_KAFKA_BROKERS: "127.0.0.1:9092,broker.internal:9092" })).toThrow(/DM_INGEST_TOKEN/);
   });
 
+  it("says nothing when the brokers are on this machine, however they are spelled", () => {
+    // a host name is not case-sensitive, so LOCALHOST is this machine and was being refused as
+    // though it were somebody else's
+    for (const brokers of ["LOCALHOST:9092", "LocalHost:9092", "127.0.0.1:9092,LOCALHOST:9093"]) {
+      expect(() => kafka({ ...token, DM_KAFKA_BROKERS: brokers }), brokers).not.toThrow();
+    }
+  });
+
+  it("is not satisfied by a login that crosses the network in the clear", () => {
+    // SASL says who this runtime is; without TLS it says it to anyone listening, and PLAIN says
+    // it as the password itself. A broker nobody can reach is the point of the lock
+    const fail = () =>
+      kafka({
+        ...token,
+        DM_KAFKA_BROKERS: "broker.internal:9092",
+        DM_KAFKA_SASL_MECHANISM: "plain",
+        DM_KAFKA_SASL_USERNAME: "runtime",
+        DM_KAFKA_SASL_PASSWORD: "hunter2",
+      });
+    expect(fail).toThrow(/DM_KAFKA_SSL/);
+    expect(fail).toThrow(/broker\.internal:9092/);
+    expect(fail).not.toThrow(/hunter2/);
+  });
+
   it("is satisfied by a login to the broker", () => {
     expect(() =>
       kafka({
