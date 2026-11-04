@@ -25,8 +25,38 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # The same broker docker-compose.yml brings up locally. The kafka channel's own test file
+      # says what a stand-in cannot prove — that a real broker takes the partition key, hands a
+      # session's events back in order, and that a consumer group reads them — and it is skipped
+      # unless DM_KAFKA_LIVE=1, which nothing set. Postgres is already run this way; so is this.
+      kafka:
+        image: apache/kafka:3.9.0
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+          KAFKA_NUM_PARTITIONS: 3
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 20
+
     env:
       DATABASE_URL: postgres://dm:dm@localhost:5432/digital_matter
+      DM_KAFKA_LIVE: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -41,10 +71,16 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # kafkajs is deliberately not a dependency of this repository — the kafka channel loads it
+      # dynamically and the default install has no kafka client in it. The live tests need one, so
+      # it is added here and nowhere else; package.json and the lockfile stay as they are.
+      - name: Install kafkajs for the live broker tests (CI only, never committed)
+        run: pnpm add -w --ignore-scripts kafkajs@2.2.4
+
       - name: Typecheck
         run: pnpm -r --workspace-concurrency=1 typecheck
 
-      - name: Test (unit + integration, incl. Postgres)
+      - name: Test (unit + integration, incl. Postgres and a real Kafka broker)
         run: pnpm -r --workspace-concurrency=1 test
 
       - name: Build web
