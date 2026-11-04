@@ -1,5 +1,5 @@
 import type { MatterEvent, SignificanceResult, WorldState } from "@particle/contracts";
-import { SEVERITY_RANK } from "@particle/contracts";
+import { payloadName, payloadNumber, SEVERITY_RANK } from "@particle/contracts";
 
 export type SignificanceConfig = {
   weights: { severity: number; relevance: number; novelty: number; problem: number };
@@ -84,19 +84,25 @@ export function evaluateSignificance(
   // Deliberate when the score clears threshold, or for critical events / problem transitions.
   // Behavior signals (Concept v2): returning after being away, getting stuck, or going idle
   // matter even when nothing is broken. `world` is the PRE-event world, so read the payload.
+  //
+  // Read it the way the belief does, with the contracts' own readers. Number() made "600" a
+  // duration the belief had refused, and comparing the raw payload against `lastActionKey` —
+  // which the belief stores cleaned and cut — meant a path too long to keep whole could be
+  // opened any number of times without ever being recognised as a repeat.
   const behaviorSignal =
-    (event.type === "user.visibility" && event.payload.visible === true && Number(event.payload.awaySeconds ?? 0) >= 30) ||
-    (event.type === "user.action" && world.behavior.lastActionKey === event.payload.key && world.behavior.repeatCount + 1 >= 3) ||
-    (event.type === "user.opened_file" && world.behavior.lastActionKey === event.payload.path && world.behavior.repeatCount + 1 >= 3) ||
-    (event.type === "user.idle" && Number(event.payload.seconds ?? 0) >= 60);
+    (event.type === "user.visibility" && event.payload.visible === true && (payloadNumber(event.payload.awaySeconds) ?? 0) >= 30) ||
+    (event.type === "user.action" && repeated(world, payloadName(event.payload.key))) ||
+    (event.type === "user.opened_file" && repeated(world, payloadName(event.payload.path))) ||
+    (event.type === "user.idle" && (payloadNumber(event.payload.seconds) ?? 0) >= 60);
   if (behaviorSignal) reasonCodes.push("behavior_signal");
 
   // Network shape (Concept v2, L2): a host starts failing (open) or the last failing host
   // recovers (close). Repeated failures to an already-failing host are NOT re-deliberated.
   let networkSignal = false;
   if (event.type === "network.request") {
-    const status = Number(event.payload.status ?? 0) || 0;
-    const host = String(event.payload.host ?? "unknown");
+    // the same two readers again: the host is compared against the one the belief recorded
+    const status = payloadNumber(event.payload.status) ?? 0;
+    const host = payloadName(event.payload.host) ?? "unknown";
     const failed = event.payload.error === true || status >= 500;
     const failing = world.behavior.network.failingHosts;
     const open = world.activeProblems.some((p) => p.kind === "network_failure");
@@ -128,4 +134,12 @@ export function evaluateSignificance(
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
+}
+
+/**
+ * Is this the third time in a row? `world` is the PRE-event world, so the count it holds is one
+ * short of what this event makes it. A payload that is not a name at all repeats nothing.
+ */
+function repeated(world: WorldState, name: string | undefined): boolean {
+  return name !== undefined && world.behavior.lastActionKey === name && world.behavior.repeatCount + 1 >= 3;
 }

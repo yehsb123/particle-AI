@@ -1,5 +1,5 @@
 import type { MatterEvent, Problem, ProcessState, WorldState } from "@particle/contracts";
-import { MAX_IDENTIFIER, MAX_SENSORS, MAX_SENSOR_LAYERS, RECENT_EVENTS_LIMIT, shapeOfEvent } from "@particle/contracts";
+import { MAX_SENSORS, MAX_SENSOR_LAYERS, payloadName, payloadNumber, RECENT_EVENTS_LIMIT, shapeOfEvent } from "@particle/contracts";
 
 const PROBLEM_OPENERS: Record<string, { kind: string; summary: string; severity: "warning" | "critical" }> = {
   "development.server_error": { kind: "runtime_error", summary: "Service returned a runtime error", severity: "critical" },
@@ -16,16 +16,6 @@ const PROBLEM_CLOSERS: Record<string, string> = {
   "security.vulnerability_patched": "security_alert",
 };
 
-/** Longest identifier the world state will hold. Anything longer is not an identifier. */
-/** Control characters: a name carrying an escape sequence is read by a terminal, not a person. */
-const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
-
-/**
- * Every payload string that becomes part of the belief comes through here. The sensors send
- * identifiers — a path, a host, an action key — but the ingest API accepts whatever a client
- * posts, and these values are read back out by capabilities, rendered into cards and written to
- * snapshots. One long enough to be prose is trimmed, visibly.
- */
 /**
  * How much one report may add to a count. Both sensors batch: they watch for ten seconds and
  * send how many times something happened. A window with more than this in it is not a person,
@@ -34,16 +24,13 @@ const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/g;
 const MAX_PER_REPORT = 10_000;
 
 /**
- * A number from a payload, or nothing.
+ * A number from a payload, and a name from a payload, both read by the contracts' own readers.
  *
- * Number() reads true as 1, "300" as three hundred and [503] as five hundred and three, and none
- * of those is a number anybody sent. It matters most where the belief acts on the value: a status
- * of [503] used to mark a host as failing, and a failing host is what reshapes the body around a
- * connection view — an incident nobody had. Every sensor checks the same way before it sends.
+ * They used to be written out here. The significance reflex reads the same fields off the same
+ * event with its own eyes, and the two readings drifted apart — so there is one reader now, in
+ * the vocabulary both modules already share, and the drift cannot come back.
  */
-function num(v: unknown): number | undefined {
-  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
-}
+const num = payloadNumber;
 
 /** A count from a payload: a whole non-negative number, bounded, or one where none was given. */
 function howMany(v: unknown): number {
@@ -73,13 +60,7 @@ function seconds(v: unknown): number {
  */
 const remembered = shapeOfEvent;
 
-function str(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  // an identifier is written into cards, snapshots and the operator's own terminal; an escape
-  // sequence in one is instruction to whatever renders it, not a name anybody chose
-  const clean = v.replace(CONTROL_CHARACTERS, "");
-  return clean.length > MAX_IDENTIFIER ? `${clean.slice(0, MAX_IDENTIFIER)}…` : clean;
-}
+const str = payloadName;
 
 // MAX_SENSORS and MAX_SENSOR_LAYERS live in the contracts: the schema that reads a belief back
 // off a snapshot has to hold the same ceilings this reducer does.

@@ -145,6 +145,45 @@ export type Identifier = z.infer<typeof Identifier>;
 export const SessionId = Identifier;
 export type SessionId = z.infer<typeof SessionId>;
 
+/** Control characters as a stripper rather than a test; the rule itself is CONTROL_CHARACTER. */
+const CONTROL_CHARACTERS = new RegExp(CONTROL_CHARACTER.source, "g");
+
+/**
+ * A number from an event payload, or nothing.
+ *
+ * `Number()` reads true as 1, "300" as three hundred and [503] as five hundred and three, and
+ * none of those is a number anybody sent. It matters most where the runtime acts on the value: a
+ * status of [503] marked a host as failing, and a failing host is what reshapes the body around a
+ * connection view — an incident nobody had. Every sensor checks the same way before it sends.
+ *
+ * It lives here because more than one module reads the same payload. The belief read it this way
+ * and the significance reflex read it with `Number()`, so one posted `{ status: [503] }` was not a
+ * failure to the belief and was one to the reflex: a deliberation ran, and behind a real provider
+ * a model call went out, over an incident the belief did not believe in.
+ */
+export function payloadNumber(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * A name from an event payload as the runtime will keep it, or nothing.
+ *
+ * The sensors send identifiers — a path, a host, an action key — but the ingest API accepts
+ * whatever a client posts, and these values are read back out by capabilities, rendered into
+ * cards and written to snapshots. An escape sequence in one is instruction to whatever renders
+ * it, not a name anybody chose; one long enough to be prose is trimmed, visibly.
+ *
+ * Anything that COMPARES against a name the runtime kept has to come through here too. The
+ * reflex compared the raw payload against the trimmed name the belief had stored, so a path
+ * longer than this opened three times raised the belief's repeat count and never once raised the
+ * reflex's "stuck" signal — the person who was stuck got no card.
+ */
+export function payloadName(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const clean = v.replace(CONTROL_CHARACTERS, "");
+  return clean.length > MAX_IDENTIFIER ? `${clean.slice(0, MAX_IDENTIFIER)}…` : clean;
+}
+
 /**
  * How many fields of an event's payload the belief keeps.
  *
