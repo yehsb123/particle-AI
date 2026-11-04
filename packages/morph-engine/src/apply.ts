@@ -107,8 +107,11 @@ export type ApplyResult = {
  * The walks in this file recurse on that tree, and the runner they recurse on is smaller in CI
  * than it is here.
  *
- * Undo and dismiss cannot trip it: an inverse returns the tree to a state that was already
- * within the limits, and a removal only makes it smaller.
+ * An inverse is not exempt. The inverse of a removal is an `add`, and it says nothing about the
+ * tree it will be applied to — only about the one it was recorded against. A caller that applies
+ * its inverses in the order it recorded them does return the tree to a state that was already
+ * within the limits; a caller that lets the tree grow in between hands this an `add` that is past
+ * them, and gets the same throw as any other impossible patch. Every caller catches.
  */
 export function applyPatch(
   blueprint: UIBlueprint,

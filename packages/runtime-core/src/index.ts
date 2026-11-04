@@ -663,8 +663,17 @@ export class RuntimeCore {
       s.lastMajorMorphAt = undefined;
       return s.blueprint;
     }
-    // apply FIRST — if the inverse cannot apply, nothing is popped and nothing is learned
-    const { next, inverse: redoPatch } = applyPatch(s.blueprint, inverse, this.deps.clock.iso());
+    // apply FIRST — if the inverse cannot apply, nothing is popped and nothing is learned.
+    // Refuse it the way the three other callers of applyPatch do. This one has an HTTP route
+    // directly in front of it, so a throw here is a 500 on a button a person pressed, and the
+    // session is left with its stack and its tree out of step.
+    let applied: ReturnType<typeof applyPatch>;
+    try {
+      applied = applyPatch(s.blueprint, inverse, this.deps.clock.iso());
+    } catch {
+      return null;
+    }
+    const { next, inverse: redoPatch } = applied;
     s.history.pop();
     const meta = s.morphMeta.pop();
     const learn = (opts.learn ?? true) && meta?.intent !== "dismiss" && (!opts.componentId || !!meta?.componentIds.includes(opts.componentId));
