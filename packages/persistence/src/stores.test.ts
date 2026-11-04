@@ -75,6 +75,29 @@ describe("InMemoryEventLogStore", () => {
     expect(all.at(-1)?.id).toBe("e199");
   });
 
+  it("holds no more events than its whole bound, however many sessions are sending", async () => {
+    // a bound per session with nothing over the top of it is no bound at all: a sender that
+    // changes its session id every time pushes memory up by a session's worth each round
+    const store = new InMemoryEventLogStore(10, 100, 20);
+    for (let s = 0; s < 100; s += 1) {
+      for (let i = 0; i < 10; i += 1) await store.append(ev(`s${s}-e${i}`, `s${s}`));
+    }
+    expect((await store.all()).length).toBeLessThanOrEqual(20);
+  });
+
+  it("takes the whole bound out of the session holding the most, not the one that went quiet", async () => {
+    // dropping the oldest session first is the bug this store was just fixed for: the quiet
+    // session's few events are the ones that cost nothing to keep and everything to lose
+    const store = new InMemoryEventLogStore(100, 100, 12);
+    await store.append(ev("quiet1", "quiet"));
+    await store.append(ev("quiet2", "quiet"));
+    for (let i = 0; i < 50; i += 1) await store.append(ev(`busy${i}`, "busy"));
+
+    expect((await store.listBySession("quiet")).map((e) => e.id)).toEqual(["quiet1", "quiet2"]);
+    expect((await store.all()).length).toBeLessThanOrEqual(12);
+    expect((await store.listBySession("busy")).map((e) => e.id).at(-1)).toBe("busy49");
+  });
+
   it("hands back a copy, so a reader cannot append through the returned list", async () => {
     const store = new InMemoryEventLogStore();
     await store.append(ev("a", "s1"));

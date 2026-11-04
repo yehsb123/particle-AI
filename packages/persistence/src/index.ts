@@ -30,13 +30,22 @@ export interface SnapshotStore {
  * Sessions are held in a map rather than filtered out of one list, so no session id can be
  * spelled to reach another's events. The order events arrived in is kept across sessions, since
  * `all()` is read as the trail of the whole process.
+ *
+ * Three bounds, because a per-session bound on its own is no bound at all — a sender that
+ * changes its session id each time would push memory up by a session's worth every round. What
+ * one session keeps, how many sessions are kept, and how many events are held in total. The
+ * total is given up by the session holding the MOST, never by the one that went quiet: a quiet
+ * session's handful of events is what costs nothing to keep and everything to lose, and taking
+ * from the oldest session instead is the bug this store was just fixed for.
  */
 export class InMemoryEventLogStore implements EventLogStore {
   private bySession = new Map<string, { seq: number; event: MatterEvent }[]>();
   private nextSeq = 0;
+  private held = 0;
   constructor(
-    private readonly limitPerSession = 10_000,
+    private readonly limitPerSession = 1_000,
     private readonly maxSessions = 500,
+    private readonly limit = 10_000,
   ) {}
   async append(event: MatterEvent): Promise<void> {
     const existing = this.bySession.get(event.sessionId);
@@ -44,13 +53,41 @@ export class InMemoryEventLogStore implements EventLogStore {
     if (existing) this.bySession.delete(event.sessionId);
     const events = existing ?? [];
     events.push({ seq: this.nextSeq++, event });
-    while (events.length > this.limitPerSession) events.shift();
+    this.held += 1;
+    while (events.length > this.limitPerSession) {
+      events.shift();
+      this.held -= 1;
+    }
     this.bySession.set(event.sessionId, events);
     while (this.bySession.size > this.maxSessions) {
       const oldest = this.bySession.keys().next().value;
       if (oldest === undefined) break;
+      this.held -= this.bySession.get(oldest)?.length ?? 0;
       this.bySession.delete(oldest);
     }
+    while (this.held > this.limit && this.dropOldestOfTheLargestSession()) {
+      // keep going until the whole store is back inside its bound
+    }
+  }
+
+  /** The one event that costs the least to lose: the oldest of whichever session holds the most. */
+  private dropOldestOfTheLargestSession(): boolean {
+    let largest: string | undefined;
+    let most = 0;
+    // map order is least-recently-written first, so a tie is broken towards the quieter session
+    for (const [sessionId, events] of this.bySession) {
+      if (events.length > most) {
+        most = events.length;
+        largest = sessionId;
+      }
+    }
+    if (largest === undefined) return false;
+    const events = this.bySession.get(largest);
+    if (!events?.length) return false;
+    events.shift();
+    this.held -= 1;
+    if (!events.length) this.bySession.delete(largest);
+    return true;
   }
   async listBySession(sessionId: string): Promise<MatterEvent[]> {
     return (this.bySession.get(sessionId) ?? []).map((e) => e.event);
