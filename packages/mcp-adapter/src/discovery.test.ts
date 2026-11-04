@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { discoverMcpCapabilities, mcpToolToCapability, idSegment, MAX_TOOLS_PER_SERVER, type McpClient, type McpToolDescriptor } from "./index";
+import { CapabilityManifest } from "@particle/contracts";
+import { discoverMcpCapabilities, mcpToolToCapability, idSegment, MAX_TOOLS_PER_SERVER, MAX_TOOL_NAME, MAX_TOOL_DESCRIPTION, type McpClient, type McpToolDescriptor } from "./index";
 
 /**
  * An MCP server is somebody else's process, reached over somebody else's transport. The adapter's
@@ -126,5 +127,50 @@ describe("calling a tool", () => {
       const cap = mcpToolToCapability({ name: "x" }, client({ callTool: async () => output }));
       expect(await cap.execute({}, ctx)).toEqual({ ok: true, output });
     }
+  });
+});
+
+/**
+ * A manifest is assembled out of strings an MCP server chose the length and the type of, and it
+ * is kept in the registry, read by the decision engine and shown to whoever is asked to approve
+ * the capability. The failure message beside it is already held to 600 characters for exactly
+ * that reason; the name and the description were the two that nobody had bounded, and the
+ * manifest went into the registry as an object literal rather than through its own schema.
+ */
+describe("a string a server chose the length of", () => {
+  it("holds a description to a length an operator reads", () => {
+    const cap = mcpToolToCapability({ name: "get_report", description: "d".repeat(200_000) }, client());
+    expect(cap.manifest.description.length).toBeLessThanOrEqual(MAX_TOOL_DESCRIPTION);
+    expect(cap.manifest.description.startsWith("ddd")).toBe(true);
+  });
+
+  it("leaves a description that is already short alone", () => {
+    expect(mcpToolToCapability({ name: "x", description: "a short one" }, client()).manifest.description).toBe("a short one");
+  });
+
+  it("does not put something that is not a string where a description goes", () => {
+    for (const described of [42, { text: "hi" }, ["hi"], true]) {
+      const cap = mcpToolToCapability({ name: "x", description: described as never }, client());
+      expect(typeof cap.manifest.description, JSON.stringify(described)).toBe("string");
+      expect(cap.manifest.description).toContain("weather");
+    }
+  });
+
+  it("skips a tool whose name is longer than a name, and keeps the ones it can use", async () => {
+    const caps = await discoverMcpCapabilities(client({
+      listTools: async () => [{ name: "good" }, { name: "x".repeat(MAX_TOOL_NAME + 1) }, { name: "also_good" }],
+    }));
+    expect(caps.map((c) => c.manifest.name)).toEqual(["good", "also_good"]);
+  });
+
+  it("takes a name right up to the bound", async () => {
+    const name = "x".repeat(MAX_TOOL_NAME);
+    const caps = await discoverMcpCapabilities(client({ listTools: async () => [{ name }] }));
+    expect(caps.map((c) => c.manifest.name)).toEqual([name]);
+  });
+
+  it("hands back a manifest its own schema accepts", () => {
+    const cap = mcpToolToCapability({ name: "get_report", description: "d".repeat(200_000) }, client());
+    expect(CapabilityManifest.parse(cap.manifest)).toEqual(cap.manifest);
   });
 });

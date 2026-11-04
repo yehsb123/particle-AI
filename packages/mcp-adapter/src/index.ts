@@ -1,4 +1,5 @@
-import type { CapabilityManifest, RiskLevel } from "@particle/contracts";
+import { CapabilityManifest } from "@particle/contracts";
+import type { RiskLevel } from "@particle/contracts";
 import type { Capability, CapabilityContext } from "@particle/capability-core";
 
 /** Minimal MCP surface we depend on — any transport (stdio, HTTP, ws) can implement it. */
@@ -100,9 +101,29 @@ export function mcpPermission(serverId: string): string {
 /** How many tools one server may contribute. Far past any real server; a bound all the same. */
 export const MAX_TOOLS_PER_SERVER = 200;
 
+/**
+ * How long a name and a description a server may hand us.
+ *
+ * Both come out of somebody else's process, both end up on a manifest that is kept in the
+ * registry and shown to whoever is asked to approve the capability, and neither had a bound —
+ * while the failure message beside them is held to 600 characters for exactly that reason. A
+ * description is prose, so it is cut; a name is an identity the capability id is built from, so
+ * cutting it would let two long names collide into one capability, and a server that writes one
+ * past this length contributes that tool and nothing else. Both are far past any real server.
+ */
+export const MAX_TOOL_NAME = 256;
+export const MAX_TOOL_DESCRIPTION = 600;
+
 /** True when a descriptor is something we can actually build a capability from. */
 function isUsableTool(tool: unknown): tool is McpToolDescriptor {
-  return !!tool && typeof tool === "object" && typeof (tool as { name?: unknown }).name === "string" && (tool as { name: string }).name.length > 0;
+  if (!tool || typeof tool !== "object") return false;
+  const name = (tool as { name?: unknown }).name;
+  return typeof name === "string" && name.length > 0 && name.length <= MAX_TOOL_NAME;
+}
+
+/** Prose from somebody else's process, cut to a length an operator reads. */
+function clamp(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
 /** Wrap a single MCP tool as a Capability. MCP specifics stay out of the core runtime. */
@@ -111,16 +132,23 @@ export function mcpToolToCapability(
   client: McpClient,
   opts: McpAdapterOptions = {},
 ): Capability {
-  const manifest: CapabilityManifest = {
-    id: `mcp.${idSegment(client.serverId)}.${idSegment(tool.name)}`,
-    name: tool.name,
-    description: tool.description ?? `MCP tool ${tool.name} from ${client.serverId}`,
+  // The descriptor is somebody else's self-description: its name is cut to the bound rather than
+  // trusted at whatever length it arrived at (discovery refuses one past it outright), and a
+  // description that is not prose is no description at all. The result goes through the schema
+  // instead of being asserted into shape, so what reaches the registry is what the registry's own
+  // vocabulary says a manifest is.
+  const name = clamp(tool.name, MAX_TOOL_NAME);
+  const described = typeof tool.description === "string" ? clamp(tool.description, MAX_TOOL_DESCRIPTION) : undefined;
+  const manifest = CapabilityManifest.parse({
+    id: `mcp.${idSegment(client.serverId)}.${idSegment(name)}`,
+    name,
+    description: described ?? `MCP tool ${name} from ${client.serverId}`,
     tags: ["mcp", client.serverId],
     risk: inferRisk(tool, opts),
     latencyClass: "slow",
     costClass: "medium",
     requiredPermissions: [mcpPermission(client.serverId)],
-  };
+  });
   return {
     manifest,
     async execute(input: unknown, _ctx: CapabilityContext) {
