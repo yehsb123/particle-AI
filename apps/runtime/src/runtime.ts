@@ -182,8 +182,11 @@ export class SessionRuntime {
    *
    * Nobody is left to hand the failure to, so it goes to the runtime's own log instead of being
    * swallowed. A drop is not logged twice: the lane already wrote it to the trail.
+   *
+   * What it takes is what it writes down, not a whole MatterEvent: one of its callers is the
+   * reconcile tick, which can fail IN the parse and so is not one yet.
    */
-  noteUndelivered(event: MatterEvent, err: unknown): void {
+  noteUndelivered(event: { sessionId: string; id: string }, err: unknown): void {
     if (err instanceof EventDropped) return;
     this.log.warn("ingest_failed", { sessionId: event.sessionId, eventId: event.id, error: (err as Error).message });
   }
@@ -356,15 +359,19 @@ export class SessionRuntime {
     const t = setTimeout(() => {
       this.reconcileTimers.delete(sessionId);
       if (!this.core.hasSession(sessionId)) return; // evicted meanwhile — do not resurrect it
-      void this.ingest({
+      const tick = {
         id: `reconcile-${sessionId}-${Date.now()}`,
         sessionId,
         timestamp: this.now(),
-        source: "system",
+        source: "system" as const,
         type: "runtime.reconcile",
-        severity: "debug",
+        severity: "debug" as const,
         payload: { reason: "guard_hold_expired" },
-      }).catch(() => undefined);
+      };
+      // Nobody is waiting on this one — it is the runtime catching its own body up with the
+      // world — so a failure here used to go nowhere at all, and the body stayed out of step
+      // with no reason recorded anywhere. Same lane as an event whose sender has already gone.
+      void this.ingest(tick).catch((err: unknown) => this.noteUndelivered(tick, err));
     }, Math.min(afterMs, 60_000));
     t.unref?.();
     this.reconcileTimers.set(sessionId, t);

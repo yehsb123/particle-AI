@@ -208,6 +208,39 @@ describe("runtime reconcile timer", () => {
       vi.useRealTimers();
     }
   });
+
+  /**
+   * A reconcile that never ran is the body left out of step with the world on purpose.
+   *
+   * Every other failure in this class is written down — a drop goes to the trail, a failed append
+   * and an unusable snapshot go to the log — but the tick's own failure was caught and thrown
+   * away, so a body still showing a problem that was over had nothing anywhere to explain it. The
+   * tick names itself after its session, and a session named near the limit makes an event id
+   * past it, which is a real way for this to fail with nobody waiting on the answer.
+   */
+  it("says so when the tick itself could not be ingested", async () => {
+    const session = "s".repeat(120); // a legal session name; `reconcile-<it>-<ms>` is not a legal id
+    const rt = new SessionRuntime(() => new Date().toISOString());
+    const warned: string[] = [];
+    const warn = vi.spyOn(console, "warn").mockImplementation((line: unknown) => void warned.push(String(line)));
+    vi.useFakeTimers();
+    try {
+      const mk = (id: string, type: string, sev: string) => ({
+        id, sessionId: session, timestamp: new Date().toISOString(), source: "development", type, severity: sev, payload: {},
+      });
+      await rt.ingest(mk("b1", "development.build_failed", "warning"));
+      await rt.ingest(mk("b2", "development.build_succeeded", "info"));
+      const held = await rt.ingest(mk("b3", "development.build_failed", "warning"));
+      expect(held.result.retryAfterMs).toBeGreaterThan(0);
+      await vi.advanceTimersByTimeAsync((held.result.retryAfterMs ?? 5_000) + 250);
+      // nothing was folded — what matters is that the failure is readable somewhere
+      expect(rt.store.listBySession(session).map((e) => e.type)).not.toContain("runtime.reconcile");
+      expect(warned.filter((line) => line.includes("ingest_failed"))).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      warn.mockRestore();
+    }
+  });
 });
 
 describe("runtime restart — pattern memory", () => {
