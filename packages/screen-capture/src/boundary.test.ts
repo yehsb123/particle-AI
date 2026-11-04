@@ -84,12 +84,13 @@ describe("the MIT side of the capture boundary", () => {
 });
 
 describe("the repository around the boundary", () => {
+  const root = join(mitPackage, "..", "..");
+
   /**
    * The point of splitting the packages is that an ordinary build never reaches the GPL one. If
    * an app or another package imported it, the split would be decoration.
    */
   it("has no app or package importing the GPL one", () => {
-    const root = join(mitPackage, "..", "..");
     const offenders: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -109,6 +110,35 @@ describe("the repository around the boundary", () => {
     };
     walk(join(root, "apps"));
     walk(join(root, "packages"));
+    expect(offenders).toEqual([]);
+  });
+
+  /**
+   * Reading the import graph catches a file that reaches for the GPL package. It does not catch
+   * the manifest that put it there: a `package.json` is not a source file, so a dependency
+   * declared in one was invisible here, and installing GPL code into a build is what makes that
+   * build GPL whether or not any line imports it yet. Declarations are read too.
+   */
+  it("has no app or package declaring the GPL one as a dependency", () => {
+    const offenders: string[] = [];
+    const manifests = [join(root, "package.json")];
+    for (const group of ["apps", "packages"]) {
+      for (const entry of readdirSync(join(root, group), { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const dir = join(root, group, entry.name);
+        if (dir === obsPackage) continue; // the GPL package is allowed to be itself
+        manifests.push(join(dir, "package.json"));
+      }
+    }
+    for (const file of manifests) {
+      const manifest = JSON.parse(readFileSync(file, "utf8")) as Record<string, Record<string, string> | undefined>;
+      for (const field of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]) {
+        for (const named of Object.keys(manifest[field] ?? {})) {
+          if (named === OBS_PACKAGE_NAME) offenders.push(`${file}: ${field}.${named}`);
+        }
+      }
+    }
+    expect(manifests.length).toBeGreaterThan(5);
     expect(offenders).toEqual([]);
   });
 });
