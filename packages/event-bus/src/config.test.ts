@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { DEFAULT_KAFKA_BROKERS, DEFAULT_KAFKA_GROUP_ID, DEFAULT_KAFKA_TOPIC, eventBusConfig } from "./config";
 
 const kafka = (env: NodeJS.ProcessEnv) => eventBusConfig({ DM_EVENT_BUS: "kafka", ...env });
@@ -227,5 +230,27 @@ describe("a setting nobody can act on", () => {
         /DM_KAFKA_GROUP_ID/,
       );
     }
+  });
+});
+
+/**
+ * `.env.example` says of itself that it is the whole list of what the code reads, and somebody
+ * configuring a broker reads that file rather than this package. Every variable this package acts
+ * on was missing from it — a channel, a broker list, a topic, a group, a TLS switch and three
+ * login settings — so the file was the whole list of everything except the part with a password
+ * in it. Counting them by hand is how it drifted; this counts them on every run.
+ */
+describe("what the environment file promises to list", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const example = readFileSync(join(here, "..", "..", "..", ".env.example"), "utf8");
+  const read = new Set(
+    readdirSync(here)
+      .filter((name) => name.endsWith(".ts"))
+      .flatMap((name) => [...readFileSync(join(here, name), "utf8").matchAll(/\benv\.(DM_[A-Z0-9_]+)/g)].map((m) => m[1] as string)),
+  );
+
+  it("names every variable this package reads", () => {
+    expect(read.size).toBeGreaterThan(0);
+    expect([...read].filter((name) => !example.includes(name)).sort()).toEqual([]);
   });
 });
