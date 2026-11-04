@@ -60,6 +60,7 @@ function seconds(v: unknown): number {
  */
 const remembered = shapeOfEvent;
 
+/** A name from a payload, cleaned and cut. The contracts' reader, for the reason `num` gives. */
 const str = payloadName;
 
 // MAX_SENSORS and MAX_SENSOR_LAYERS live in the contracts: the schema that reads a belief back
