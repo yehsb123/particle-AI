@@ -18,6 +18,23 @@ let last = Date.now();
 let idleReported = false;
 let hiddenAt: number | null = null;
 
+/**
+ * Hand one report to the worker, and say whether it took it.
+ *
+ * MV3 throws the worker away after thirty idle seconds and starts it again on the next message,
+ * and a message sent into that gap is refused. Every counter below used to be cleared on the
+ * line after the send rather than after its answer, so whatever went into that gap was gone: the
+ * worker never saw it and nothing here remembered it either.
+ */
+async function relay(kind: string, payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    await chrome.runtime.sendMessage({ kind, payload });
+    return true;
+  } catch {
+    return false; // the worker is restarting; whatever this carried stays counted for next time
+  }
+}
+
 const bump = (): void => {
   count += 1;
   last = Date.now();
@@ -34,12 +51,15 @@ function readConsent(stored: unknown): void {
   const c = (stored && typeof stored === "object" ? stored : {}) as Record<string, unknown>;
   pageConsent = c.page === true;
 }
-chrome.storage.sync
+const consentRead: Promise<void> = chrome.storage.sync
   .get("consent")
   .then((v) => readConsent(v.consent))
   .catch(() => readConsent(null));
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && changes.consent) readConsent(changes.consent.newValue);
+  // Behind the first read, always. A change that overtook it was undone by it moments later: the
+  // script starts, the read is in flight, somebody turns the page layer off, and the answer that
+  // was already on its way turns it back on with nothing to say it had happened.
+  if (area === "sync" && changes.consent) void consentRead.then(() => readConsent(changes.consent?.newValue));
 });
 
 /**
@@ -55,29 +75,56 @@ const PAGE_GAP_MS = 30_000;
 let lastShape = "";
 let lastPageAt = 0;
 
-function reportPage(now: number): void {
+async function reportPage(now: number): Promise<void> {
   if (!pageConsent || document.hidden) return; // only the page somebody is actually looking at
   if (now - lastPageAt < PAGE_GAP_MS) return;
   const shape = pageShape(readPage(document));
   const key = JSON.stringify(shape);
   if (key === lastShape) return; // the same page, unchanged, is not news
+  if (!(await relay("page", { ...shape, host: location.hostname }))) return; // read again next cycle
   lastShape = key;
   lastPageAt = now;
-  chrome.runtime.sendMessage({ kind: "page", payload: { ...shape, host: location.hostname } }).catch(() => {});
 }
 
-setInterval(() => {
-  if (count > 0) {
-    chrome.runtime.sendMessage({ kind: "interaction", payload: { count, host: location.hostname } }).catch(() => {});
-    count = 0;
+/** A return from an absence nobody has heard about yet, kept until somebody has. */
+let awayPending: number | null = null;
+let reportingAway = false;
+async function reportAway(): Promise<void> {
+  if (reportingAway) return;
+  reportingAway = true;
+  try {
+    const away = awayPending;
+    if (away === null) return;
+    if (!(await relay("visibility", { visible: true, awaySeconds: away }))) return;
+    // A longer absence recorded while this was in flight is not cleared by this one arriving.
+    if (awayPending === away) awayPending = null;
+  } finally {
+    reportingAway = false;
   }
-  const idle = Math.round((Date.now() - last) / 1000);
-  if (idle >= 60 && !idleReported) {
-    idleReported = true;
-    chrome.runtime.sendMessage({ kind: "idle", payload: { seconds: idle } }).catch(() => {});
+}
+
+let reporting = false;
+async function tick(): Promise<void> {
+  // A cycle still waiting on a worker that is restarting must not be joined by the next one:
+  // both would send the same batch, and the person's interactions would be counted twice.
+  if (reporting) return;
+  reporting = true;
+  try {
+    if (count > 0) {
+      const batch = count;
+      // Subtracted rather than zeroed: what happened while the send was in flight is still
+      // waiting to be reported, and it did not go out with this batch.
+      if (await relay("interaction", { count: batch, host: location.hostname })) count -= batch;
+    }
+    const idle = Math.round((Date.now() - last) / 1000);
+    if (idle >= 60 && !idleReported) idleReported = await relay("idle", { seconds: idle });
+    await reportAway();
+    await reportPage(Date.now());
+  } finally {
+    reporting = false;
   }
-  reportPage(Date.now());
-}, 10_000);
+}
+setInterval(() => void tick(), 10_000);
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
@@ -86,5 +133,9 @@ document.addEventListener("visibilitychange", () => {
   }
   const away = hiddenAt ? Math.round((Date.now() - hiddenAt) / 1000) : 0;
   hiddenAt = null;
-  if (away >= 5) chrome.runtime.sendMessage({ kind: "visibility", payload: { visible: true, awaySeconds: away } }).catch(() => {});
+  if (away < 5) return;
+  // The longest unreported absence, not the latest: two returns before either is taken means an
+  // hour away and a glance at another tab, and the hour is the one that says what happened.
+  awayPending = Math.max(awayPending ?? 0, away);
+  void reportAway();
 });
