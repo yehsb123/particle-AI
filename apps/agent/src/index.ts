@@ -84,6 +84,14 @@ const queue = createSendQueue(async (event) => {
   const heard = dropNotice(dropsHeard, droppedFromAck(ack));
   dropsHeard = heard.seen;
   if (heard.note) process.stderr.write(heard.note + "\n");
+}, {
+  // An event that never reached the runtime leaves no trace there, so this is the only place it
+  // can leave one. The fetch above gives up after five seconds, which a runtime waiting on a
+  // model exceeds easily — and without this a save or a branch switch disappeared in silence.
+  onError: (err) =>
+    process.stderr.write(
+      `[particle-agent] an event was not delivered (${err instanceof Error ? err.message : String(err)}); ${queue.dropped()} not delivered so far\n`,
+    ),
 });
 function send(event: ReturnType<typeof matterEvent>): Promise<void> {
   return queue.send(event);

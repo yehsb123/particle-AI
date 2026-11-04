@@ -201,7 +201,18 @@ export function createSendQueue(
         try {
           await post(payload);
         } catch (err) {
-          options.onError?.(err); // best-effort: the far end being down is not our problem to solve
+          // A file save that did not arrive is gone whether the queue refused it or the send
+          // failed on the way; the count is what this agent lost, not how it lost it. The send
+          // behind this carries a five second timeout, so a runtime busy with a model call was
+          // enough to lose a save or a branch switch while dropped() still read zero.
+          dropped += 1;
+          try {
+            options.onError?.(err); // best-effort: the far end being down is not our problem to solve
+          } catch {
+            // A handler that throws used to reject this link of the chain, so no later send ever
+            // ran: every event after the first failure went the same way, with an unhandled
+            // rejection as the only sign. Nothing called from a failure path may end the queue.
+          }
         } finally {
           pending -= 1;
         }
@@ -210,7 +221,7 @@ export function createSendQueue(
     },
     /** How many sends are queued or in flight. */
     pending: () => pending,
-    /** How many were dropped at the ceiling, for an honest indicator. */
+    /** How many this agent did not deliver: refused at the ceiling, or failed on the way. */
     dropped: () => dropped,
   };
 }

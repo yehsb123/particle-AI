@@ -93,6 +93,75 @@ describe("a runtime that is not answering", () => {
   });
 });
 
+/**
+ * What this agent loses when the runtime is slow rather than absent.
+ *
+ * The send behind this queue carries a five second timeout, so a runtime busy with a model call
+ * is enough to lose a file save or a branch switch. Two things made that loss invisible: a send
+ * that failed was counted nowhere, so dropped() read zero while observations were gone, and a
+ * handler that itself threw rejected the link of the chain it ran in, which meant no later send
+ * ever ran and every event after the first failure went the same way with an unhandled rejection
+ * as the only sign. Measured before: two failed sends, dropped() zero.
+ */
+describe("what the queue does with an event it could not deliver", () => {
+  it("counts it, because an event that did not arrive is gone either way", async () => {
+    const queue = createSendQueue(async () => {
+      throw new Error("TimeoutError: signal timed out");
+    });
+    await queue.send({ type: "user.opened_file" });
+    await queue.send({ type: "user.action" });
+    expect(queue.dropped()).toBe(2);
+    expect(queue.pending()).toBe(0);
+  });
+
+  it("counts nothing when everything arrives", async () => {
+    const arrived: unknown[] = [];
+    const queue = createSendQueue(async (p) => {
+      arrived.push(p);
+    });
+    await queue.send({ type: "user.opened_file" });
+    expect(arrived).toHaveLength(1);
+    expect(queue.dropped()).toBe(0);
+  });
+
+  it("keeps sending after a handler that throws", async () => {
+    const arrived: unknown[] = [];
+    let failNext = true;
+    const queue = createSendQueue(
+      async (p) => {
+        if (failNext) {
+          failNext = false;
+          throw new Error("the first one fails");
+        }
+        arrived.push(p);
+      },
+      {
+        onError: () => {
+          throw new Error("a handler that itself throws");
+        },
+      },
+    );
+    for (const p of ["a", "b", "c"]) void queue.send(p);
+    await sleep(30);
+    expect(arrived).toEqual(["b", "c"]);
+    expect(queue.dropped()).toBe(1);
+  });
+
+  it("keeps sending after the runtime has been down and come back", async () => {
+    const arrived: unknown[] = [];
+    let down = true;
+    const queue = createSendQueue(async (p) => {
+      if (down) throw new Error("fetch failed");
+      arrived.push(p);
+    });
+    await queue.send("while down");
+    down = false;
+    await queue.send("after it came back");
+    expect(arrived).toEqual(["after it came back"]);
+    expect(queue.dropped()).toBe(1);
+  });
+});
+
 describe("a far end that has stopped answering entirely", () => {
   it("stops queueing at the ceiling instead of growing forever", async () => {
     let release = () => {};
