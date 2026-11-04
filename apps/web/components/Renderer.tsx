@@ -82,6 +82,16 @@ export const MAX_TEXT = 4_000;
 export const MAX_ITEMS = 500;
 
 /**
+ * How deep one list prop may nest before the screen stops following it.
+ *
+ * The tree prop is the only one that walks itself, and only its top level was bounded: each
+ * child list went straight back in. A prop is whatever the model wrote and whatever a capability
+ * returned, so "as deep as it likes" means a render that runs out of stack — which blanks the
+ * whole body, not the one card. Twenty levels is deeper than any file tree anybody reads.
+ */
+export const MAX_NESTING = 20;
+
+/**
  * Control characters, except the newline and tab a pre-wrap block needs. A carriage return is not
  * one of those: nothing here needs it, and it walks a terminal's cursor back over what it printed.
  * An escape sequence in a label is invisible where it lands and active wherever the text goes next.
@@ -405,7 +415,7 @@ function TabsNode({ node }: { node: UIComponent }) {
       <div className="devtabs" style={{ margin: "-12px -12px 12px" }}>
         {panels.map((p, i) => (
           <button key={p.id} className={`devtab${i === activeIdx ? " active" : ""}`} onClick={() => setActive(i)}>
-            {(p.props?.title as string) ?? `Tab ${i + 1}`}
+            {text(p.props?.title, `Tab ${i + 1}`)}
           </button>
         ))}
       </div>
@@ -414,15 +424,26 @@ function TabsNode({ node }: { node: UIComponent }) {
   );
 }
 
+/** A node's children as a list the screen will walk: bounded in width, like every other list prop. */
+function branches(node: TreeItem | undefined): TreeItem[] {
+  const v = node?.children;
+  if (!Array.isArray(v)) return []; // `children: "src"` has a length, and is not a list
+  return v.length > MAX_ITEMS ? v.slice(0, MAX_ITEMS) : v;
+}
+
 function TreeNodes({ nodes, depth = 0 }: { nodes: TreeItem[]; depth?: number }) {
+  if (depth >= MAX_NESTING) return null;
   return (
     <ul className="files" style={{ marginLeft: depth ? 14 : 0 }}>
-      {nodes.map((n, i) => (
-        <li key={i}>
-          {n?.children?.length ? "▸ " : "· "}{text(n?.label)}
-          {n?.children?.length ? <TreeNodes nodes={n.children} depth={depth + 1} /> : null}
-        </li>
-      ))}
+      {nodes.map((n, i) => {
+        const children = branches(n);
+        return (
+          <li key={i}>
+            {children.length ? "▸ " : "· "}{text(n?.label)}
+            {children.length ? <TreeNodes nodes={children} depth={depth + 1} /> : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
