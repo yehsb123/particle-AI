@@ -17,18 +17,49 @@ export interface SnapshotStore {
   list(sessionId: string, kind?: string): Promise<Snapshot[]>;
 }
 
+/**
+ * The events one session can be read back from, bounded without reaching into another session.
+ *
+ * This kept one array for every session at once and dropped the oldest event in it, so a session
+ * busy enough to fill the bound on its own emptied the trail of every quiet session beside it —
+ * the same way the snapshot store below used to, and for the same reason. The bound on events is
+ * now per session, and a second bound counts sessions, so a long run with a fresh session id each
+ * time cannot grow without limit either. The session written to most recently is the last one
+ * forgotten.
+ *
+ * Sessions are held in a map rather than filtered out of one list, so no session id can be
+ * spelled to reach another's events. The order events arrived in is kept across sessions, since
+ * `all()` is read as the trail of the whole process.
+ */
 export class InMemoryEventLogStore implements EventLogStore {
-  private events: MatterEvent[] = [];
-  constructor(private readonly limit = 10_000) {}
+  private bySession = new Map<string, { seq: number; event: MatterEvent }[]>();
+  private nextSeq = 0;
+  constructor(
+    private readonly limitPerSession = 10_000,
+    private readonly maxSessions = 500,
+  ) {}
   async append(event: MatterEvent): Promise<void> {
-    this.events.push(event);
-    if (this.events.length > this.limit) this.events.shift();
+    const existing = this.bySession.get(event.sessionId);
+    // re-inserting moves this session to the end: what is written to stays, what went quiet goes
+    if (existing) this.bySession.delete(event.sessionId);
+    const events = existing ?? [];
+    events.push({ seq: this.nextSeq++, event });
+    while (events.length > this.limitPerSession) events.shift();
+    this.bySession.set(event.sessionId, events);
+    while (this.bySession.size > this.maxSessions) {
+      const oldest = this.bySession.keys().next().value;
+      if (oldest === undefined) break;
+      this.bySession.delete(oldest);
+    }
   }
   async listBySession(sessionId: string): Promise<MatterEvent[]> {
-    return this.events.filter((e) => e.sessionId === sessionId);
+    return (this.bySession.get(sessionId) ?? []).map((e) => e.event);
   }
   async all(): Promise<MatterEvent[]> {
-    return [...this.events];
+    return [...this.bySession.values()]
+      .flat()
+      .sort((a, z) => a.seq - z.seq)
+      .map((e) => e.event);
   }
 }
 

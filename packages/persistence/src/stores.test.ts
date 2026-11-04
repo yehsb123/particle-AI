@@ -33,13 +33,37 @@ describe("InMemoryEventLogStore", () => {
     expect(await store.listBySession("s3")).toEqual([]);
   });
 
-  it("drops the oldest events at its bound, in order", async () => {
+  it("drops a session's oldest events at its bound, in order", async () => {
     const store = new InMemoryEventLogStore(2);
     await store.append(ev("a", "s1"));
     await store.append(ev("b", "s1"));
-    await store.append(ev("c", "s2"));
+    await store.append(ev("c", "s1"));
+    expect((await store.listBySession("s1")).map((e) => e.id)).toEqual(["b", "c"]);
     expect((await store.all()).map((e) => e.id)).toEqual(["b", "c"]);
-    expect((await store.listBySession("s1")).map((e) => e.id)).toEqual(["b"]);
+  });
+
+  it("lets a busy session run without emptying a quiet one", async () => {
+    // the bound was counted across every session at once, so a session that filled it pushed out
+    // the events of every quiet session beside it — which had done nothing wrong
+    const store = new InMemoryEventLogStore(2);
+    await store.append(ev("quiet", "s1"));
+    for (let i = 0; i < 50; i += 1) await store.append(ev(`busy${i}`, "s2"));
+    expect((await store.listBySession("s1")).map((e) => e.id)).toEqual(["quiet"]);
+    expect((await store.listBySession("s2")).map((e) => e.id)).toEqual(["busy48", "busy49"]);
+    expect((await store.all()).map((e) => e.id)).toEqual(["quiet", "busy48", "busy49"]);
+  });
+
+  it("forgets the session that went quiet longest when it is holding too many", async () => {
+    // events per session is one bound; the number of sessions is the other, or a long run with a
+    // fresh session id each time grows without limit
+    const store = new InMemoryEventLogStore(10, 3);
+    for (const session of ["a", "b", "c"]) await store.append(ev(`${session}1`, session));
+    await store.append(ev("a2", "a")); // a is written to again, so b is now the quietest
+    await store.append(ev("d1", "d"));
+
+    expect(await store.listBySession("b")).toEqual([]);
+    expect((await store.listBySession("a")).map((e) => e.id)).toEqual(["a1", "a2"]);
+    for (const session of ["c", "d"]) expect((await store.listBySession(session)).length, session).toBe(1);
   });
 
   it("stays at its bound over a long run", async () => {
