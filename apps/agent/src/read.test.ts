@@ -152,14 +152,28 @@ function gate(): { wait: Promise<void>; open: () => void } {
 
 describe("pictures waiting to be read", () => {
   it("reads one at a time, in the order they were taken", async () => {
+    // Timing this with two different sleeps inside one longer sleep made the test fail on a busy
+    // machine and pass on an idle one, which says nothing about the queue. The readings are held
+    // open by hand instead, and the LATER frame is released first: if they were not serial, "b"
+    // would be read while "a" was still waiting and the order the pictures were taken in is gone.
     const read: string[] = [];
+    const first = gate();
+    const second = gate();
+    const both = gate();
     const queue = createReadQueue<string>(async (frame) => {
-      await sleep(frame === "a" ? 15 : 1);
+      await (frame === "a" ? first.wait : second.wait);
       read.push(frame);
+      if (read.length === 2) both.open();
     });
     queue.push("a");
     queue.push("b");
-    await sleep(40);
+
+    second.open();
+    await sleep(0); // the queue runs on microtasks alone, so one turn of the loop settles it
+    expect(read).toEqual([]);
+
+    first.open();
+    await both.wait;
     expect(read).toEqual(["a", "b"]);
   });
 
