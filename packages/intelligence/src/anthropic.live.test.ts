@@ -8,7 +8,7 @@ const key = process.env.ANTHROPIC_API_KEY;
 // Only runs when a real key is configured; otherwise skipped (keeps offline runs green).
 describe.skipIf(!key)("AnthropicProvider (live)", () => {
   it("reports healthy and returns structured JSON from the real API", async () => {
-    const p = new AnthropicProvider({ apiKey: key, model: "claude-haiku-4-5-20251001" });
+    const p = new AnthropicProvider({ apiKey: key, model: "claude-haiku-5-5" });
     expect((await p.health()).healthy).toBe(true);
 
     const res = await p.evaluate({
@@ -33,7 +33,7 @@ describe.skipIf(!key)("AnthropicProvider (live)", () => {
  */
 describe.skipIf(!key)("reading a picture with the real API (live)", () => {
   it("comes back with a reading that fits the schema", async () => {
-    const provider = new AnthropicProvider({ apiKey: key, model: "claude-haiku-4-5-20251001" });
+    const provider = new AnthropicProvider({ apiKey: key, model: "claude-haiku-5-5" });
     const result = await readScreen(provider, {
       bytes: Buffer.from(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
