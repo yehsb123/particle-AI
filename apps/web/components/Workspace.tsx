@@ -1,67 +1,48 @@
 "use client";
 
+/**
+ * The body: one core, one loop, and the surfaces that show what it did.
+ *
+ * What is left here is the loop itself — an event in, a result applied, a morph undone — and the
+ * wiring that hands the result to the pieces that draw it. The boundaries around it have their
+ * own files under `workspace/`: which session this is and what it persists, the connected
+ * runtime, the restore, this page's own senses, the settings, and each surface the rail shows.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createReplayClock } from "../lib/replayClock";
-import { describeHold } from "../lib/hold";
-import { describeMorphStep } from "../lib/morphStep";
-import { describeSensor, describeLayer, contentExceptions } from "../lib/sensing";
-import { describeApprovalReason, missingPermissionNames } from "../lib/approval";
-import { describeRisk, riskBadgeClass, describeAutonomy } from "../lib/risk";
-import { describeIntent } from "../lib/intent";
-import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, PresenceState, UIAction, UIBlueprint } from "@particle/contracts";
-import { MatterEvent as MatterEventSchema } from "@particle/contracts";
+import type { ApprovalRequest, AttentionState, AutonomyLevel, MatterEvent, UIAction, UIBlueprint } from "@particle/contracts";
 import { createRuntimeCore, replay, type IngestResult, type RuntimeCore } from "@particle/runtime-core";
 import { Render, RendererProvider, text as displayText } from "./Renderer";
-import { DeveloperInspector, type DebugState } from "./DeveloperInspector";
-import { SIM_EVENTS, buildSimEvent as buildEvent, type SimSpec } from "@particle/contracts";
-import { RuntimeClient, sessionHref, type ServerMessage } from "../lib/runtimeClient";
+import { type DebugState } from "./DeveloperInspector";
+import { buildSimEvent as buildEvent, type SimSpec } from "@particle/contracts";
 import { mergeSuggestions, type Suggestion } from "../lib/suggestions";
-import { t, tr, fillTemplate, type Lang } from "../lib/i18n";
-
-/** One list, in the contracts, so the runtime and the body cannot drift on what a presence is. */
-type Presence = PresenceState;
-type LogEntry = { id: string; text: string; kind: "event" | "morph" | "blocked" | "undo" | "note" };
-
-/**
- * Why a call to the runtime did not go through, in words the log can carry.
- *
- * A refused answer and an unreachable runtime are different things to the person reading the log:
- * one means the token or the session is wrong, the other means nothing is listening. The client
- * names the call and the status in its own message, so both arrive here already said.
- */
-const whyNot = (err: unknown): string => (err instanceof Error ? err.message : "the runtime could not be reached");
-
-type Inspector = {
-  lastEvent?: string;
-  significance?: number;
-  deliberated?: boolean;
-  provider?: string;
-  usedFallback?: boolean;
-  reasonSummary?: string;
-  confidence?: number;
-  capabilities: string[];
-  permission?: { authorized: string[]; needsApproval: string[]; denied: string[] };
-  morphApplied?: boolean;
-  guardReasonCodes: string[];
-  dropped: string[];
-};
-
-const SESSION =
-  typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("session") ?? "session-local" : "session-local";
-const AUTO_CONNECT = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("connect") === "1";
-// While restoring a saved log, "now" is the replayed event's own timestamp, and it only ever
-// moves forward (see lib/replayClock).
-const replayClock = createReplayClock();
-const nowIso = () => replayClock.iso();
-const nowMs = () => replayClock.ms();
-// Storage is per session: the main tab and the extension side panel share an origin but not a log.
-const EVENTS_KEY = `dm_events:${SESSION}`;
-const PREFS_KEY = `dm_prefs:${SESSION}`;
-// Live events wait until the saved log has been replayed, so nothing is stamped with a replayed
-// timestamp or written over the log mid-restore. Resolved immediately when there is nothing to restore.
-let releaseRestore: () => void = () => {};
-let restoreGate: Promise<void> = Promise.resolve(); // re-created per restore (see below)
-const restoredCores = new WeakSet<object>(); // StrictMode double-mounts share a core — replay once; a real remount gets a new core and restores again
+import { t, tr, fillTemplate } from "../lib/i18n";
+import {
+  EVENTS_KEY,
+  PREFS_KEY,
+  SESSION,
+  nowIso,
+  nowMs,
+  waitForRestore,
+  whyNot,
+  type HeldMorph,
+  type Inspector,
+  type LogEntry,
+  type Learned,
+  type MorphStep,
+  type Presence,
+} from "./workspace/session";
+import { useRuntimeConnection } from "./workspace/useRuntimeConnection";
+import { useSessionRestore } from "./workspace/useSessionRestore";
+import { useBehaviorSensors } from "./workspace/useBehaviorSensors";
+import { useWorkspaceSettings } from "./workspace/useWorkspaceSettings";
+import { PresencePanel } from "./workspace/PresencePanel";
+import { HistoryStrip } from "./workspace/HistoryStrip";
+import { HeldNotice } from "./workspace/HeldNotice";
+import { DevPanel, type ReplayResult } from "./workspace/DevPanel";
+import { ControlRail } from "./workspace/ControlRail";
+import { NoticeRail } from "./workspace/NoticeRail";
+import { InspectorRail } from "./workspace/InspectorRail";
+import { ActivityLog } from "./workspace/ActivityLog";
 
 export function Workspace() {
   // Lazy, once-only construction — useRef's initializer must not re-run the factory each render.
@@ -74,48 +55,22 @@ export function Workspace() {
   const [inspector, setInspector] = useState<Inspector>({ capabilities: [], guardReasonCodes: [], dropped: [] });
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const [theme, setTheme] = useState<"system" | "dark" | "light">("system");
-  const [lang, setLang] = useState<Lang>("en");
-  const [showCoach, setShowCoach] = useState(false);
-  const [showPresence, setShowPresence] = useState(false);
-  const [devMode, setDevMode] = useState(false);
+  const { theme, setTheme, lang, setLang, showCoach, setShowCoach, showPresence, setShowPresence, devMode, setDevMode, applyTheme, dismissCoach, dismissCoachRef } =
+    useWorkspaceSettings();
   const [debug, setDebug] = useState<DebugState>({ traces: [], audit: [] });
-  const [mode, setMode] = useState<"local" | "connected">("local");
-  const [connected, setConnected] = useState(false);
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [patternSugs, setPatternSugs] = useState<Suggestion[]>([]);
-  const [learned, setLearned] = useState<{ suppressed: string; dismissals: number } | null>(null);
-  const [otherSessions, setOtherSessions] = useState<{ sessionId: string; intent?: string; problems: number; layers: string[] }[]>([]);
+  const [learned, setLearned] = useState<Learned | null>(null);
   const [restored, setRestored] = useState(false);
   const reconcileTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importedPrefs = useRef<{ preferences?: { key: string; weight: number }[]; patterns?: { key: string; count: number; firstSeen: string; lastSeen: string; suggested: boolean }[] } | null>(null);
-  // Honest indicator: this page's own in-app sensors + whatever other sensors REPORTED to this
-  // session (extension / agent announce their consented layers via sensor.layers_changed).
-  const sensingLine = useMemo(() => {
-    const reported = Object.entries(debug.worldState?.sensing ?? {}) as [string, string[]][];
-    if (!reported.length) return t("sensingNone", lang);
-    return reported.map(([s, ls]) => `${describeSensor(s, lang)}: ${ls.map((l) => describeLayer(l, lang)).join(", ")}`).join(" · ");
-  }, [debug.worldState, lang]);
-  // The caption after that line used to say "shape only" about everything in it. Two layers read
-  // content — a window photographed, a page read — so the caption keeps that claim for the rest
-  // and names whichever of them a sensor has actually reported (docs/CONSENT_V2.md).
-  const contentExceptionKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (const layers of Object.values(debug.worldState?.sensing ?? {})) {
-      for (const key of contentExceptions(layers as string[])) keys.add(key);
-    }
-    return [...keys];
-  }, [debug.worldState]);
   const [events, setEvents] = useState<MatterEvent[]>([]);
-  const [morphs, setMorphs] = useState<{ id: string; intent: string; at: string }[]>([]);
-  const [held, setHeld] = useState<{ codes: string[]; at: number; retryMs?: number } | null>(null);
+  const [morphs, setMorphs] = useState<MorphStep[]>([]);
+  const [held, setHeld] = useState<HeldMorph | null>(null);
   const heldRef = useRef<typeof held>(null);
   heldRef.current = held; // read by clearFocus without re-creating the renderer context
-  const [replayResult, setReplayResult] = useState<"identical" | "differs" | "none" | null>(null);
+  const [replayResult, setReplayResult] = useState<ReplayResult>(null);
   const [autonomy, setAutonomy] = useState<AutonomyLevel>(2);
-  const client = useRef<RuntimeClient | null>(null);
-  /** Whether a runtime switch is already in flight; see toggleMode. */
-  const switching = useRef(false);
   const counter = useRef(0);
 
   const addApprovals = useCallback((incoming: ApprovalRequest[]) => {
@@ -204,9 +159,22 @@ export function Workspace() {
     [addApprovals],
   );
 
+  const { mode, connected, client, otherSessions, toggleMode } = useRuntimeConnection({
+    core,
+    pushLog,
+    addApprovals,
+    setApprovals,
+    setBlueprint,
+    setCanUndo,
+    setPresence,
+    setDebug,
+    setPatternSugs,
+    setLearned,
+  });
+
   const ingest = useCallback(
     async (event: MatterEvent) => {
-      await restoreGate;
+      await waitForRestore();
       const quiet = event.severity === "debug"; // behavior sensing — shape only, no log spam
       if (!quiet) pushLog(`${event.type} · ${event.severity}`, "event");
       setPresence("evaluating");
@@ -304,7 +272,7 @@ export function Workspace() {
       }
       setApprovals((a) => a.filter((x) => x.id !== approval.id));
     },
-    [mode, pushLog],
+    [mode, client, pushLog],
   );
 
   /**
@@ -342,7 +310,7 @@ export function Workspace() {
       after < before ? m.slice(0, -1) : [...m, { id: `dismiss${Date.now()}`, intent: "dismiss", at: new Date().toLocaleTimeString() }],
     );
     pushLog(after < before ? "undo — reverted last morph" : "dismissed the card (undoable)", "undo");
-  }, [mode, pushLog]);
+  }, [mode, client, pushLog]);
 
   const redo = useCallback(() => {
     if (mode === "connected" && client.current) {
@@ -362,7 +330,7 @@ export function Workspace() {
     setCanRedo(core.current.canRedo(SESSION));
     setMorphs((m) => [...m, { id: `redo${Date.now()}`, intent: redoMeta?.intent ?? "morph", at: new Date().toLocaleTimeString() }]);
     pushLog("redo — reapplied the undone morph", "morph");
-  }, [mode, pushLog]);
+  }, [mode, client, pushLog]);
 
   // Multi-step undo: revert every morph from the end back to (and including) index `i`.
   const undoTo = useCallback((i: number) => {
@@ -380,106 +348,6 @@ export function Workspace() {
     setMorphs((m) => m.slice(0, i));
     pushLog(`undo ×${steps} — reverted to before step ${i + 1}`, "undo");
   }, [mode, morphs.length, pushLog]);
-
-  const handleServerMessage = useCallback(
-    (m: ServerMessage) => {
-      if (m.kind === "ui_patch") {
-        setBlueprint(m.blueprint);
-        setCanUndo(true);
-        setPresence("acting");
-        pushLog("server morph → ui_patch", "morph");
-        setTimeout(() => setPresence("observing"), 600);
-      } else if (m.kind === "world_state_changed") {
-        setDebug((d) => ({ ...d, worldState: m.worldState }));
-      } else if (m.kind === "ai_presence_changed") {
-        setPresence(m.state);
-      } else if (m.kind === "pattern_suggestions") {
-        setPatternSugs((p) => mergeSuggestions(p, m.suggestions));
-      } else if (m.kind === "learned") {
-        setLearned(m.learned);
-      } else if (m.kind === "decision_created") {
-        setDebug((d) => ({ ...d, audit: [...m.audit, ...d.audit].slice(0, 60) }));
-        pushLog("server decision", "note");
-      } else if (m.kind === "approval_asked") {
-        // this body may not be the one whose event caused the question
-        addApprovals(m.approvals);
-      } else if (m.kind === "approval_decided") {
-        // somebody decided this one — here, in another tab, or in the side panel
-        setApprovals((a) => a.filter((x) => x.id !== m.approvalId));
-        pushLog(`approval ${m.decision} (server)`, m.decision === "approved" ? "morph" : "note");
-      }
-    },
-    [pushLog, addApprovals],
-  );
-
-  const toggleMode = useCallback(async () => {
-    // One switch at a time. `mode` is state, and the switch awaits the runtime's first answer
-    // before it is written, so a second entry in that window still read "local", built a second
-    // client over the first and left the first socket with nobody holding a handle to close it —
-    // two sockets pushing patches into one body. It takes no user: the embedded body calls this
-    // from an effect, and React's strict mode runs a mount effect twice.
-    if (switching.current) return;
-    switching.current = true;
-    try {
-      // approvals/audit are per-runtime; clear cross-mode state when switching runtimes.
-      setApprovals([]);
-      if (mode === "local") {
-        const c = new RuntimeClient(SESSION);
-        client.current?.disconnect(); // never leave one open with nothing pointing at it
-        client.current = c;
-        c.connect(handleServerMessage, setConnected);
-        setMode("connected"); // committed before the await: nothing below changes it
-        try {
-          const fromServer = await c.getUI();
-          // Keeping what is on screen beats replacing it with nothing: the socket may still bring
-          // a patch this build can read, and an unreadable answer is a different thing from
-          // silence.
-          if (client.current !== c) return; // superseded while we waited
-          if (fromServer) setBlueprint(fromServer);
-          else pushLog("runtime answered with a body this build cannot read", "blocked");
-        } catch (err) {
-          pushLog(`could not reach runtime server (pnpm runtime) — ${whyNot(err)}`, "blocked");
-        }
-      } else {
-        client.current?.disconnect();
-        client.current = null;
-        setConnected(false);
-        setMode("local");
-        setBlueprint(core.current.getBlueprint(SESSION));
-        pushLog("switched to local runtime", "note");
-      }
-    } finally {
-      switching.current = false;
-    }
-  }, [mode, handleServerMessage, pushLog]);
-
-  // Multi-session view: while connected, poll the runtime's shape-level session summaries.
-  useEffect(() => {
-    if (mode !== "connected") {
-      setOtherSessions([]);
-      return;
-    }
-    let alive = true;
-    const tick = () => {
-      void client.current?.sessions().then((list) => {
-        if (alive) setOtherSessions(list);
-      }).catch(() => undefined);
-    };
-    tick();
-    const t = setInterval(tick, 8_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [mode]);
-
-  // Embedded body (extension side panel opens /?connect=1&session=ext): connect to the runtime once.
-  const toggleModeRef = useRef(toggleMode);
-  toggleModeRef.current = toggleMode;
-  useEffect(() => {
-    if (AUTO_CONNECT) void toggleModeRef.current();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const rendererCtx = useMemo(
     () => ({
@@ -515,20 +383,14 @@ export function Workspace() {
     pushLog(same ? "replay ✓ deterministic" : "replay differs (undo/approval not events)", same ? "morph" : "note");
   }, [events, pushLog]);
 
-  const applyTheme = (t: "system" | "dark" | "light") => {
-    setTheme(t);
-    const el = document.documentElement;
-    if (t === "system") el.removeAttribute("data-theme");
-    else el.setAttribute("data-theme", t);
-    try { localStorage.setItem("dm_theme", t); } catch {}
+  const onAutonomyChange = (n: AutonomyLevel) => {
+    setAutonomy(n);
+    core.current.setAutonomyLevel(n);
+    if (mode === "connected" && client.current) {
+      void client.current.setAutonomy(n).catch((err) => pushLog(`autonomy not taken by the runtime — ${whyNot(err)}`, "blocked"));
+    }
+    pushLog(`autonomy level → L${n}${mode === "connected" ? " (server)" : ""}`, "note");
   };
-
-  const dismissCoach = () => {
-    setShowCoach(false);
-    try { localStorage.setItem("dm_coach", "dismissed"); } catch {}
-  };
-  const dismissCoachRef = useRef(dismissCoach);
-  dismissCoachRef.current = dismissCoach;
 
   // Tear down the WebSocket if the component unmounts while connected (no leaked socket/state).
   useEffect(() => () => {
@@ -540,170 +402,29 @@ export function Workspace() {
     }
   }, []);
 
-  // Restore saved preferences (language, theme, coach) on mount — no SSR mismatch.
-  useEffect(() => {
-    try {
-      const sl = localStorage.getItem("dm_lang");
-      if (sl === "ko" || sl === "en") setLang(sl);
-      const st = localStorage.getItem("dm_theme");
-      if (st === "dark" || st === "light" || st === "system") {
-        setTheme(st);
-        const el = document.documentElement;
-        if (st === "system") el.removeAttribute("data-theme");
-        else el.setAttribute("data-theme", st);
-      }
-      setShowCoach(localStorage.getItem("dm_coach") !== "dismissed");
+  useSessionRestore({
+    core,
+    applyResult,
+    pushLog,
+    lang,
+    setLang,
+    setTheme,
+    setShowCoach,
+    setMorphs,
+    setEvents,
+    setRestored,
+    counter,
+    importedPrefs,
+    reconcileTimer,
+    ingestRef,
+  });
 
-      // Event sourcing in the browser: replay the saved event log so the workspace survives a
-      // refresh. Only validated events are replayed; undo/approvals are not events (by design).
-      if (restoredCores.has(core.current)) return; // StrictMode remount: the first run owns the gate
-      restoredCores.add(core.current);
-      if (AUTO_CONNECT) {
-        // embedded/connected body: the server owns the state — nothing local to replay
-        setRestored(true);
-        return;
-      }
-      restoreGate = new Promise((r) => { releaseRestore = r; });
-      // learned preferences first, so the replayed log is judged the way the person taught us
-      try {
-        const prefs = localStorage.getItem(PREFS_KEY);
-        if (prefs) {
-          // preferences come back whole. Patterns come back as suggested MARKS only (count 1):
-          // the event-log replay below re-observes the real counts, and importing those too would
-          // double-count — but the sticky `suggested` flag must survive so a reload never
-          // re-offers a template the person already saw.
-          const stored = JSON.parse(prefs) as { preferences?: { key: string; weight: number }[]; patterns?: { key: string; suggested?: boolean }[] };
-          const parsedPrefs = {
-            // dismissed:* only — replay re-reinforces morph:* counters, importing them too would
-            // compound the weights on every reload
-            preferences: (stored.preferences ?? []).filter((pr) => typeof pr.key === "string" && pr.key.startsWith("dismissed:")),
-            patterns: (stored.patterns ?? [])
-              .filter((pt) => pt.suggested === true && typeof pt.key === "string")
-              .map((pt) => ({ key: pt.key, count: 1, firstSeen: "", lastSeen: "", suggested: true })),
-          };
-          importedPrefs.current = parsedPrefs;
-          core.current.importMemory(SESSION, parsedPrefs);
-        }
-      } catch {}
-      const raw = localStorage.getItem(EVENTS_KEY);
-      if (!raw) {
-        releaseRestore();
-        setRestored(true);
-      }
-      if (raw) {
-        const parsed = (JSON.parse(raw) as unknown[])
-          .map((x) => MatterEventSchema.safeParse(x))
-          .filter((r) => r.success)
-          .map((r) => r.data)
-          .filter((ev) => ev.sessionId === SESSION); // never replay another session's log
-        if (!parsed.length) {
-          releaseRestore();
-          setRestored(true);
-        }
-        if (parsed.length) {
-          void (async () => {
-            const results: IngestResult[] = [];
-            try {
-              for (const ev of parsed) {
-                replayClock.advanceTo(ev.timestamp);
-                results.push(await core.current.ingest(ev));
-              }
-            } finally {
-              replayClock.release();
-            }
-            const last = results.at(-1);
-            if (last) applyResult(last);
-            // a log can END on a timing hold (held morph, then silence). applyResult only saw the
-            // last result — walk the whole replay: if a hold was never followed by an applied
-            // morph, arm one reconcile tick now so the restored body catches up on its own.
-            let pendingRetry: number | undefined;
-            for (const r of results) {
-              if (r.morph.applied) pendingRetry = undefined;
-              else if (r.retryAfterMs !== undefined) pendingRetry = r.retryAfterMs;
-            }
-            if (pendingRetry !== undefined && !reconcileTimer.current) {
-              reconcileTimer.current = setTimeout(() => {
-                reconcileTimer.current = null;
-                void ingestRef.current({ id: `reconcile${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "system", type: "runtime.reconcile", severity: "debug", payload: { reason: "restored_with_pending_hold" } });
-              }, Math.min(pendingRetry, 60_000));
-            }
-            // the history strip must match the undo stack that replay just rebuilt
-            setMorphs(
-              results
-                .filter((r) => r.morph.applied)
-                .map((r, i) => ({ id: r.morph.patch?.patchId ?? `m${i + 1}`, intent: r.decision?.uiPlan?.intent ?? "morph", at: new Date(r.worldState.updatedAt).toLocaleTimeString() })),
-            );
-            setEvents(parsed);
-            counter.current = parsed.length;
-            pushLog(t("restoredNote", lang), "note");
-          })()
-            .catch(() => pushLog("restore failed — starting fresh (the log may predate this build)", "blocked"))
-            .finally(() => {
-              // the gate MUST open even if an old log fails to replay — otherwise every live
-              // event (sensors, clicks, reconcile ticks) would hang forever
-              releaseRestore();
-              setRestored(true);
-            });
-        }
-      }
-    } catch {
-      setShowCoach(true);
-      releaseRestore();
-      setRestored(true);
-    }
-  }, []);
+  // After the restore, never before it: the restore reads dm_lang, and this writes it.
   useEffect(() => {
     try { localStorage.setItem("dm_lang", lang); } catch {}
   }, [lang]);
 
-  // Sensors (Concept v2, L0/L3): tab visibility → "returning"; no interaction → "idle".
-  // Shape only: we never read what was typed or clicked, just that interaction happened.
-  useEffect(() => {
-    let hiddenAt: number | null = null;
-    let lastInteraction = Date.now();
-    let idleReported = false;
-    let interactions = 0;
-    // announce exactly what this page observes — the indicator is derived from these reports only
-    if (modeRef.current === "local") {
-      void ingestRef.current({ id: `sense${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "sensor", type: "sensor.layers_changed", severity: "debug", payload: { sensor: "web", layers: ["interactions", "idle", "visibility"] } });
-    }
-    const onVis = () => {
-      if (document.hidden) { hiddenAt = Date.now(); return; }
-      const away = hiddenAt ? Math.round((Date.now() - hiddenAt) / 1000) : 0;
-      hiddenAt = null;
-      if (modeRef.current === "local" && away >= 5) {
-        void ingestRef.current({ id: `vis${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.visibility", severity: "info", payload: { visible: true, awaySeconds: away } });
-      }
-    };
-    const onInteract = () => { lastInteraction = Date.now(); idleReported = false; interactions += 1; };
-    // L0: THAT interaction happened (a count every 10 s) — never which key, which target, or what text
-    const batchTimer = setInterval(() => {
-      if (interactions > 0 && modeRef.current === "local") {
-        const count = interactions;
-        interactions = 0;
-        void ingestRef.current({ id: `int${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.interaction", severity: "debug", payload: { count } });
-      }
-    }, 10_000);
-    const idleTimer = setInterval(() => {
-      const idle = Math.round((Date.now() - lastInteraction) / 1000);
-      if (idle >= 60 && !idleReported && modeRef.current === "local") {
-        idleReported = true;
-        void ingestRef.current({ id: `idle${Date.now()}`, sessionId: SESSION, timestamp: nowIso(), source: "user", type: "user.idle", severity: "debug", payload: { seconds: idle } });
-      }
-    }, 15_000);
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pointerdown", onInteract);
-    window.addEventListener("keydown", onInteract);
-    window.addEventListener("scroll", onInteract, true);
-    return () => {
-      clearInterval(idleTimer);
-      clearInterval(batchTimer);
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pointerdown", onInteract);
-      window.removeEventListener("keydown", onInteract);
-      window.removeEventListener("scroll", onInteract, true);
-    };
-  }, []);
+  useBehaviorSensors(ingestRef, modeRef);
 
   // Escape closes transient surfaces (presence popover first, then the coach).
   useEffect(() => {
@@ -751,70 +472,16 @@ export function Workspace() {
             >
               🌐 {t("langButton", lang)}
             </button>
-            <div style={{ position: "relative" }}>
-              <button
-                className="presence"
-                data-state={presence}
-                onClick={() => setShowPresence((v) => !v)}
-                aria-expanded={showPresence}
-                title={t("presenceTitle", lang)}
-                style={{ cursor: "pointer", font: "inherit" }}
-              >
-                <span className="orb" />
-                <span className="muted">AI · {t(presence, lang)}</span>
-              </button>
-              {showPresence ? (
-                <div className="presence-pop" role="dialog" aria-label={t("presenceTitle", lang)}>
-                  <div className="panel-title" style={{ marginBottom: 10 }}>
-                    <span>{t("presenceTitle", lang)}</span>
-                    <button className="btn muted" style={{ padding: "2px 10px" }} onClick={() => setShowPresence(false)}>✕</button>
-                  </div>
-                  <div className="kv">
-                    <span className="k">{t("presenceState", lang)}</span><span>{t(presence, lang)}</span>
-                    <span className="k">{t("presenceWatching", lang)}</span><span>{t("presenceWatchingValue", lang)}</span>
-                    <span className="k">{t("presenceAutonomy", lang)}</span><span>L{autonomy}</span>
-                    <span className="k">{t("intentTitle", lang)}</span>
-                    <span>{describeIntent(debug.worldState?.inferredIntent?.label, lang) || "—"}</span>
-                  </div>
-                  <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }} data-testid="sensing-line">
-                    {t("sensingPrefix", lang)} — {sensingLine} ({t("sensingShapeOnly", lang)}
-                    {contentExceptionKeys.map((key) => `; ${t(key, lang)}`).join("")})
-                  </p>
-                  <div className="divider" style={{ margin: "10px 0" }} />
-                  <div className="k muted" style={{ fontSize: 12 }}>{t("screenConsentTitle", lang)}</div>
-                  <div data-testid="screen-consent">
-                    {["screenConsentWhat", "screenConsentWhere", "screenConsentLeaves", "screenConsentOff"].map((key) => (
-                      <p key={key} className="muted" style={{ fontSize: 11.5, margin: "6px 0 0" }}>
-                        {t(key, lang)}
-                      </p>
-                    ))}
-                  </div>
-                  {(debug.memory?.preferences ?? []).some((p) => p.key.startsWith("dismissed:")) ? (
-                    <>
-                      <div className="divider" style={{ margin: "10px 0" }} />
-                      <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLearned", lang)}</div>
-                      <p style={{ fontSize: 12.5, margin: "6px 0 0", fontFamily: "var(--mono)" }}>
-                        {(debug.memory?.preferences ?? [])
-                          .filter((p) => p.key.startsWith("dismissed:"))
-                          .slice(0, 3)
-                          .map((p) => `${t("prefDismissed", lang)}: ${p.key.replace("dismissed:", "")} ×${p.weight}`)
-                          .join(" · ")}
-                      </p>
-                    </>
-                  ) : null}
-                  <div className="divider" style={{ margin: "10px 0" }} />
-                  <div className="k muted" style={{ fontSize: 12 }}>{t("presenceLastReason", lang)}</div>
-                  <p style={{ fontSize: 13, margin: "6px 0 0" }}>
-                    {inspector.reasonSummary ?? t("presenceNoReason", lang)}
-                  </p>
-                  <div className="divider" style={{ margin: "10px 0" }} />
-                  <div className="k muted" style={{ fontSize: 12 }}>{t("presencePlanned", lang)}</div>
-                  <p style={{ fontSize: 13, margin: "6px 0 0", fontFamily: approvals.length ? "var(--mono)" : undefined }}>
-                    {approvals.length ? approvals.map((a) => a.capabilityId).join(", ") : t("presenceNothingPlanned", lang)}
-                  </p>
-                </div>
-              ) : null}
-            </div>
+            <PresencePanel
+              lang={lang}
+              presence={presence}
+              showPresence={showPresence}
+              setShowPresence={setShowPresence}
+              autonomy={autonomy}
+              debug={debug}
+              reasonSummary={inspector.reasonSummary}
+              approvals={approvals}
+            />
           </div>
         </div>
         {showCoach ? (
@@ -823,241 +490,54 @@ export function Workspace() {
             <button className="btn" onClick={dismissCoach}>{t("coachDismiss", lang)}</button>
           </div>
         ) : null}
-        {mode === "local" ? (
-          <div className="history" aria-label={t("historyTitle", lang)}>
-            <span className="history-title">{t("historyTitle", lang)}</span>
-            {morphs.length === 0 ? (
-              <span className="muted" style={{ fontSize: 12 }}>{t("historyEmpty", lang)}</span>
-            ) : (
-              morphs.map((m, i) => (
-                <button key={`${m.id}-${i}`} className="chip" title={t("historyHint", lang)} onClick={() => undoTo(i)}>
-                  <span className="n">{i + 1}</span> {describeMorphStep(m.intent, lang)} <span className="muted">{m.at}</span>
-                </button>
-              ))
-            )}
-          </div>
-        ) : null}
-        {held ? (
-          <div className="held" role="status">
-            <span className="badge warn"><span className="dot" />{t("heldTitle", lang)}</span>
-            <span>
-              {describeHold(held.codes, lang)}
-              {held.retryMs !== undefined ? <b> · {fillTemplate(t("heldRetry", lang), { s: Math.ceil(held.retryMs / 1000) })}</b> : null}
-            </span>
-            <button className="btn muted" style={{ padding: "2px 10px" }} onClick={() => setHeld(null)}>✕</button>
-          </div>
-        ) : null}
+        {mode === "local" ? <HistoryStrip lang={lang} morphs={morphs} onUndoTo={undoTo} /> : null}
+        {held ? <HeldNotice lang={lang} held={held} onDismiss={() => setHeld(null)} /> : null}
         <div style={{ paddingTop: 16 }}>
           <RendererProvider value={rendererCtx}>
             <Render node={blueprint.root} />
           </RendererProvider>
         </div>
         {devMode ? (
-          <div style={{ paddingTop: 16 }}>
-            <div className="simrow" style={{ alignItems: "center", marginBottom: 10 }}>
-              <button className="btn" onClick={() => void replayVerify()}>{t("replayBtn", lang)}</button>
-              {replayResult ? (
-                <span className={`badge ${replayResult === "identical" ? "ok" : replayResult === "differs" ? "warn" : ""}`}>
-                  <span className="dot" />
-                  {replayResult === "identical" ? t("replayIdentical", lang) : replayResult === "differs" ? t("replayDiffers", lang) : t("replayNone", lang)}
-                </span>
-              ) : null}
-            </div>
-            <DeveloperInspector debug={debug} lang={lang} />
-          </div>
+          <DevPanel lang={lang} debug={debug} replayResult={replayResult} onReplayVerify={() => void replayVerify()} />
         ) : null}
       </main>
 
       <aside className="rail">
-        <section>
-          <h3>{t("simLab", lang)}</h3>
-          <div className="simrow">
-            {SIM_EVENTS.map((s) => (
-              <button key={s.label} className="btn" onClick={() => emitSim(s)}>{tr(s.label, lang)}</button>
-            ))}
-          </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>{t("simIntro", lang)}</p>
-        </section>
+        <ControlRail
+          lang={lang}
+          onSim={emitSim}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          mode={mode}
+          connected={connected}
+          theme={theme}
+          applyTheme={applyTheme}
+          devMode={devMode}
+          setDevMode={setDevMode}
+          onUndo={() => undo()}
+          onRedo={redo}
+          onToggleMode={() => void toggleMode()}
+          otherSessions={otherSessions}
+          blueprintMode={blueprint.mode}
+          attention={attention}
+          debug={debug}
+          autonomy={autonomy}
+          onAutonomyChange={onAutonomyChange}
+        />
 
-        <section>
-          <h3>{t("controls", lang)}</h3>
-          <div className="simrow">
-            <button className="btn" onClick={() => undo()} disabled={!canUndo}>{t("undo", lang)}</button>
-            <button className="btn" onClick={redo} disabled={mode === "local" && !canRedo}>{t("redo", lang)}</button>
-            <button className="btn muted" onClick={() => { try { localStorage.removeItem(EVENTS_KEY); localStorage.removeItem(PREFS_KEY); } catch {} window.location.reload(); }}>{t("resetSession", lang)}</button>
-            <button className="btn muted" onClick={() => applyTheme(theme === "dark" ? "light" : "dark")}>{t("theme", lang)}: {theme}</button>
-            <button className={`btn${devMode ? " primary" : " muted"}`} onClick={() => setDevMode((v) => !v)}>{t("devMode", lang)}</button>
-            <button className={`btn${mode === "connected" ? " primary" : ""}`} onClick={() => void toggleMode()}>
-              {t("runtime", lang)}: {mode === "connected" ? `${t("runtimeServer", lang)} ${connected ? "●" : "○"}` : t("runtimeLocal", lang)}
-            </button>
-          </div>
-          {mode === "connected" ? (
-            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{t("connectedNote", lang)}</p>
-          ) : null}
-          {mode === "connected" && otherSessions.length > 0 ? (
-            <div style={{ marginTop: 10 }} data-testid="sessions-view">
-              <div className="k muted" style={{ fontSize: 12 }}>{t("sessionsTitle", lang)}</div>
-              <div className="stack" style={{ gap: 6, marginTop: 6 }}>
-                {otherSessions.map((s) => (
-                  <div key={s.sessionId} className="card" style={{ padding: "8px 10px", fontSize: 12 }}>
-                    {s.sessionId === SESSION ? (
-                      <span style={{ fontFamily: "var(--mono)" }}>{s.sessionId} ●</span>
-                    ) : (
-                      // jump to that session's body (same runtime, different senses)
-                      <a href={sessionHref(s.sessionId)} style={{ fontFamily: "var(--mono)" }}>
-                        {s.sessionId}
-                      </a>
-                    )}
-                    <span className="muted">
-                      {" · "}
-                      {describeIntent(s.intent, lang) || "—"}
-                      {s.problems > 0 ? ` · ${s.problems} ${t("sessionsProblems", lang)}` : ""}
-                    </span>
-                    <div className="muted" style={{ fontSize: 11 }}>
-                      {s.layers.length ? s.layers.map((l) => describeLayer(l, lang)).join(" · ") : t("sessionsNoLayers", lang)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div className="kv" style={{ marginTop: 10 }}>
-            <span className="k">{t("mode", lang)}</span><span>{tr(blueprint.mode, lang)}</span>
-            <span className="k">{t("focus", lang)}</span><span>{attention.focusedComponentId ?? "—"}{attention.typing ? ` (${t("typing", lang)})` : ""}</span>
-            <span className="k">{t("intentTitle", lang)}</span>
-            <span>{debug.worldState?.inferredIntent ? `${describeIntent(debug.worldState.inferredIntent.label, lang)} · ${Math.round(debug.worldState.inferredIntent.confidence * 100)}%` : "—"}</span>
-            <span className="k">{t("autonomy", lang)}</span>
-            <span>
-              <select
-              aria-label={t("presenceAutonomy", lang)}
-                className="select"
-                style={{ width: "auto", padding: "4px 8px" }}
-                value={autonomy}
-                onChange={(e) => {
-                  const n = Number(e.target.value) as AutonomyLevel;
-                  setAutonomy(n);
-                  core.current.setAutonomyLevel(n);
-                  if (mode === "connected" && client.current) {
-                    void client.current.setAutonomy(n).catch((err) => pushLog(`autonomy not taken by the runtime — ${whyNot(err)}`, "blocked"));
-                  }
-                  pushLog(`autonomy level → L${n}${mode === "connected" ? " (server)" : ""}`, "note");
-                }}
-              >
-                <option value={0}>L0 · {t("autonomy_0", lang)}</option>
-                <option value={1}>L1 · {t("autonomy_1", lang)}</option>
-                <option value={2}>L2 · {t("autonomy_2", lang)}</option>
-                <option value={3}>L3 · {t("autonomy_3", lang)}</option>
-                <option value={4}>L4 · {t("autonomy_4", lang)}</option>
-              </select>
-            </span>
-          </div>
-          <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
-            L{autonomy} {describeAutonomy(autonomy, lang)}. {t("autonomyHint", lang)}
-          </p>
-        </section>
+        <NoticeRail
+          lang={lang}
+          patternSugs={patternSugs}
+          setPatternSugs={setPatternSugs}
+          learned={learned}
+          setLearned={setLearned}
+          approvals={approvals}
+          onDecide={onDecide}
+        />
 
-        {patternSugs.length ? (
-          <section style={{ background: "var(--accent-low)" }}>
-            <h3>{t("patternTitle", lang)}</h3>
-            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>{t("patternText", lang)}</p>
-            <div className="stack" style={{ gap: 8 }}>
-              {patternSugs.map((s) => (
-                <div key={s.key} className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{s.key} · {s.count}{t("patternTimes", lang)}</span>
-                  <button className="btn muted" style={{ padding: "4px 12px" }} onClick={() => setPatternSugs((p) => p.filter((x) => x.key !== s.key))}>
-                    {t("patternLater", lang)}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <InspectorRail lang={lang} inspector={inspector} />
 
-        {learned ? (
-          <section style={{ background: "var(--accent-low)" }} aria-live="polite" data-testid="learned-banner">
-            <h3>{t("learnedTitle", lang)}</h3>
-            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
-              {t("learnedText", lang)} <span style={{ fontFamily: "var(--mono)" }}>{learned.suppressed}</span> · ×{learned.dismissals}
-            </p>
-            <button className="btn muted" style={{ padding: "4px 12px" }} onClick={() => setLearned(null)}>
-              {t("learnedOk", lang)}
-            </button>
-          </section>
-        ) : null}
-
-        {approvals.length ? (
-          <section style={{ background: "var(--warn-bg)" }}>
-            <h3>{t("approvalTitle", lang)}</h3>
-            <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>{t("approvalNote", lang)}</p>
-            <div className="stack" style={{ gap: 10 }}>
-              {approvals.map((a) => (
-                <div key={a.id} className="card">
-                  <div className="panel-title" style={{ marginBottom: 6 }}>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 12.5 }}>{a.capabilityId}</span>
-                    <span className={riskBadgeClass(a.risk)}><span className="dot" />{describeRisk(a.risk, lang)}</span>
-                  </div>
-                  <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
-                    {describeApprovalReason(a, lang)}
-                    {missingPermissionNames(a).map((p) => (
-                      <span key={p} style={{ fontFamily: "var(--mono)", marginLeft: 6 }}>{p}</span>
-                    ))}
-                  </p>
-                  <div className="simrow">
-                    <button className="btn primary" onClick={() => onDecide(a, true)}>{t("approve", lang)}</button>
-                    <button className="btn muted" onClick={() => onDecide(a, false)}>{t("reject", lang)}</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section>
-          <h3>{t("inspectorTitle", lang)}</h3>
-          <div className="kv">
-            <span className="k">{t("significance", lang)}</span><span>{inspector.significance !== undefined ? `${Math.round(inspector.significance * 100)}%` : "—"}</span>
-            <span className="k">{t("deliberated", lang)}</span><span>{inspector.deliberated ? t("yes", lang) : t("no", lang)}</span>
-            <span className="k">{t("provider", lang)}</span><span>{inspector.provider ?? "—"}{inspector.usedFallback ? ` (${t("fallback", lang)})` : ""}</span>
-            <span className="k">{t("confidence", lang)}</span><span>{inspector.confidence !== undefined ? `${Math.round(inspector.confidence * 100)}%` : "—"}</span>
-            <span className="k">{t("morph", lang)}</span><span>{inspector.morphApplied ? t("applied", lang) : t("none", lang)}</span>
-          </div>
-          {inspector.reasonSummary ? <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>{inspector.reasonSummary}</p> : null}
-          {inspector.capabilities.length ? (
-            <div className="reasons" style={{ marginTop: 8 }}>
-              {inspector.capabilities.map((c) => <span key={c} className="tag">ran·{c}</span>)}
-            </div>
-          ) : null}
-          {inspector.permission?.needsApproval.length ? (
-            <div className="reasons" style={{ marginTop: 8 }}>
-              {inspector.permission.needsApproval.map((c) => <span key={c} className="tag">approval·{c}</span>)}
-            </div>
-          ) : null}
-          {inspector.guardReasonCodes.length ? (
-            <div className="reasons" style={{ marginTop: 8 }}>
-              {inspector.guardReasonCodes.map((r) => <span key={r} className="tag">{r}</span>)}
-            </div>
-          ) : null}
-          {inspector.dropped.length ? (
-            <div className="reasons" style={{ marginTop: 8 }}>
-              {inspector.dropped.map((d) => <span key={d} className="tag">dropped·{d}</span>)}
-            </div>
-          ) : null}
-        </section>
-
-        <section>
-          <h3>{t("logTitle", lang)}</h3>
-          <div className="stack" style={{ gap: 4 }}>
-            {log.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>{t("noEvents", lang)}</span> : null}
-            {log.map((e) => (
-              <div key={e.id} style={{ fontSize: 12, fontFamily: "var(--mono)" }}>
-                <span className={e.kind === "blocked" ? "badge crit" : e.kind === "morph" ? "badge ok" : "badge"} style={{ marginRight: 6 }}>
-                  <span className="dot" />{e.kind}
-                </span>
-                {e.text}
-              </div>
-            ))}
-          </div>
-        </section>
+        <ActivityLog lang={lang} log={log} />
       </aside>
     </div>
   );
