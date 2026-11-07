@@ -48,6 +48,17 @@ export type RestoreBody = {
   ingestRef: React.RefObject<(event: MatterEvent) => Promise<void>>;
 };
 
+/**
+ * The language a restored session should be spoken to in.
+ *
+ * Read from the saved value rather than from the `lang` in scope, which is the first render's and
+ * cannot change inside the effect that restores it. Anything else that ended up in storage falls
+ * back to what is already on screen.
+ */
+export function restoredLang(stored: string | null, fallback: Lang): Lang {
+  return stored === "ko" || stored === "en" ? stored : fallback;
+}
+
 export function useSessionRestore(body: RestoreBody): void {
   const { core, applyResult, pushLog, lang, setLang, setTheme, setShowCoach, setMorphs, setEvents, setRestored, counter, importedPrefs, reconcileTimer, ingestRef } = body;
 
@@ -56,6 +67,11 @@ export function useSessionRestore(body: RestoreBody): void {
     try {
       const sl = localStorage.getItem("dm_lang");
       if (sl === "ko" || sl === "en") setLang(sl);
+      // The notices below are written from inside this one mount effect, so `lang` in scope is
+      // still whatever the first render used — "en" — however the saved language reads. Calling
+      // setLang a line earlier does not change it: the value was captured when the effect was
+      // created. The restored language is read here and carried by hand to every notice.
+      const noticeLang = restoredLang(sl, lang);
       const st = localStorage.getItem("dm_theme");
       if (st === "dark" || st === "light" || st === "system") {
         setTheme(st);
@@ -146,9 +162,9 @@ export function useSessionRestore(body: RestoreBody): void {
             );
             setEvents(parsed);
             counter.current = parsed.length;
-            pushLog(t("restoredNote", lang), "note");
+            pushLog(t("restoredNote", noticeLang), "note");
           })()
-            .catch(() => pushLog("restore failed — starting fresh (the log may predate this build)", "blocked"))
+            .catch(() => pushLog(t("restoreFailedNote", noticeLang), "blocked"))
             .finally(() => {
               // the gate MUST open even if an old log fails to replay — otherwise every live
               // event (sensors, clicks, reconcile ticks) would hang forever

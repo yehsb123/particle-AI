@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { t, tr, fillTemplate } from "./i18n";
 import { developmentBlueprint, incidentPatch, type IncidentKind } from "@particle/ui-registry";
@@ -15,9 +15,25 @@ import type { UIComponent } from "@particle/contracts";
 
 const WEB = join(__dirname, "..");
 
+/**
+ * Every component file under `components/`, found rather than listed.
+ *
+ * This named two files, and the workspace was later split into a directory of pieces that each
+ * ask for their own keys. A named list stops covering whatever moves out of the files it names,
+ * and a key nobody checks is drawn on the screen as the key itself in Korean.
+ */
+function componentFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return componentFiles(full);
+    if (!/\.tsx?$/.test(entry.name)) return [];
+    return /\.test\.tsx?$/.test(entry.name) ? [] : [full];
+  });
+}
+
 function chromeKeysUsed(): string[] {
-  const src = ["components/Workspace.tsx", "components/DeveloperInspector.tsx"]
-    .map((f) => readFileSync(join(WEB, f), "utf8"))
+  const src = componentFiles(join(WEB, "components"))
+    .map((f) => readFileSync(f, "utf8"))
     .join("\n");
   const keys = [...src.matchAll(/\bt\("([^"]+)"/g)].map((m) => m[1]!);
   keys.push("observing", "evaluating", "acting", "waiting_for_approval", "idle"); // presence
@@ -59,6 +75,12 @@ describe("i18n consistency", () => {
       return t(k, "ko") === k && t(k, "en") === k;
     });
     expect(missing).toEqual([]);
+  });
+
+  // A walk that found nothing would make the check above pass by having nothing to check.
+  it("is reading the whole shell, not an empty list", () => {
+    expect(componentFiles(join(WEB, "components")).length).toBeGreaterThan(5);
+    expect(chromeKeysUsed().length).toBeGreaterThan(50);
   });
 
   it("every human-facing blueprint string has a Korean translation", () => {

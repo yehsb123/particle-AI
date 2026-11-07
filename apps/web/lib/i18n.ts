@@ -113,6 +113,10 @@ const CHROME: Record<string, { en: string; ko: string }> = {
   // session persistence (local mode)
   resetSession: { en: "Reset session", ko: "세션 초기화" },
   restoredNote: { en: "session restored from the event log", ko: "이벤트 로그에서 세션을 복원했습니다" },
+  restoreFailedNote: {
+    en: "restore failed, starting fresh (the saved log may predate this build)",
+    ko: "복원에 실패해 새로 시작합니다. 저장된 로그가 이 빌드보다 오래됐을 수 있습니다",
+  },
   // morph history strip
   historyTitle: { en: "Morph history", ko: "변형 기록" },
   historyHint: { en: "click a step to undo back to before it", ko: "단계를 클릭하면 그 이전으로 되돌립니다" },
