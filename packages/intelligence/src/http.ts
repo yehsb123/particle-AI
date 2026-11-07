@@ -1,3 +1,5 @@
+import { ProviderError } from "./failure";
+
 /** The balanced JSON-ish region starting at `start` (which must be `{` or `[`), or null. */
 function balancedFrom(s: string, start: number): string | null {
   const openChar = s[start];
@@ -44,9 +46,7 @@ export function jsonFromText(text: string): unknown {
       // not valid JSON here (e.g. prose braces) — keep scanning
     }
   }
-  // The opening words are load-bearing: `fallbackReason` in @particle/decision-engine reads them
-  // to tell an unparseable answer from any other provider failure. Add detail after them.
-  throw new Error(`no JSON value found in model response: ${describe(text)}`);
+  throw new ProviderError("unparseable_output", `no JSON value found in model response: ${describe(text)}`);
 }
 
 /**

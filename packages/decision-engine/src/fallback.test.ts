@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "node:http";
 import { DecisionEngine, deterministicDecision, fallbackReason } from "./index";
-import { IntelligenceRouter, AnthropicProvider } from "@particle/intelligence";
+import { IntelligenceRouter, AnthropicProvider, ProviderError } from "@particle/intelligence";
 import { RuntimeDecision, emptyWorldState, type MatterEvent, type WorldState } from "@particle/contracts";
 
 /**
@@ -138,6 +138,30 @@ describe("fallbackReason on its own", () => {
   it("recognises a missing key and an answer with no decision in it", () => {
     expect(fallbackReason(new Error("AnthropicProvider: no API key"))).toBe("no_api_key");
     expect(fallbackReason(new Error("no JSON value found in model response"))).toBe("unparseable_output");
+  });
+
+  // The wording of an error in @particle/intelligence was being read back out here to pick the
+  // code, so adding detail to one message there reclassified every unparseable answer as a plain
+  // provider error. The provider says which failure it is; nothing here reads its prose for that.
+  it("takes the failure a provider named, whatever its message happens to say", () => {
+    expect(fallbackReason(new ProviderError("unparseable_output", "the model answered in sentences"))).toBe("unparseable_output");
+    expect(fallbackReason(new ProviderError("no_api_key", "nothing configured"))).toBe("no_api_key");
+  });
+
+  // A turn the model never finished is not the same problem as a provider nobody could reach,
+  // and whoever reads the trail has to be able to act on the difference.
+  it("tells a turn that was cut off apart from a provider that could not be reached", () => {
+    const cutOff = new ProviderError("incomplete_turn", 'claude-sonnet-5 stopped with stop_reason "max_tokens" after 0 characters of body');
+    expect(fallbackReason(cutOff)).toBe("incomplete_turn");
+    expect(fallbackReason(new Error("connect ECONNREFUSED 10.0.0.5:8080"))).toBe("provider_error");
+  });
+
+  // Anything can be thrown, including something from outside this process wearing a `failure`
+  // field. Reading it without checking it would put a stranger's string into the audit trail.
+  it("ignores a failure field holding something that is not one of ours", () => {
+    for (const failure of ["nonsense", "__proto__", "", 7, null, { toString: () => "no_api_key" }]) {
+      expect(fallbackReason(Object.assign(new Error("x"), { failure })), String(failure)).toBe("provider_error");
+    }
   });
 
   it("says only that something went wrong when it cannot tell what", () => {

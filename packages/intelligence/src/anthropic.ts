@@ -5,6 +5,7 @@ import type {
   ProviderHealth,
 } from "@particle/contracts";
 import type { VisionProvider, VisionRequest } from "./provider";
+import { ProviderError } from "./failure";
 import { jsonFromText, postJson } from "./http";
 
 /** The words of one request: what was asked, and the structured context it is about. */
@@ -136,7 +137,7 @@ export class AnthropicProvider implements VisionProvider {
 
   /** One user turn, however it is spelled: a string of text, or a list of blocks with a picture in it. */
   private async ask(request: IntelligenceRequest, content: unknown): Promise<IntelligenceResult> {
-    if (!this.apiKey) throw new Error("AnthropicProvider: no API key");
+    if (!this.apiKey) throw new ProviderError("no_api_key", "AnthropicProvider: no API key");
     const started = Date.now();
     const { headers, body } = anthropicRequest({
       apiKey: this.apiKey,
@@ -154,7 +155,7 @@ export class AnthropicProvider implements VisionProvider {
 
     const text = (res.content ?? []).map((c) => c.text ?? "").join("");
     const failure = stopFailure(res, text.length);
-    if (failure) throw new Error(`AnthropicProvider: ${this.model} ${failure}`);
+    if (failure) throw new ProviderError("incomplete_turn", `AnthropicProvider: ${this.model} ${failure}`);
     const data = request.structured ? jsonFromText(text) : undefined;
     return {
       providerId: this.id,

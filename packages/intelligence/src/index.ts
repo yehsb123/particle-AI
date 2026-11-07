@@ -1,3 +1,4 @@
+export * from "./failure";
 export * from "./provider";
 export * from "./deterministic";
 export * from "./mock";

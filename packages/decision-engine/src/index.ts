@@ -6,6 +6,7 @@ import { RuntimeDecision as RuntimeDecisionSchema, shapeOfEvent } from "@particl
 import {
   IntelligenceRouter,
   deterministicDecision,
+  failureOf,
   type DecisionContext,
 } from "@particle/intelligence";
 
@@ -28,6 +29,13 @@ export function fallbackReason(err: unknown): string {
   const e = err as { status?: unknown; name?: string; message?: string };
   if (typeof e?.status === "number") return `http_${e.status}`;
   if (e?.name === "AbortError" || e?.name === "TimeoutError") return "timeout";
+  // What the provider says about itself, when it says anything: a value it attached, not a phrase
+  // read back out of its message. Reading the message is what made rewording one error in
+  // @particle/intelligence change which reason code landed in the audit trail.
+  const carried = failureOf(err);
+  if (carried) return carried;
+  // Providers that throw a plain Error still land here. The two phrases below are the ones those
+  // providers use; a provider that carries its failure never reaches them.
   const message = typeof e?.message === "string" ? e.message : "";
   if (/no API key/i.test(message)) return "no_api_key";
   if (/no JSON value found/i.test(message)) return "unparseable_output";
