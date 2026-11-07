@@ -9,35 +9,64 @@
  *
  * Run it with `pnpm --filter @particle/intelligence smoke`, optionally naming a model.
  */
+import { execFileSync } from "node:child_process";
 import {
   ANTHROPIC_DEFAULT_MAX_TOKENS,
   ANTHROPIC_DEFAULT_MODEL,
   ANTHROPIC_MESSAGES_URL,
   anthropicRequest,
+  credentialFromEnv,
   stopFailure,
   type AnthropicResponse,
 } from "./anthropic";
 import { postJson } from "./http";
 
-const key = process.env.ANTHROPIC_API_KEY?.trim();
-if (!key) {
+/**
+ * The token the `ant` CLI is holding for whoever logged in, or null.
+ *
+ * Asked for fresh every run because it is short-lived: a token copied into a file is a token
+ * that stops working, usually on the day somebody is trying to find out whether something else
+ * is broken. If the CLI is not installed or nobody has logged in, this is simply null, and the
+ * message below names both ways in. The token is never printed.
+ */
+function tokenFromLogin(): string | null {
+  try {
+    const out = execFileSync("ant", ["auth", "print-credentials", "--access-token"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 20_000,
+    });
+    return out.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+const loginToken = tokenFromLogin();
+const credential =
+  credentialFromEnv() ?? (loginToken ? ({ kind: "oauth", value: loginToken } as const) : null);
+if (!credential) {
   console.error(
-    "ANTHROPIC_API_KEY is not set, so nothing was sent and nothing was proved.\n" +
-      "Put a key in the repo-root .env (copy .env.example) or export it in this shell, then run this again.",
+    "No credential, so nothing was sent and nothing was proved.\n" +
+      "Either log in with `ant auth login` (nothing to paste anywhere), or put a key in the\n" +
+      "repo-root .env as ANTHROPIC_API_KEY (copy .env.example). Then run this again.",
   );
   process.exit(1);
 }
 
 const model = process.argv[2] ?? ANTHROPIC_DEFAULT_MODEL;
 const { headers, body } = anthropicRequest({
-  apiKey: key,
+  credential,
   model,
   maxTokens: ANTHROPIC_DEFAULT_MAX_TOKENS,
   system: "Answer in one short sentence.",
   content: "Say hello.",
 });
 
-console.log(`asking ${model} for one sentence, with room for ${ANTHROPIC_DEFAULT_MAX_TOKENS} tokens…`);
+console.log(
+  `asking ${model} for one sentence, with room for ${ANTHROPIC_DEFAULT_MAX_TOKENS} tokens, ` +
+    `using ${credential.kind === "api_key" ? "the key in the environment" : "the account that logged in"}…`,
+);
 
 const started = Date.now();
 let res: AnthropicResponse;
@@ -59,4 +88,4 @@ if (failure) {
   console.error(`this is not an answer: ${model} ${failure}`);
   process.exit(1);
 }
-console.log("the key works and the turn ended with a body.");
+console.log("the credential works and the turn ended with a body.");

@@ -15,6 +15,8 @@ function userText(request: IntelligenceRequest): string {
 
 export type AnthropicOptions = {
   apiKey?: string;
+  /** An OAuth access token, for somebody who logged in rather than pasting a key. */
+  authToken?: string;
   model?: string;
   baseUrl?: string;
   maxTokens?: number;
@@ -43,6 +45,39 @@ export type AnthropicResponse = {
 };
 
 /**
+ * What this account is allowed to ask with: a key somebody pasted, or a login somebody did.
+ *
+ * A static key and an OAuth access token go to the same endpoint under different headers, and a
+ * token also needs the beta flag that opts the request into OAuth at all. Keeping both as one
+ * value means the provider, the probe and anything added later cannot send one of them the way
+ * the other is sent.
+ */
+export type AnthropicCredential = { kind: "api_key" | "oauth"; value: string };
+
+/** The OAuth beta the Messages API requires before it will read a Bearer token at all. */
+const OAUTH_BETA = "oauth-2025-04-20";
+
+export function authHeaders(credential: AnthropicCredential): Record<string, string> {
+  if (credential.kind === "api_key") return { "x-api-key": credential.value };
+  return { authorization: `Bearer ${credential.value}`, "anthropic-beta": OAUTH_BETA };
+}
+
+/**
+ * The credential the environment is carrying, or null when it carries none.
+ *
+ * A key wins over a login, which is the order the Anthropic tooling resolves them in: somebody
+ * who exported a key meant to use that key, and a stale login left on disk should not quietly
+ * take its place. An empty value counts as absent rather than as an empty key.
+ */
+export function credentialFromEnv(env: Record<string, string | undefined> = process.env): AnthropicCredential | null {
+  const key = env.ANTHROPIC_API_KEY?.trim();
+  if (key) return { kind: "api_key", value: key };
+  const token = env.ANTHROPIC_AUTH_TOKEN?.trim();
+  if (token) return { kind: "oauth", value: token };
+  return null;
+}
+
+/**
  * One Messages request, built in one place so that the probe in `anthropic.smoke.ts` cannot
  * drift from what the provider really sends.
  *
@@ -51,14 +86,14 @@ export type AnthropicResponse = {
  * model rejects `budget_tokens` outright, and depth is a matter of effort, not of a number here.
  */
 export function anthropicRequest(opts: {
-  apiKey: string;
+  credential: AnthropicCredential;
   model: string;
   maxTokens: number;
   system?: string;
   content: unknown;
 }): { headers: Record<string, string>; body: Record<string, unknown> } {
   return {
-    headers: { "x-api-key": opts.apiKey, "anthropic-version": "2023-06-01" },
+    headers: { ...authHeaders(opts.credential), "anthropic-version": "2023-06-01" },
     body: {
       model: opts.model,
       max_tokens: opts.maxTokens,
@@ -98,13 +133,17 @@ export class AnthropicProvider implements VisionProvider {
     "structured_generation",
     "vision",
   ];
-  private readonly apiKey?: string;
+  private readonly credential: AnthropicCredential | null;
   private readonly model: string;
   private readonly baseUrl: string;
   private readonly maxTokens: number;
 
   constructor(opts: AnthropicOptions = {}) {
-    this.apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
+    this.credential = opts.apiKey?.trim()
+      ? { kind: "api_key", value: opts.apiKey.trim() }
+      : opts.authToken?.trim()
+        ? { kind: "oauth", value: opts.authToken.trim() }
+        : credentialFromEnv();
     this.model = opts.model ?? ANTHROPIC_DEFAULT_MODEL;
     this.baseUrl = opts.baseUrl ?? ANTHROPIC_MESSAGES_URL;
     this.maxTokens = opts.maxTokens ?? ANTHROPIC_DEFAULT_MAX_TOKENS;
@@ -137,10 +176,10 @@ export class AnthropicProvider implements VisionProvider {
 
   /** One user turn, however it is spelled: a string of text, or a list of blocks with a picture in it. */
   private async ask(request: IntelligenceRequest, content: unknown): Promise<IntelligenceResult> {
-    if (!this.apiKey) throw new ProviderError("no_api_key", "AnthropicProvider: no API key");
+    if (!this.credential) throw new ProviderError("no_api_key", "AnthropicProvider: no API key and no login");
     const started = Date.now();
     const { headers, body } = anthropicRequest({
-      apiKey: this.apiKey,
+      credential: this.credential,
       model: this.model,
       maxTokens: this.maxTokens,
       system: request.system,
@@ -169,6 +208,10 @@ export class AnthropicProvider implements VisionProvider {
   }
 
   async health(): Promise<ProviderHealth> {
-    return { id: this.id, healthy: !!this.apiKey, detail: this.apiKey ? undefined : "no ANTHROPIC_API_KEY" };
+    return {
+      id: this.id,
+      healthy: !!this.credential,
+      detail: this.credential ? undefined : "no ANTHROPIC_API_KEY and no ANTHROPIC_AUTH_TOKEN",
+    };
   }
 }
