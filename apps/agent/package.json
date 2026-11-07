@@ -10,7 +10,7 @@
     "@particle/screen-capture": "workspace:*"
   },
   "scripts": {
-    "start": "tsx src/index.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
