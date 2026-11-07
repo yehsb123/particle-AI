@@ -19,6 +19,71 @@ export type AnthropicOptions = {
   maxTokens?: number;
 };
 
+export const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-5";
+
+/**
+ * How much room one answer gets.
+ *
+ * Thinking is spent out of this same ceiling, and on this model it is on whether or not we ask
+ * for it — so the old 1024 was a budget the model could finish thinking inside and have nothing
+ * left to say with, which arrived here as a blank body that looked like a successful answer.
+ */
+export const ANTHROPIC_DEFAULT_MAX_TOKENS = 16_000;
+
+/** The ways a turn can end having actually answered. Anything else is a failure to report. */
+const CLEAN_STOP_REASONS = new Set(["end_turn", "stop_sequence"]);
+
+export type AnthropicResponse = {
+  content?: { type: string; text?: string }[];
+  stop_reason?: string | null;
+  stop_details?: { type?: string; category?: string | null; explanation?: string } | null;
+  usage?: { input_tokens?: number; output_tokens?: number };
+};
+
+/**
+ * One Messages request, built in one place so that the probe in `anthropic.smoke.ts` cannot
+ * drift from what the provider really sends.
+ *
+ * `thinking` is named rather than left out because leaving it out does not turn thinking off on
+ * these models — it only hides the decision. A thinking budget is deliberately absent: this
+ * model rejects `budget_tokens` outright, and depth is a matter of effort, not of a number here.
+ */
+export function anthropicRequest(opts: {
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  system?: string;
+  content: unknown;
+}): { headers: Record<string, string>; body: Record<string, unknown> } {
+  return {
+    headers: { "x-api-key": opts.apiKey, "anthropic-version": "2023-06-01" },
+    body: {
+      model: opts.model,
+      max_tokens: opts.maxTokens,
+      system: opts.system,
+      thinking: { type: "adaptive" },
+      messages: [{ role: "user", content: opts.content }],
+    },
+  };
+}
+
+/**
+ * Why this turn ended, when it did not end by answering — or null when it did.
+ *
+ * The text is for whoever reads the failure, so it carries the reason the API gave and, for a
+ * refusal, the category it declined under. It does not carry the body: a turn that stopped at
+ * `max_tokens` has one, half-written, and passing half an answer on as if it were whole is the
+ * thing this exists to stop.
+ */
+export function stopFailure(res: AnthropicResponse, textLength: number): string | null {
+  const reason = res.stop_reason;
+  if (!reason || CLEAN_STOP_REASONS.has(reason)) return null;
+  const category = res.stop_details?.category ? `, category ${res.stop_details.category}` : "";
+  const explanation = res.stop_details?.explanation ? `: ${res.stop_details.explanation}` : "";
+  return `stopped with stop_reason "${reason}"${category} after ${textLength} characters of body${explanation}`;
+}
+
 /**
  * Anthropic Messages API adapter (plain fetch, no SDK dependency). Only used when an API key
  * is configured; otherwise the router falls back to the mock provider.
@@ -39,9 +104,9 @@ export class AnthropicProvider implements VisionProvider {
 
   constructor(opts: AnthropicOptions = {}) {
     this.apiKey = opts.apiKey ?? process.env.ANTHROPIC_API_KEY;
-    this.model = opts.model ?? "claude-sonnet-5";
-    this.baseUrl = opts.baseUrl ?? "https://api.anthropic.com/v1/messages";
-    this.maxTokens = opts.maxTokens ?? 1024;
+    this.model = opts.model ?? ANTHROPIC_DEFAULT_MODEL;
+    this.baseUrl = opts.baseUrl ?? ANTHROPIC_MESSAGES_URL;
+    this.maxTokens = opts.maxTokens ?? ANTHROPIC_DEFAULT_MAX_TOKENS;
   }
 
   async evaluate(request: IntelligenceRequest): Promise<IntelligenceResult> {
@@ -73,19 +138,23 @@ export class AnthropicProvider implements VisionProvider {
   private async ask(request: IntelligenceRequest, content: unknown): Promise<IntelligenceResult> {
     if (!this.apiKey) throw new Error("AnthropicProvider: no API key");
     const started = Date.now();
+    const { headers, body } = anthropicRequest({
+      apiKey: this.apiKey,
+      model: this.model,
+      maxTokens: this.maxTokens,
+      system: request.system,
+      content,
+    });
     const res = (await postJson(
       this.baseUrl,
-      { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
-      {
-        model: this.model,
-        max_tokens: this.maxTokens,
-        system: request.system,
-        messages: [{ role: "user", content }],
-      },
+      headers,
+      body,
       request.latencyTargetMs ?? 30_000,
-    )) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
+    )) as AnthropicResponse;
 
     const text = (res.content ?? []).map((c) => c.text ?? "").join("");
+    const failure = stopFailure(res, text.length);
+    if (failure) throw new Error(`AnthropicProvider: ${this.model} ${failure}`);
     const data = request.structured ? jsonFromText(text) : undefined;
     return {
       providerId: this.id,
