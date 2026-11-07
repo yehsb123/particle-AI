@@ -22,4 +22,23 @@ describe("jsonFromText", () => {
   it("throws when there is no JSON value", () => {
     expect(() => jsonFromText("no json here")).toThrow();
   });
+
+  it("says the body was empty rather than blaming its shape", () => {
+    expect(() => jsonFromText("")).toThrow(/empty/i);
+    expect(() => jsonFromText("   \n ")).toThrow(/empty/i);
+  });
+
+  it("says how long the prose was and how it began, without quoting all of it", () => {
+    const prose = `I am sorry, I cannot help with that. ${"private detail ".repeat(60)}`;
+    expect(() => jsonFromText(prose)).toThrow(/I am sorry/);
+    expect(() => jsonFromText(prose)).toThrow(new RegExp(String(prose.length)));
+    try {
+      jsonFromText(prose);
+      expect.unreachable("jsonFromText should have thrown");
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).not.toContain("private detail private detail private detail");
+      expect(message.length).toBeLessThan(200);
+    }
+  });
 });

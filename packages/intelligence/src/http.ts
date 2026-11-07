@@ -44,7 +44,25 @@ export function jsonFromText(text: string): unknown {
       // not valid JSON here (e.g. prose braces) — keep scanning
     }
   }
-  throw new Error("no JSON value found in model response");
+  // The opening words are load-bearing: `fallbackReason` in @particle/decision-engine reads them
+  // to tell an unparseable answer from any other provider failure. Add detail after them.
+  throw new Error(`no JSON value found in model response: ${describe(text)}`);
+}
+
+/**
+ * What a response looked like, for somebody reading the failure.
+ *
+ * A body that came back empty and a body full of prose fail the same way here and are two
+ * entirely different bugs — a turn that was cut off before it wrote anything, against a model
+ * that answered in sentences when it was asked for JSON — so the message has to tell them apart.
+ * It says how long the body was and how it began, and no more than that: the body can be long,
+ * and it can carry whatever the model was shown.
+ */
+function describe(text: string): string {
+  const clean = text.replace(/[\u0000-\u001F\u007F-\u009F]/g, " ").replace(/\s+/g, " ").trim();
+  if (clean.length === 0) return "the body was empty";
+  const head = clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
+  return `${text.length} characters beginning "${head}"`;
 }
 
 export async function postJson(
